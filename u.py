@@ -247,10 +247,10 @@ def parse(x,r=False):
 def gen_readme():
     """
     Welcome to U project, do not hesitate to share your viewpoint and contribute if you wish.\n\n
-    This is a 'just one file' project; the full documentation and the source code are a unique Python file; 'usgl.py'.
+    This is a 'just one file' project; the full documentation and the source code are a unique Python file; 'u.py'.
     This file includes all you need to understand and play with the project.\n\n
-    To have formated documentation, run the 'usgl.py' file to build 'usgl.tex' (LaTeX) file, compile and print it.\n
-    For your convenience, the 'usgl.pdf' PDF file is commited.\n\nEnjoy!"""
+    To have formated documentation, run the 'u.py' file to build 'u.tex' (LaTeX) file, compile and print it.\n
+    For your convenience, the 'u.pdf' PDF file is commited.\n\nEnjoy!"""
     digest = hashlib.sha1(open(__file__).read()).hexdigest()
     o = 'Head SHA1 digest: %s\n\n'%digest[:10]
     open('README.md','w').write(o + gen_readme.__doc__)
@@ -695,5 +695,5 @@ if __name__ == '__main__':
     # debug!
     #print parse('A->B')
     #import antigravity
-    print u"\u2293\u2293"
+    print u"\u2293\u2294"
 # the end
