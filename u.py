@@ -584,17 +584,12 @@ def gen_tikz(ast,m={},standalone=True):
         shape = 'node_' if (len(Nodes[n])<2 or not Nodes.has_key(n)) else 'node_%s'%Nodes[n][1]
         tt = m[0][''][1] if (len(Nodes[n])<2 or not Nodes.has_key(n) or not m[0].has_key(Nodes[n][1])) else m[0][Nodes[n][1]][1]
         (x,y) = (pos[n][0]/25,pos[n][1]/25)
-        conf2,conf4 = ['west','east'],[168,192,12,-12]
-        port_layout = [['west'],['west','east'],[192,12,-12],[168,192,12,-12]]
+        port_layout = [['west'],['west','east'],[192,12,-12],[168,192,12,-12],['cool']]
         o += r'\node[%s](%s) at (%0.3f,%0.3f) {%s};'%(shape,name,x,y,label) + '\n'
-        if len(tt) < 5:
+        if tt and len(tt) < 5:
             rep = port_layout[len(tt)-1]
-            o += r'\draw (%s.north) node{\tiny{%s}};'%(n,len(rep)) + '\n'
-            #for i in range(len(rep)-1):
-            #    o += r'\draw (%s.%s) node{\tiny{%s}};'%(n,rep[i],tt[i]) + '\n'
-            for i in conf2:
-                if len(tt) >= 2:
-                    o += r'\draw (%s.%s) node{\tiny{%s}};'%(n,i,tt[conf2.index(i)]) + '\n'
+            for i in range(len(rep)):
+                o += r'\draw (%s.%s) node{\tiny{%s}};'%(n,rep[i],tt[i]) + '\n'
     for e in Edges:
         boucle = '[bend left]'
         typ = 'edge_' if len(e)<5 else 'edge_%s'%e[4]
@@ -812,7 +807,7 @@ if __name__ == '__main__':
     #s = u' AA ⊔A A⊔ C您'
     #for m in re.compile(r'\s*(\w+)\s*',re.U).finditer(s):
     #    print m.groups()
-    #ast = parse('A:T -I> B:U')
+    #ast = parse('A:T B:O C')
     #print gen_tikz(ast)
 
 # the end
