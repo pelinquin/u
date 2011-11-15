@@ -245,10 +245,11 @@ def parse(x,r=False):
 
 def gen_readme():
     """Welcome to the ⊔ [SquareCup] Language Project !\n====================================\n
-    This is a 'just one file' project, easy to use and to share!\n\n
+⊔ is an Universal Short Graphical Language\n\n
+This is a 'just one file' project, easy to use, easy to share!\n\n
 All is included or generated from the [u.py](https://github.com/pelinquin/u/blob/master/u.py) file.\n\n
-To run tests and generate formated documentation, just launch the that Python file.\n\n
-For your convenience, the [u.pdf](https://github.com/pelinquin/u/blob/master/u.pdf?raw=true) file is commited.\n\nEnjoy!
+Lauch that Python file to pass tests and to generate formated documentation.\n\n
+For your convenience, the [u.pdf](https://github.com/pelinquin/u/blob/master/u.pdf?raw=true) file is also commited.\n\nEnjoy!
 """
     digest = hashlib.sha1(open(__file__).read()).hexdigest()
     o = 'Head SHA1 digest: %s\n\n'%digest[:10]
