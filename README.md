@@ -1,4 +1,4 @@
-Head SHA1 digest: 3b9ef74665
+Head SHA1 digest: 2bd9bd5491
 
 Welcome to the ⊔ [SquareCup] Language Project !
 ====================================
@@ -6,7 +6,7 @@ Welcome to the ⊔ [SquareCup] Language Project !
 ⊔ is an Universal Short Graphical Language
 
 
-This is a 'just one file' project, easy to use, easy to share!
+This is a 'just one file' [Open-source](https://github.com/pelinquin/u/blob/master/COPYING) project, easy to use, easy to share!
 
 
 All is included or generated from the [u.py](https://github.com/pelinquin/u/blob/master/u.py) file.
