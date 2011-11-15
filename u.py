@@ -244,15 +244,11 @@ def parse(x,r=False):
     return (Nodes,kids,Edges) if r else (Nodes,Edges)
 
 def gen_readme():
-    """Welcome to the ⊔ [SquareCup] project
-====================================\n
-    This is a 'just one file' project; the full documentation and the source code are in the 'u.py' Python file.
-    This file includes all you need to understand and play with the project.\n\n
-    To generate formated documentation and run tests, just launch the 'u.py' file. 
-    For your convenience, the [u.pdf](https://github.com/pelinquin/u/blob/master/u.pdf?raw=true) file is commited.\n\nEnjoy!
-
-See [u.pdf](https://github.com/pelinquin/u/blob/master/u.pdf?raw=true) 
-
+    """Welcome to the ⊔ [SquareCup] Language Project !\n====================================\n
+    This is a 'just one file' project, easy to use and to share!\n\n
+All is included or generated from the [u.py](https://github.com/pelinquin/u/blob/master/u.py) file.\n\n
+To run tests and generate formated documentation, just launch the that Python file.\n\n
+For your convenience, the [u.pdf](https://github.com/pelinquin/u/blob/master/u.pdf?raw=true) file is commited.\n\nEnjoy!
 """
     digest = hashlib.sha1(open(__file__).read()).hexdigest()
     o = 'Head SHA1 digest: %s\n\n'%digest[:10]
