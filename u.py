@@ -1,25 +1,24 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-# Welcome to ⊓ &#2293; (SquareCup) 
-# see https://github/pelinquin/u
+# Welcome to ⊔ [SquareCup]! See https://github/pelinquin/u
 
 #-----------------------------------------------------------------------------
 #  © Copyright 2011 Rockwell Collins, Inc 
-#    This file is part of U (SquareCup).
+#    This file is part of ⊔ [SquareCup].
 #
-#    U (SquareCap) is free software: you can redistribute it and/or modify
+#    ⊔ [SquareCup] is free software: you can redistribute it and/or modify
 #    it under the terms of the GNU General Public License as published by
 #    the Free Software Foundation, either version 3 of the License, or
 #    (at your option) any later version.
 #
-#    U (SquareCap) is distributed in the hope that it will be useful,
+#    ⊔ [SquareCup] is distributed in the hope that it will be useful,
 #    but WITHOUT ANY WARRANTY; without even the implied warranty of
 #    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
 #    GNU General Public License for more details.
 #
 #    You should have received a copy of the GNU General Public License
-#    along with U (SquareCup).  If not, see <http://www.gnu.org/licenses/>.
+#    along with ⊔ [SquareCup].  If not, see <http://www.gnu.org/licenses/>.
 #-----------------------------------------------------------------------------
 
 r""" Model Based Engineering widelly use two dimensions graph-based diagrams. Because these diagrams represent viewpoints of a system, including dataflow, workflow and software architecture, they are the building blocks artifacts for specification, modeling and simulation activities. In particular code generation from this high level representation is mandatory.
@@ -246,11 +245,11 @@ def parse(x,r=False):
 
 def gen_readme():
     """
-    Welcome to U project, do not hesitate to share your viewpoint and contribute if you wish.\n\n
-    This is a 'just one file' project; the full documentation and the source code are a unique Python file; 'u.py'.
+    Welcome to U project, do not hesitate to share your viewpoint and contribute.\n\n
+    This is a 'just one file' project; the full documentation and the source code are in the 'u.py' Python file.
     This file includes all you need to understand and play with the project.\n\n
-    To have formated documentation, run the 'u.py' file to build 'u.tex' (LaTeX) file, compile and print it.\n
-    For your convenience, the 'u.pdf' PDF file is commited.\n\nEnjoy!"""
+    To generate formated documentation, just run the 'u.py' file. This build 'u.tex' (LaTeX) file, and 'u.pdf' file is latexpdf is installed\n
+    For your convenience, the 'u.pdf' PDF file is commited on Github.\n\nEnjoy!"""
     digest = hashlib.sha1(open(__file__).read()).hexdigest()
     o = 'Head SHA1 digest: %s\n\n'%digest[:10]
     open('README.md','w').write(o + gen_readme.__doc__)
@@ -695,5 +694,5 @@ if __name__ == '__main__':
     # debug!
     #print parse('A->B')
     #import antigravity
-    print u"\u2293\u2294"
+    #print u"\u2293\u2294"  ! bug in emacs font: switch squarecup and squarecap char !
 # the end
