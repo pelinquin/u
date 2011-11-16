@@ -33,7 +33,7 @@ Actually, we are introducing the concept of \emph{differential dual editing}; wh
 __author__  = 'Laurent Fournier'
 __email__   = 'lfournie@rockwellcollins.com'
 __title__   = 'The Universal Short Graph Language'
-__version__ = '0.1a'
+__version__ = '0.1b'
 __license__ = 'GPLv3'
 
 import os,sys,re,unicodedata,hashlib,shutil,subprocess,urllib
@@ -71,7 +71,7 @@ _XLINKNS  = 'xmlns:xlink="http://www.w3.org/1999/xlink"'
 
 __OUT_LANG__ = {'c'     :'c',
                 'python':'py',
-                'ada'   :'ada',
+                'ada'   :'adb',
                 'scala' :'scl',
                 'java'  :'java',
                 'ruby'  :'rb',
@@ -466,7 +466,7 @@ i.e. u?A->B
             else:
                 mime,form,o = 'text/html',True, '<form method=post enctype=multipart/form-data><input type=file name=a onchange="submit();"/></form>'
         elif lang in (None, 'ast','raw'):
-            o = '%s %s'%parse(args)
+            o = '# Python ⊔ AST\n\n%s %s'%parse(args)
         else:
             ast = parse(args)
             #o = eval('gen_%s(ast)'%lang).encode('utf-8')
@@ -477,7 +477,16 @@ i.e. u?A->B
                 mime = 'application/pdf'
             elif lang == 'svg':
                 mime = 'application/xhtml+xml'
-    start_response('200 OK',[('Content-type',mime)])
+            elif lang in ('c','ada'):
+                mime == 'application/octet-stream'
+    header = [('Content-type',mime)]
+    if lang:
+        ext = 'u' if lang in (None, 'ast','raw') else __OUT_LANG__[lang]
+        if under == '_' and lang in ('c','ada'):
+            header.append(('Content-Disposition','attachment; filename=a.out'))
+        else:
+            header.append( ('Content-Disposition','filename=file.%s'%ext))
+    start_response('200 OK',header)
     return [(o)] 
 
 def strip3(z):
@@ -504,7 +513,9 @@ def gen_python(ast,m=[]):
 
 def gen_ada(ast,m=[]):
     "-- Generated from ⊔ AST:\n"
-    o = '-- %s\n-- %s\n'%ast
+    o = '-- %s\n-- %s\n\n'%ast
+    o += 'with Ada.Text_IO;\n\n'
+    o += 'procedure Hello is\nbegin\n\tAda.Text_IO.Put_Line("Hi!");\nend Hello;\n\n'
     return gen_ada.__doc__ + o + '\n-- end file\n'
 
 def gen_scala(ast,m=[]):
@@ -611,10 +622,9 @@ if (typeof($)=='undefined') { function $(id) { return document.getElementById(id
 var nodeBox  = [];
 
 function nodes_path(b1,b2) {
-  var m = 8;
-  var x1 = b1.x + b1.width/2; var y1 = b1.y + b1.height/2;
-  var x2 = b2.x + b2.width/2; var y2 = b2.y + b2.height/2;
-  var h1 = 1 + b1.height/2 + m; var l1 = 1 + b1.width/2 + m; 
+  var x1 = b1[0].x + b1[0].width/2; var y1 = b1[0].y + b1[0].height/2;
+  var x2 = b2[0].x + b2[0].width/2; var y2 = b2[0].y + b2[0].height/2;
+  var h1 = 1 + b1[0].height/2 + b1[2]; var l1 = 1 + b1[0].width/2 + b1[1];
   if (x1 == x2) {
     if (y1<y2) { y1 += h1;
     } else { y1 -= h1; }
@@ -631,7 +641,7 @@ function nodes_path(b1,b2) {
       } else { x1 -= l1; y1 -= l1/P; }
     }
   }
-  var h2 = 1 + b2.height/2 + m; var l2 = 1 + b2.width/2 + m;
+  var h2 = 1 + b2[0].height/2 + b2[2]; var l2 = 1 + b2[0].width/2 + b2[1];
   if (x2 == x1) {
     if (y2<y1) { y2 += h2;
     } else { y2 -= h2; }
@@ -653,26 +663,26 @@ function nodes_path(b1,b2) {
     window.onload = function () { 
       var t = $('.nodes').childNodes;
       for (var n = 0; n < t.length; n++) {
-        if (t[n].nodeName == 'g') { nodeBox[t[n].id] = t[n].firstChild.getBBox(); } 
+        if (t[n].nodeName == 'g') { 
+          nodeBox[t[n].id] = [t[n].firstChild.nextSibling.getBBox(),parseInt(t[n].getAttribute('mx')),parseInt(t[n].getAttribute('my'))]; 
+        } 
       }
       for (var n = 0; n < t.length; n++) {
         if (t[n].nodeName == 'g') {
-          var m = 8;
-          var b = nodeBox[t[n].id];
-          var shape = t[n].firstChild.nextSibling;
-          shape.setAttribute('x',b.x-m);
-          shape.setAttribute('y',b.y-m);
-          shape.setAttribute('width',b.width+2*m);
-          shape.setAttribute('height',b.height+2*m);
+          var mx = nodeBox[t[n].id][1];
+          var my = nodeBox[t[n].id][2];
+          var b = nodeBox[t[n].id][0];
+          var shape = t[n].firstChild;
+          shape.setAttribute('x',b.x-mx);
+          shape.setAttribute('y',b.y-my);
+          shape.setAttribute('width',b.width+2*mx);
+          shape.setAttribute('height',b.height+2*my);
         }
       }
       var t = $('.connectors').childNodes;
       for ( var n = 0; n < t.length; n++ ) {
-        if (t[n].nodeName == 'g') {
-          var b = nodeBox[t[n].getAttribute('n1')];
-          var c = nodeBox[t[n].getAttribute('n2')];
-          var d = nodes_path(b,c)
-          t[n].firstChild.setAttribute('d',d);
+        if (t[n].nodeName == 'g') { 
+          t[n].firstChild.setAttribute('d',nodes_path(nodeBox[t[n].getAttribute('n2')],nodeBox[t[n].getAttribute('n1')]));
         }
       }
     }"""
@@ -687,31 +697,44 @@ def svg_defs():
     o += '<filter id=".shadow" filterUnits="userSpaceOnUse"><feGaussianBlur in="SourceAlpha" result="blur" stdDeviation="2"/><feOffset dy="3" dx="2" in="blur" result="offsetBlur"/><feMerge><feMergeNode in="offsetBlur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>'
     return o + '</defs>\n'
 
-def gen_svg_header(m):
+def gen_svg_header(m,(ln,le)):
     ""
     o = '<style type="text/css">\n'
+    o += 'text.tiny { font-size: 6pt; }\n'
+    o += 'rect.port { stroke:green; stroke-width:1; fill:blue; }\n'
     for n in m[0]:
-        o += r'g.node_%s text { %s }'%(n,m[0][n][0]) + '\n'
-        o += r'g.node_%s rect { %s }'%(n,m[0][n][1]) + '\n'
+        if ln.has_key(n):
+            o += 'g.node_%s text { %s }\ng.node_%s rect { %s }\n'%(n,m[0][n][0],n,m[0][n][1]) 
     for e in m[1]:
-        o += r'g.edge_%s path { %s }'%(e,m[1][e]) + '\n'
+        if le.has_key(e):
+            o += 'g.edge_%s path { %s }\n'%(e,m[1][e]) 
     return o + '</style>\n' + svg_defs() + '\n'
+
+def gettypes(ast):
+    ""
+    nl,el = {'':True},{'':True}
+    Nodes,Edges = ast
+    for n in Nodes:
+        if len(Nodes[n]) > 1:
+            nl[Nodes[n][1]] = True 
+    for e in Edges:
+        if len(e) > 4:
+            el[e[4]] = True 
+    return nl,el
 
 def gen_svg(ast,m=[]):
     "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!-- Generated from ⊔ AST: -->\n"
-    m = [{'':('fill:black;','filter:url(#.shadow);'),
-          'T':('fill:red;',''),
-          'O':('fill:blue;','filter:url(#.shadow);')
-          },
+    m = [{'':('fill:black;','filter:url(#.shadow);fill-opacity:.1;',4,4,['p1','p2']),
+          'T':('fill:red;','fill:blue;fill-opacity:.6;',8,18,['p1','p2','p3','p4']),
+          'O':('fill:blue;','filter:url(#.shadow);fill-opacity:.1;',30,30,['in1','in2','out1','out2'])},
          {'' : 'stroke:black; stroke-width:1; fill:none; marker-end:url(#.arrow);',
           'I': 'stroke:green; stroke-width:2; fill:none; marker-end:url(#.arrow);',
-          'L': 'stroke:red; stroke-width:3; fill:none; marker-end:url(#.arrow);'
-          }]
-    pos,ratio = layout(ast[0],ast[1]),4
+          'L': 'stroke:red; stroke-width:3; fill:none; marker-end:url(#.arrow);'}]
+    pos,ratio = layout(ast[0],ast[1],'LR'),4
     Nodes,Edges = ast
     o = '<!-- doubledash replaced by double underscore\n' + re.sub(r'\-\-','__','%s\n%s'%ast) + '\n-->\n'
     o += '<svg %s>\n'%_SVGNS
-    o += gen_svg_header(m)
+    o += gen_svg_header(m,gettypes(ast))
     o += '<title id=".title">⊔: %s</title>\n'%__title__
     #o += '<link %s rel="shortcut icon" href="./logo16.png"/>\n'%(_XHTMLNS,pfx)
     #o += '<script %s type="text/ecmascript" xlink:href="%s/%s"></script>\n'%(_XLINKNS,pfx,__JS__)
@@ -725,9 +748,14 @@ def gen_svg(ast,m=[]):
                 #label = ast[0][n][0].encode('utf-8')
                 label = ast[0][n][0]
         style = 'node_' if (len(Nodes[n])<2 or not Nodes.has_key(n)) else 'node_%s'%Nodes[n][1]
-        o += '<g id="%s" class="%s">'%(n,style)
-        o += '<text x="%s" y="%s">%s</text>'%(pos[n][0]*ratio,pos[n][1]*ratio,label)
-        o += '<rect style="fill-opacity:.1" rx="5"/>'
+        t = '' if not (Nodes.has_key(n) and (len(Nodes[n])>1) and m and m[0].has_key(Nodes[n][1])) else Nodes[n][1]
+        o += '<g id="%s" class="%s" mx="%s" my="%s">'%(n,style,m[0][t][2],m[0][t][3])
+        o += '<rect rx="5"/><text x="%s" y="%s">%s</text>'%(pos[n][0]*ratio,pos[n][1]*ratio,label)
+        ports = m[0][t][4]
+        o += '<g>' 
+        for p in ports:
+            o += '<rect x="%s" y="%s" width="20" height="20" class="port" angle="5"/><text class="tiny">%s</text>'%(pos[n][0]*ratio,pos[n][1]*ratio,p)
+        o += '</g>' 
         o += '</g>\n'
     o += '</g>\n<g id=".connectors" >\n'
     for e in Edges:
@@ -796,6 +824,12 @@ def ast_test(ref=False):
 
 if __name__ == '__main__':
     "Run the module or use it as WSGI application with an Apache server"
+    try:
+        subprocess.Popen(['dot'], stdout=subprocess.PIPE,stdin=subprocess.PIPE).communicate(input='digraph G { A->B }')
+    except:
+        print '...Error: please install \'graphviz\' package'
+        sys.exit()
+
     import doctest
     doctest.testmod()
     #code_gen_test(True)
@@ -811,7 +845,7 @@ if __name__ == '__main__':
     #s = u' AA ⊔A A⊔ C您'
     #for m in re.compile(r'\s*(\w+)\s*',re.U).finditer(s):
     #    print m.groups()
-    #ast = parse('A:T B:O C')
-    #print gen_tikz(ast)
+    #ast = parse('A:O B:T C-I>D')
+    #gen_svg(ast)
 
 # the end
