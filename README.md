@@ -1,9 +1,9 @@
-[u.py](https://github.com/pelinquin/u/blob/master/u.py) SHA1 digest start with 26dd1...
+[u.py](https://github.com/pelinquin/u/blob/master/u.py) SHA1 digest start with 5c727...
 
 Welcome to the ⊔ [SquareCup] Language Project !
-====================================
+==========================================
 
-⊔ is the 'Universal Short Graphical Language'
+⊔ is a proposal for a 'Universal Short Graphical Language'
 
 
 This is a 'just one file' [Open-source](https://github.com/pelinquin/u/blob/master/COPYING) project, easy to use, easy to share!
@@ -13,6 +13,9 @@ All is included or generated from the [u.py](https://github.com/pelinquin/u/blob
 
 
 Launch that Python file to pass tests and to generate formated documentation.
+
+
+You can use it as a Python module and overload functions.
 
 
 Or use it as a Web service...for [instance](https://193.84.73.209/u?about).  
