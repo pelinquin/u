@@ -452,7 +452,8 @@ i.e. u?A->B
                 cmd = 'cd %s/..; mv u old_u; git clone git://github.com/pelinquin/u.git; cd u'%pwd
             else:
                 cmd = 'ls %s'%__file__
-            o = subprocess.Popen((cmd), shell=True,stdout=subprocess.PIPE).communicate()[0]
+            res = subprocess.Popen((cmd), shell=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE).communicate()
+            o = res[1] if res[1] else '%s server Updated!'%environ['SERVER_NAME']
         elif args == None:
             if environ['REQUEST_METHOD'].lower() == 'post':
                 raw = environ['wsgi.input'].read(int(environ.get('CONTENT_LENGTH','0')))
