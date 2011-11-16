@@ -449,7 +449,7 @@ i.e. u?A->B
         elif action and action.lower() == 'update':
             pwd = os.path.dirname(environ['SCRIPT_FILENAME'])
             if environ['SERVER_NAME'] != 'pelinquin': # update not possible from RCF network
-                cmd = 'cd %s/..; mv u old_u; git clone git://github.com/pelinquin/u.git; cd u'%pwd
+                cmd = 'cd %s/..; rm -rf u; git clone git://github.com/pelinquin/u.git; cd u'%pwd
             else:
                 cmd = 'ls %s'%__file__
             res = subprocess.Popen((cmd), shell=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE).communicate()
