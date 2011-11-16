@@ -33,7 +33,7 @@ Actually, we are introducing the concept of \emph{differential dual editing}; wh
 __author__  = 'Laurent Fournier'
 __email__   = 'lfournie@rockwellcollins.com'
 __title__   = 'The Universal Short Graph Language'
-__version__ = '0.1b'
+__version__ = '0.1a'
 __license__ = 'GPLv3'
 
 import os,sys,re,unicodedata,hashlib,shutil,subprocess,urllib
