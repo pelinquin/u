@@ -20,6 +20,8 @@
 #    along with ⊔ [SquareCup].  If not, see <http://www.gnu.org/licenses/>.
 #-----------------------------------------------------------------------------
 
+# Warning ! There is a small bug in Emacs editor default font: switch ⊔ 'squarecup' (2293) and ⊓ 'squarecap' (2294) char !   
+
 r""" Model Based Engineering widelly use two dimensions graph-based diagrams. Because these diagrams represent viewpoints of a system, including dataflow, workflow and software architecture, they are the building blocks artifacts for specification, modeling and simulation activities. In particular code generation from this high level representation is mandatory.
 The data format for these diagrams may be graphical; bitmap or vectorial, unfortunatelly mixing rendering/layout data with semantics.
 \textsc{xml} based formats are also used like \textsc{xmi} for \textsc{mof/uml}. However, those formats suffering of several drawbacks like unreadability, unsusefull verbosity and not well adapted structure for representing graphs. \textsc{hutl} and \textsc{json} are not used.
@@ -31,7 +33,7 @@ Actually, we are introducing the concept of \emph{differential dual editing}; wh
 __author__  = 'Laurent Fournier'
 __email__   = 'lfournie@rockwellcollins.com'
 __title__   = 'The Universal Short Graph Language'
-__version__ = '0.1'
+__version__ = '0.1a'
 __license__ = 'GPLv3'
 
 import os,sys,re,unicodedata,hashlib,shutil,subprocess,urllib
@@ -248,11 +250,12 @@ def parse(x,r=False):
     return (Nodes,kids,Edges) if r else (Nodes,Edges)
 
 def gen_readme():
-    """Welcome to the ⊔ [SquareCup] Language Project !\n====================================\n
-⊔ is the 'Universal Short Graphical Language'\n\n
+    """Welcome to the ⊔ [SquareCup] Language Project !\n==========================================\n
+⊔ is a proposal for a 'Universal Short Graphical Language'\n\n
 This is a 'just one file' [Open-source](https://github.com/pelinquin/u/blob/master/COPYING) project, easy to use, easy to share!\n\n
 All is included or generated from the [u.py](https://github.com/pelinquin/u/blob/master/u.py) file.\n\n
 Launch that Python file to pass tests and to generate formated documentation.\n\n
+You can use it as a Python module and overload functions.\n\n
 Or use it as a Web service...for [instance](https://193.84.73.209/u?about).  
 For your convenience, the [u.pdf](https://github.com/pelinquin/u/blob/master/u.pdf?raw=true) file is also commited.\n\nEnjoy!
 """
@@ -416,18 +419,19 @@ def reg(value):
 
 def application(environ,start_response):
     """ This is a WSGI Web service for the ⊔ language [SquareCup]\n[It is recommended to use it in SSL mode (https)]\n
-Any argument is interpreted as a valid ⊔ string and the default output is the Abstract Syntax Tree (a Python data structure).
-If a language name is given first, then the generated code for this language is in the output.\ni.e. u?ada&A->B
-With no other argument than language name (no &), a file browser is provided to select an input ⊔ file.\ni.e. u?tikz
-If the '_' character is given before the language name, then the interpretation of the generated code is in output;
- for 'svg' the graphics is rendered within the browser (i.e. u?_svg&A->B)
- for 'tikz', the pdf reader is called for rendering the graphics
- for 'c', gcc is called to compile the generated code and execute the binary\n
-Special keywords:
- 'pdf' or 'paper' returns the generated paper on ⊔ in pdf format
- 'update' is used to update the web application with the last release from Github
- 'help','about' or 'usage' display this message.\n
-If no argument is given, the Python source code is given for reading or downloading.\n\nSupported languages are:\n
+* Any URL argument (after ?) is interpreted as a valid ⊔ string and the default output is the Abstract Syntax Tree (a Python data structure).
+i.e. u?A->B
+* If a language name is given first, then the output is the generated code for this language.\ni.e. u?ada&A->B
+* With no other argument than a language name (no &), a local file browser is provided to select an input ⊔ file for upload.\ni.e. u?tikz
+* If the '_' character is given before the language name, then the output is the interpretation of the generated;
+   For 'svg' the graphics is rendered within the browser (i.e. u?_svg&A->B).
+   For 'tikz', the pdf reader is called for rendering the graphics.
+   For 'c', gcc is called to compile the generated code and execute the binary.\n
+* Special keywords:
+   'pdf' or 'paper' returns the generated paper on ⊔ in pdf format
+   'update' is used to update the web application with the last release from Github
+   'help','about' or 'usage' display this message.\n
+* If no argument is given, the output is the Python source code for reading or downloading.\n\nSupported languages are:\n
 """
     s,mime,o = urllib.unquote(environ['QUERY_STRING']),'text/plain;charset=UTF-8','Error!'
     if reg(re.match(r'\s*(update$|about$|help$|usage$|pdf$|paper$|)(?:(_?)(%s|raw|ast)(?:&(.*)|)|(.*))\s*$'%'|'.join(__OUT_LANG__),s,re.I)):
@@ -802,7 +806,6 @@ if __name__ == '__main__':
     # debug!
     #print parse('A->B')
     #import antigravity
-    #print u"\u2293\u2294"  ! bug in emacs font: switch squarecup and squarecap char !
 
     #s = u' AA ⊔A A⊔ C您'
     #for m in re.compile(r'\s*(\w+)\s*',re.U).finditer(s):
