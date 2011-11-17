@@ -200,54 +200,230 @@ def find_id(x):
         else: # type
             return '__%s'%x[3]
 
-def parse(x,r=False):
-    r""" Here is a non-regression test set:
-    parse('A"my_classA":class -类> B"my_classB":class')    # does not support well unicode!
-    ({'A': ('my_classA', 'class'), 'B': ('my_classB', 'class')}, [('A', '->', 'B', None, '类')])
-    >>> parse('A -> B')    
-    ({'A': (), 'B': ()}, [('A', '->', 'B')])
+class u:
+    """ This is the base class for ⊔ 
+    One can customize that class by adding/modifying the mapping structure (self.m)
+    or by overloading a gen_x() method
     """
-    Nodes,Edges,kids,nid,oid,npo,opo,nid,moid,c = {},[],{},None,None,'','',[],[],[]
-    if type(x).__name__ == 'str': 
-        x = eval(reduce(lambda y,k: re.sub(k[0],k[1],y),__RE_FILTER__,x))
-    #print '|%s|'%x
-    for s in x:
-        if type(s).__name__ == 'list':
-            n,k,e = parse(s,True)
-            mnid = k.keys()
-            if nid:
-                mnid = [nid]
-            if moid and c:
-                for i in moid:
-                    for j in mnid:
-                        Edges.append(strip3((i,c[0]+c[4],j,c[1],c[2],c[3])))
-                c = []
-            moid = mnid
-            if oid and nodes.has_key(oid):
-                t = list(Nodes[oid])
-                t.append(k.keys())
-                Nodes[oid] = tuple(t)
-            oid = nid = None
-            Nodes.update(n)
-            Edges += e
-        else:
-            nodes,edges = {},[]
-            for m in re.compile(__RE_U__,re.U|re.X).finditer(s):
-                a = map(lambda k:m.group(k),range(1,11))
-                if a[5] and a[9]: # this is an edge
-                    c = a[5:10]
-                    c1 = a[5:10]
-                else: # this is a node
-                    nid,npo = find_id(a[:5]),'.%s'%a[2] if a[2] else ''
-                    if not nodes.has_key(nid):
-                        nodes[nid] = strip3(tuple(a[1:2]+a[3:5]))
-                    if c and oid and nid:
-                        Edges.append(strip3((oid+opo,c[0]+c[4],nid+npo,c[1],c[2],c[3])))
-                        oid,opo,c = None,'',[]
-                    oid,opo = nid,npo
-            Nodes.update(nodes)
-            kids.update(nodes)
-    return (Nodes,kids,Edges) if r else (Nodes,Edges)
+
+    def __init__(self):
+        "define type mapping"
+        self.m = {}
+        for l in __OUT_LANG__:
+            self.m[l] = ({'':[]},{'':[]})
+            self.m['svg'] = ({'':('fill:black;','filter:url(#.shadow);fill-opacity:.1;',4,4,['p1','p2']),
+                              'T':('fill:red;','fill:blue;fill-opacity:.6;',8,18,['p1','p2','p3','p4']),
+                              'O':('fill:blue;','filter:url(#.shadow);fill-opacity:.1;',30,30,['in1','in2','out1','out2'])},
+                             {'' : 'stroke:black; stroke-width:1; fill:none; marker-end:url(#.arrow);',
+                              'I': 'stroke:green; stroke-width:2; fill:none; marker-end:url(#.arrow);',
+                              'L': 'stroke:red; stroke-width:3; fill:none; marker-end:url(#.arrow);'})
+            self.m['tikz'] = ({'':('rectangle,draw=black!40,fill=gray!10',['p1','p2']),
+                               'T':('circle,drop shadow,draw=green!40,fill=gray!20',['in1','in2','out1','out2']), 
+                               'O':('rectangle,drop shadow,rounded corners=3pt,draw=red!40,fill=blue!25',[])
+                               },
+                              {'':'->,>=latex',
+                               'I':'->,>=open diamond',
+                               'L':'->,>=triangle 60'
+                               })
+            self.m['c'] = ({'':[]},{'':[]})
+            
+    def parse(self,x,r=False):
+        r""" test of doctest !
+        parse('A"my_classA":class -类> B"my_classB":class')    # does not support well unicode!
+        ({'A': ('my_classA', 'class'), 'B': ('my_classB', 'class')}, [('A', '->', 'B', None, '类')])
+        parse('A -> B')    
+        ({'A': (), 'B': ()}, [('A', '->', 'B')])
+        """
+        Nodes,Edges,kids,nid,oid,npo,opo,nid,moid,c = {},[],{},None,None,'','',[],[],[]
+        if type(x).__name__ == 'str': 
+            x = eval(reduce(lambda y,k: re.sub(k[0],k[1],y),__RE_FILTER__,x))
+        for s in x:
+            if type(s).__name__ == 'list':
+                n,k,e = self.parse(s,True)
+                mnid = k.keys()
+                if nid:
+                    mnid = [nid]
+                if moid and c:
+                    for i in moid:
+                        for j in mnid:
+                            Edges.append(strip3((i,c[0]+c[4],j,c[1],c[2],c[3])))
+                    c = []
+                moid = mnid
+                if oid and nodes.has_key(oid):
+                    t = list(Nodes[oid])
+                    t.append(k.keys())
+                    Nodes[oid] = tuple(t)
+                oid = nid = None
+                Nodes.update(n)
+                Edges += e
+            else:
+                nodes,edges = {},[]
+                for m in re.compile(__RE_U__,re.U|re.X).finditer(s):
+                    a = map(lambda k:m.group(k),range(1,11))
+                    if a[5] and a[9]: # this is an edge
+                        c = a[5:10]
+                        c1 = a[5:10]
+                    else: # this is a node
+                        nid,npo = find_id(a[:5]),'.%s'%a[2] if a[2] else ''
+                        if not nodes.has_key(nid):
+                            nodes[nid] = strip3(tuple(a[1:2]+a[3:5]))
+                        if c and oid and nid:
+                            Edges.append(strip3((oid+opo,c[0]+c[4],nid+npo,c[1],c[2],c[3])))
+                            oid,opo,c = None,'',[]
+                        oid,opo = nid,npo
+                Nodes.update(nodes)
+                kids.update(nodes)
+        return (Nodes,kids,Edges) if r else (Nodes,Edges)
+
+    def gen_c(self,ast):
+        "/* Generated from ⊔ AST: */\n"
+        o = '/* %s */\n/* %s */\n'%ast
+        Nodes = ast[0]
+        for x in Nodes:
+            if Nodes[x]:
+                if len(Nodes[x]) == 2 and Nodes[x][1] == 'class':
+                    o += '\n/* Class: %s */\n'%Nodes[x][0]
+                    o += 'typedef struct %s {\n'%x
+                    o += '  int a;\n'
+                    o += '} %s;\n'%x
+        return self.gen_c.__doc__ + o + '\n/* end file */\n'
+
+    def gen_python(self,ast):
+        """#!/usr/bin/python\n# -*- coding: utf-8 -*-\n# Generated from ⊔ AST:\n"""
+        o = '# %s\n# %s\n'%ast
+        return self.gen_python.__doc__ + o + '\n# end file\n'
+
+    def gen_ada(self,ast):
+        "-- Generated from ⊔ AST:\n"
+        o = '-- %s\n-- %s\n\n'%ast
+        o += 'with Ada.Text_IO;\n\n'
+        o += 'procedure Hello is\nbegin\n\tAda.Text_IO.Put_Line("Hi!");\nend Hello;\n\n'
+        return self.gen_ada.__doc__ + o + '\n-- end file\n'
+
+    def gen_scala(self,ast):
+        "// Generated from ⊔ AST:\n"
+        o = '// %s\n// %s\n'%ast
+        return self.gen_scala.__doc__ + o + '\n// end file\n'
+
+    def gen_java(self,ast):
+        "// Generated from ⊔ AST:\n"
+        o = '// %s\n// %s\n'%ast
+        return self.gen_java.__doc__ + o + '\n// end file\n'
+
+    def gen_ruby(self,ast):
+        "# Generated from ⊔ AST:\n"
+        o = '# %s\n# %s\n'%ast
+        return self.gen_ruby.__doc__ + o + '\n# end file\n'
+
+    def gen_ocaml(self,ast):
+        "(* Generated from ⊔ AST: *)\n"
+        o = '(* %s *)\n(* %s *)\n'%ast
+        return self.gen_ocaml.__doc__ + o + '\n(* end file *)\n'
+
+    def gen_lua(self,ast):
+        "-- Generated from ⊔ AST:\n"
+        o = '-- %s\n-- %s\n'%ast
+        return self.gen_lua.__doc__ + o + '\n-- end file\n'
+
+    def gen_tikz(self,ast,standalone=True):
+        "% Generated from ⊔ AST:\n"
+        o = ''
+        if standalone:
+            o += r'\documentclass[a4paper]{article} \usepackage{tikz}' + '\n'
+            o += r'\begin{document}' + '\n'
+        pos,ratio = layout(ast[0],ast[1]),4
+        o += '%% %s\n%% %s\n'%ast 
+        Nodes,Edges = ast
+        m = [{'':('rectangle,draw=black!40,fill=gray!10',['p1','p2']),
+              'T':('circle,drop shadow,draw=green!40,fill=gray!20',['in1','in2','out1','out2']), 
+              'O':('rectangle,drop shadow,rounded corners=3pt,draw=red!40,fill=blue!25',[])
+              },
+             {'':'->,>=latex',
+              'I':'->,>=open diamond',
+              'L':'->,>=triangle 60'
+              }]
+        o += gen_tikz_header(m)
+        o += r'\begin{tikzpicture}[auto,node distance=15mm,semithick]'+ '\n'
+        for n in pos:
+            #name = n.encode('utf-8')
+            name = n
+            label = name 
+            shape = 'node_' if (len(Nodes[n])<2 or not Nodes.has_key(n)) else 'node_%s'%Nodes[n][1]
+            tt = m[0][''][1] if (len(Nodes[n])<2 or not Nodes.has_key(n) or not m[0].has_key(Nodes[n][1])) else m[0][Nodes[n][1]][1]
+            (x,y) = (pos[n][0]/25,pos[n][1]/25)
+            port_layout = [['west'],['west','east'],[192,12,-12],[168,192,12,-12],['cool']]
+            o += r'\node[%s](%s) at (%0.3f,%0.3f) {%s};'%(shape,name,x,y,label) + '\n'
+            if tt and len(tt) < 5:
+                rep = port_layout[len(tt)-1]
+                for i in range(len(rep)):
+                    o += r'\draw (%s.%s) node{\tiny{%s}};'%(n,rep[i],tt[i]) + '\n'
+        for e in Edges:
+            boucle = '[bend left]'
+            typ = 'edge_' if len(e)<5 else 'edge_%s'%e[4]
+            label = '' if len(e)<4 else 'node{%s}'%e[3] 
+            o += r'\draw[%s](%s) to%s %s(%s);'%(typ,e[0],boucle,label,e[2]) + '\n'
+        o += r'\end{tikzpicture}'+ '\n'
+        if standalone:
+            o +=  r'\end{document}'
+        return self.gen_tikz.__doc__  + o + '\n% end file\n'
+
+    def gen_svg(self,ast):
+        "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!-- Generated from ⊔ AST: -->\n"
+        m = [{'':('fill:black;','filter:url(#.shadow);fill-opacity:.1;',4,4,['p1','p2']),
+              'T':('fill:red;','fill:blue;fill-opacity:.6;',8,18,['p1','p2','p3','p4']),
+              'O':('fill:blue;','filter:url(#.shadow);fill-opacity:.1;',30,30,['in1','in2','out1','out2'])},
+             {'' : 'stroke:black; stroke-width:1; fill:none; marker-end:url(#.arrow);',
+              'I': 'stroke:green; stroke-width:2; fill:none; marker-end:url(#.arrow);',
+              'L': 'stroke:red; stroke-width:3; fill:none; marker-end:url(#.arrow);'}]
+        pos,ratio = layout(ast[0],ast[1],'LR'),4
+        Nodes,Edges = ast
+        o = '<!-- doubledash replaced by double underscore\n' + re.sub(r'\-\-','__','%s\n%s'%ast) + '\n-->\n'
+        o += '<svg %s>\n'%_SVGNS
+        o += gen_svg_header(m,gettypes(ast))
+        o += '<title id=".title">⊔: %s</title>\n'%__title__
+        #o += '<link %s rel="shortcut icon" href="./logo16.png"/>\n'%(_XHTMLNS,pfx)
+        #o += '<script %s type="text/ecmascript" xlink:href="%s/%s"></script>\n'%(_XLINKNS,pfx,__JS__)
+        o += include_js()
+        o += '<g id=".nodes">\n'
+        for n in pos:
+            #label = n.encode('utf-8')
+            label = n
+            if ast[0][n]:
+                if ast[0][n][0]:
+                    #label = ast[0][n][0].encode('utf-8')
+                    label = ast[0][n][0]
+            style = 'node_' if (len(Nodes[n])<2 or not Nodes.has_key(n)) else 'node_%s'%Nodes[n][1]
+            t = '' if not (Nodes.has_key(n) and (len(Nodes[n])>1) and m and m[0].has_key(Nodes[n][1])) else Nodes[n][1]
+            o += '<g id="%s" class="%s" mx="%s" my="%s">'%(n,style,m[0][t][2],m[0][t][3])
+            o += '<rect rx="5"/><text x="%s" y="%s">%s</text>'%(pos[n][0]*ratio,pos[n][1]*ratio,label)
+            ports = m[0][t][4]
+            o += '<g>' 
+            for p in ports:
+                o += '<rect x="%s" y="%s" width="20" height="20" class="port" angle="5"/><text class="tiny">%s</text>'%(pos[n][0]*ratio,pos[n][1]*ratio,p)
+            o += '</g>' 
+            o += '</g>\n'
+        o += '</g>\n<g id=".connectors" >\n'
+        for e in Edges:
+            typ = 'edge_' if len(e)<5 else 'edge_%s'%e[4]
+            o += '<g class="%s" n1="%s" n2="%s"><path/></g>\n'%(typ,e[0],e[2])
+        o += '</g>\n'
+        return self.gen_svg.__doc__ + o + '\n</svg>\n<!-- end file -->\n'
+
+    def gen_aadl(self,ast):
+        "-- Generated from ⊔ AST:\n"
+        o = '-- %s\n-- %s\n'%ast
+        return self.gen_aadl.__doc__ + o + '\n-- end file\n'
+
+    def gen_sdl(self,ast):
+        "# Generated from ⊔ AST:\n"
+        o = '# %s\n# %s\n'%ast
+        return self.gen_sdl.__doc__ + o + '\n# end file\n'
+
+    def gen_lustre(self,ast):
+        "-- Generated from ⊔ AST:\n"
+        o = '-- %s\n-- %s\n'%ast
+        return self.gen_lustre.__doc__ + o + '\n-- end file\n'
+
 
 def gen_readme():
     """Welcome to the ⊔ [SquareCup] Language Project !\n==========================================\n
@@ -407,7 +583,8 @@ def insert_data(h):
         o += r'%s'%re.sub('_','\_',l[0]) + '& \n'
         #o += r'\begin{lstlisting}[texcl] ' + '\n' + l[1].encode('utf-8') + '\n' + r'\end{lstlisting}' + ' & \n'
         o += r'\begin{lstlisting}[texcl] ' + '\n' + l[1] + '\n' + r'\end{lstlisting}' + ' & \n'
-        o += gen_tikz(h[l],[],False) + r'\\ \hline' + '\n'
+        uobj = u()
+        o += uobj.gen_tikz(h[l],False) + r'\\ \hline' + '\n'
     return o + r'\end{longtable}' + '\n'
 
 def reg(value):
@@ -418,25 +595,25 @@ def reg(value):
 ######### WEB APPLICATION ###########
 
 def application(environ,start_response):
-    """<title>⊔</title><h1>⊔ [SquareCup] Web service</h1>
+    """<title>⊔</title><style>h1,p,li,b{font-family:helvetica neue,helvetica,arial,sans-serif;} a{text-decoration:none;}</style>
+<h1><a href="https://github.com/pelinquin/u" style="font-size:64pt;color:DodgerBlue;" title="SquareCup">⊔</a> Web service</h1>
 <p>Any URL argument (after '?') is interpreted as a valid ⊔ string and the default output is the AST (a Python data structure).
-Example: <a href="u?A->B">u?A->B</a></p>
-<p>If a language name is given first, then the output is the generated code for this language. Example:<a href="u?ada&A->B">u?ada&A->B</a></p>
+Example: <a href="u?A->B">/u?A->B</a></p>
+<p>If a language name is given first, then the output is the generated code for this language. Example: <a href="u?ada&A->B">/u?ada&A->B</a></p>
 <p>With no other argument than a language name (no '&'), a local file browser is provided to select an input ⊔ file for upload.
-Example:<a href="u?tikz">u?tikz</a></p>
+Example: <a href="u?tikz">/u?tikz</a></p>
 <p>If the '_' character is given before the language name, then the output is the interpretation of the generated language;</p>
-   <li>For <b>svg</b> the graphics is rendered within the browser. Example:<a href="u?_svg&A->B">u?_svg&A->B</a></li>
-   <li>For <b>tikz</b>, the pdf reader is called for rendering the graphics. Example:<a href="u?_tikz&A->B">u?_tikz&A->B</a></li>
+   <li>For <b>svg</b> the graphics is rendered within the browser. Example: <a href="u?_svg&A->B">/u?_svg&A->B</a></li>
+   <li>For <b>tikz</b>, the pdf reader is called for rendering the graphics. Example: <a href="u?_tikz&A->B">/u?_tikz&A->B</a></li>
    <li>For <b>c</b>, gcc is called to compile the generated code and execute the binary.</li>
 <p>Special keywords:</p>
-   <li><i>pdf</i> or <i>paper</i> returns the generated paper on ⊔ in pdf format:<a href="u?pdf">u?pdf</a></li>
-   <li><i>update</i>(<a href="u?update">u?update</a>) is used to update the web application with the last release from 
+   <li><i>pdf</i> or <i>paper</i> returns the generated paper on ⊔ in pdf format:<a href="u?pdf">/u?pdf</a></li>
+   <li><i>update</i> (<a href="u?update">/u?update</a>) is used to update the web application with the last release from 
 <a href="https://github.com/pelinquin/u">https://github.com/pelinquin/u</a></li>
    <li><i>help</i>,<i>about</i> or <i>usage</i> displays this page.</li>
-<p>If no argument is given, <a href="u">u</a> the output is the Python source code for reading or downloading.
-</p><p>Supported languages are:</p>
-"""
-    s,mime,o = urllib.unquote(environ['QUERY_STRING']),'text/plain;charset=UTF-8','Error!'
+<p>If no argument is given, <a href="u">/u</a> the output is the Python source code for reading or downloading.
+</p><p>Supported languages are:</p><b>"""
+    s,mime,o,uobj = urllib.unquote(environ['QUERY_STRING']),'text/plain;charset=UTF-8','Error!',u()
     if reg(re.match(r'\s*(update$|about$|help$|usage$|pdf$|paper$|)(?:(_?)(%s|raw|ast)(?:&(.*)|)|(.*))\s*$'%'|'.join(__OUT_LANG__),s,re.I)):
         form,action,under,lang,args = False,reg.v.group(1),reg.v.group(2),reg.v.group(3),reg.v.group(5) if reg.v.group(5) else reg.v.group(4)
         if lang: lang = lang.lower()
@@ -444,7 +621,7 @@ Example:<a href="u?tikz">u?tikz</a></p>
             start_response('200 OK',[('Content-type',mime)])
             return [(open(environ['SCRIPT_FILENAME']).read())] 
         elif action and action.lower() in ('about','help','usage'):
-            mime,o = 'text/html;charset=UTF-8','<html><title>⊔%s</title>'%__version__ + application.__doc__ + ', '.join(__OUT_LANG__) + '</html>\n'
+            mime,o = 'text/html;charset=UTF-8','<html><title>⊔ v%s</title>'%__version__ + application.__doc__ + ', '.join(__OUT_LANG__) + '</b></html>\n'
         elif action and action.lower() in ('paper','pdf'):
             o = open('%s/u.pdf'%os.path.dirname(environ['SCRIPT_FILENAME'])).read()
             mime = 'application/pdf'
@@ -458,20 +635,18 @@ Example:<a href="u?tikz">u?tikz</a></p>
         elif args == None:
             if environ['REQUEST_METHOD'].lower() == 'post':
                 raw = environ['wsgi.input'].read(int(environ.get('CONTENT_LENGTH','0')))
-                ast = parse('\n'.join(raw.split('\n')[4:-2]))
+                ast = uobj.parse('\n'.join(raw.split('\n')[4:-2]))
                 if lang in ('ast','raw'):
                     o = '%s %s'%ast
                 else: 
-                    #o = eval('gen_%s(ast)'%lang).encode('utf-8')
-                    o = eval('gen_%s(ast)'%lang)
+                    o = eval('uobj.gen_%s(ast)'%lang) #o = eval('uobj.gen_%s(ast)'%lang).encode('utf-8')
             else:
                 mime,form,o = 'text/html',True, '<form method=post enctype=multipart/form-data><input type=file name=a onchange="submit();"/></form>'
         elif lang in (None, 'ast','raw'):
-            o = '# Python ⊔ AST\n\n%s %s'%parse(args)
+            o = '# Python ⊔ AST\n\n%s %s'%uobj.parse(args)
         else:
-            ast = parse(args)
-            #o = eval('gen_%s(ast)'%lang).encode('utf-8')
-            o = eval('gen_%s(ast)'%lang)
+            ast = uobj.parse(args)
+            o = eval('uobj.gen_%s(ast)'%lang) #o = eval('uobj.gen_%s(ast)'%lang).encode('utf-8')
         if (under == '_') and not form:
             if (lang == 'tikz'):
                 o = tex2pdf(o)
@@ -493,68 +668,16 @@ Example:<a href="u?tikz">u?tikz</a></p>
 def strip3(z):
     return z[:-3] if not (z[-1] or z[-2] or z[-3]) else z[:-2] if not (z[-1] or z[-2]) else z[:-1] if not z[-1] else z
     
-######### CODE GENERATION ###########
-def gen_c(ast,m=[]):
-    "/* Generated from ⊔ AST: */\n"
-    o = '/* %s */\n/* %s */\n'%ast
-    Nodes = ast[0]
-    for x in Nodes:
-        if Nodes[x]:
-            if len(Nodes[x]) == 2 and Nodes[x][1] == 'class':
-                o += '\n/* Class: %s */\n'%Nodes[x][0]
-                o += 'typedef struct %s {\n'%x
-                o += '  int a;\n'
-                o += '} %s;\n'%x
-    return gen_c.__doc__ + o + '\n/* end file */\n'
-
-def gen_python(ast,m=[]):
-    """#!/usr/bin/python\n# -*- coding: utf-8 -*-\n# Generated from ⊔ AST:\n"""
-    o = '# %s\n# %s\n'%ast
-    return gen_python.__doc__ + o + '\n# end file\n'
-
-def gen_ada(ast,m=[]):
-    "-- Generated from ⊔ AST:\n"
-    o = '-- %s\n-- %s\n\n'%ast
-    o += 'with Ada.Text_IO;\n\n'
-    o += 'procedure Hello is\nbegin\n\tAda.Text_IO.Put_Line("Hi!");\nend Hello;\n\n'
-    return gen_ada.__doc__ + o + '\n-- end file\n'
-
-def gen_scala(ast,m=[]):
-    "// Generated from ⊔ AST:\n"
-    o = '// %s\n// %s\n'%ast
-    return gen_scala.__doc__ + o + '\n// end file\n'
-
-def gen_java(ast,m=[]):
-    "// Generated from ⊔ AST:\n"
-    o = '// %s\n// %s\n'%ast
-    return gen_java.__doc__ + o + '\n// end file\n'
-
-def gen_ruby(ast,m=[]):
-    "# Generated from ⊔ AST:\n"
-    o = '# %s\n# %s\n'%ast
-    return gen_ruby.__doc__ + o + '\n# end file\n'
-
-def gen_ocaml(ast,m=[]):
-    "(* Generated from ⊔ AST: *)\n"
-    o = '(* %s *)\n(* %s *)\n'%ast
-    return gen_ocaml.__doc__ + o + '\n(* end file *)\n'
-
-def gen_lua(ast,m=[]):
-    "-- Generated from ⊔ AST:\n"
-    o = '-- %s\n-- %s\n'%ast
-    return gen_lua.__doc__ + o + '\n-- end file\n'
+######### UTILITIES ###########
 
 def layout(nodes,edges,rankdir='TB'):
     "computes layout for graphics (tikz and svg) generation"
     bbx,bby,pos,d = None,None,{},'digraph G { rankdir=%s '%rankdir
     for n in nodes:
-        #label = n.encode('utf-8') if not n[0] else n[0]
-        label = n if not n[0] else n[0]
-        #d+= ' %s[label="%s"];'%(n.encode('utf-8'),label)
-        d+= ' %s[label="%s"];'%(n,label)
+        label = n if not n[0] else n[0] #label = n.encode('utf-8') if not n[0] else n[0]
+        d+= ' %s[label="%s"];'%(n,label) #d+= ' %s[label="%s"];'%(n.encode('utf-8'),label)
     for e in edges:
-        #d+= ' %s->%s'%(e[0].encode('utf-8'),e[2].encode('utf-8'))
-        d+= ' %s->%s'%(e[0],e[2])
+        d+= ' %s->%s'%(e[0],e[2]) #d+= ' %s->%s'%(e[0].encode('utf-8'),e[2].encode('utf-8'))
     p = subprocess.Popen(['dot'], stdout=subprocess.PIPE, stdin=subprocess.PIPE)
     for l in p.communicate(input=d + '}')[0].split('\n'):
         if reg(re.search('bb="0,0,(\d+),(\d+)"',l)):
@@ -574,48 +697,6 @@ def gen_tikz_header(m=[]):
         for e in m[1]:
             o += r'\tikzstyle{edge_%s} = [%s]'%(e,m[1][e]) + '\n'
     return o + '\n'
-
-def gen_tikz(ast,m={},standalone=True):
-    "% Generated from ⊔ AST:\n"
-    o = ''
-    if standalone:
-        o += r'\documentclass[a4paper]{article} \usepackage{tikz}' + '\n'
-        o += r'\begin{document}' + '\n'
-    pos,ratio = layout(ast[0],ast[1]),4
-    o += '%% %s\n%% %s\n'%ast 
-    Nodes,Edges = ast
-    m = [{'':('rectangle,draw=black!40,fill=gray!10',['p1','p2']),
-          'T':('circle,drop shadow,draw=green!40,fill=gray!20',['in1','in2','out1','out2']), 
-          'O':('rectangle,drop shadow,rounded corners=3pt,draw=red!40,fill=blue!25',[])
-          },
-         {'':'->,>=latex',
-          'I':'->,>=open diamond',
-          'L':'->,>=triangle 60'
-          }]
-    o += gen_tikz_header(m)
-    o += r'\begin{tikzpicture}[auto,node distance=15mm,semithick]'+ '\n'
-    for n in pos:
-        #name = n.encode('utf-8')
-        name = n
-        label = name 
-        shape = 'node_' if (len(Nodes[n])<2 or not Nodes.has_key(n)) else 'node_%s'%Nodes[n][1]
-        tt = m[0][''][1] if (len(Nodes[n])<2 or not Nodes.has_key(n) or not m[0].has_key(Nodes[n][1])) else m[0][Nodes[n][1]][1]
-        (x,y) = (pos[n][0]/25,pos[n][1]/25)
-        port_layout = [['west'],['west','east'],[192,12,-12],[168,192,12,-12],['cool']]
-        o += r'\node[%s](%s) at (%0.3f,%0.3f) {%s};'%(shape,name,x,y,label) + '\n'
-        if tt and len(tt) < 5:
-            rep = port_layout[len(tt)-1]
-            for i in range(len(rep)):
-                o += r'\draw (%s.%s) node{\tiny{%s}};'%(n,rep[i],tt[i]) + '\n'
-    for e in Edges:
-        boucle = '[bend left]'
-        typ = 'edge_' if len(e)<5 else 'edge_%s'%e[4]
-        label = '' if len(e)<4 else 'node{%s}'%e[3] 
-        o += r'\draw[%s](%s) to%s %s(%s);'%(typ,e[0],boucle,label,e[2]) + '\n'
-    o += r'\end{tikzpicture}'+ '\n'
-    if standalone:
-        o +=  r'\end{document}'
-    return gen_tikz.__doc__  + o + '\n% end file\n'
 
 def include_js():
     r"""
@@ -788,12 +869,11 @@ def code_gen_test(ref=False):
     ref=True  -> build the reference files
     ref=False -> compare computed files with reference files
     """
+    uobj = u()
     for case in __CODE_GEN_SET__:
-        ast = parse(case[1])
+        ast = uobj.parse(case[1])
         if ast != __CODE_GEN_SET__[case]: 
             print '|%s|\n%s\n%s'%(case[0],ast,__CODE_GEN_SET__[case])
-        else:
-            print 'OK|%s|\n%s\n%s'%(case[0],ast,__CODE_GEN_SET__[case])
         assert ast == __CODE_GEN_SET__[case] 
         for l in __OUT_LANG__:
             if not os.path.isdir(l): os.mkdir(l)   
@@ -808,11 +888,11 @@ def code_gen_test(ref=False):
 
 def ast_test(ref=False):
     ""
-    n,h = 0,' {\n'
+    n,h,uobj = 0,' {\n',u()
     for i in __AST_SET__:
         n +=1
         i = re.sub(r'\n','\\\\n',i)
-        h += '\t# %02d\n\t\'%s\':\n\t\t%s,\n'%(n,i,parse(i))
+        h += '\t# %02d\n\t\'%s\':\n\t\t%s,\n'%(n,i,uobj.parse(i))
     h += '\n}'
     ast_hash = eval(h)
     reff = 'ref.txt'
@@ -833,14 +913,15 @@ if __name__ == '__main__':
 
     import doctest
     doctest.testmod()
-    #code_gen_test(True)
+    code_gen_test(True)
     ast_test(True)
     gen_apache_conf()
     gen_doc()
     gen_readme()
 
     # debug!
-    #print parse('A->B')
+    #uobj = u()
+    #print uobj.parse('A->B')
     #import antigravity
 
     #s = u' AA ⊔A A⊔ C您'
