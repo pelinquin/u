@@ -211,9 +211,9 @@ class u:
         self.m = {}
         for l in __OUT_LANG__:
             self.m[l] = ({'':[]},{'':[]})
-            self.m['svg'] = ({'':('fill:black;','filter:url(#.shadow);fill-opacity:.1;',4,4,['p1','p2']),
-                              'T':('fill:red;','fill:blue;fill-opacity:.6;',8,18,['p1','p2','p3','p4']),
-                              'O':('fill:blue;','filter:url(#.shadow);fill-opacity:.1;',30,30,['in1','in2','out1','out2'])},
+            self.m['svg'] = ({'':('fill:black;','filter:url(#.shadow);fill-opacity:.1;',4,4,('p1','p2')),
+                              'T':('fill:red;','fill:blue;fill-opacity:.6;',8,18,('p1','p2','p3','p4')),
+                              'O':('fill:blue;','filter:url(#.shadow);fill-opacity:.1;',30,30,('in1','in2','out1','out2'))},
                              {'' : 'stroke:black; stroke-width:1; fill:none; marker-end:url(#.arrow);',
                               'I': 'stroke:green; stroke-width:2; fill:none; marker-end:url(#.arrow);',
                               'L': 'stroke:red; stroke-width:3; fill:none; marker-end:url(#.arrow);'})
@@ -277,7 +277,7 @@ class u:
 
     def gen_c(self,ast):
         "/* Generated from ⊔ AST: */\n"
-        o = '/* %s */\n/* %s */\n'%ast
+        o,m = '/* %s */\n/* %s */\n'%ast,self.m['aadl']
         Nodes = ast[0]
         for x in Nodes:
             if Nodes[x]:
@@ -290,60 +290,52 @@ class u:
 
     def gen_python(self,ast):
         """#!/usr/bin/python\n# -*- coding: utf-8 -*-\n# Generated from ⊔ AST:\n"""
-        o = '# %s\n# %s\n'%ast
+        o,m = '# %s\n# %s\n'%ast,self.m['python']
         return self.gen_python.__doc__ + o + '\n# end file\n'
 
     def gen_ada(self,ast):
         "-- Generated from ⊔ AST:\n"
-        o = '-- %s\n-- %s\n\n'%ast
+        o,m = '-- %s\n-- %s\n\n'%ast,self.m['ada']
         o += 'with Ada.Text_IO;\n\n'
         o += 'procedure Hello is\nbegin\n\tAda.Text_IO.Put_Line("Hi!");\nend Hello;\n\n'
         return self.gen_ada.__doc__ + o + '\n-- end file\n'
 
     def gen_scala(self,ast):
         "// Generated from ⊔ AST:\n"
-        o = '// %s\n// %s\n'%ast
+        o,m = '// %s\n// %s\n'%ast,self.m['scala']
         return self.gen_scala.__doc__ + o + '\n// end file\n'
 
     def gen_java(self,ast):
         "// Generated from ⊔ AST:\n"
-        o = '// %s\n// %s\n'%ast
+        o,m = '// %s\n// %s\n'%ast,self.m['java']
         return self.gen_java.__doc__ + o + '\n// end file\n'
 
     def gen_ruby(self,ast):
         "# Generated from ⊔ AST:\n"
-        o = '# %s\n# %s\n'%ast
+        o,m = '# %s\n# %s\n'%ast,self.m['ruby']
         return self.gen_ruby.__doc__ + o + '\n# end file\n'
 
     def gen_ocaml(self,ast):
         "(* Generated from ⊔ AST: *)\n"
-        o = '(* %s *)\n(* %s *)\n'%ast
+        o,m = '(* %s *)\n(* %s *)\n'%ast,self.m['ocaml']
         return self.gen_ocaml.__doc__ + o + '\n(* end file *)\n'
 
     def gen_lua(self,ast):
         "-- Generated from ⊔ AST:\n"
-        o = '-- %s\n-- %s\n'%ast
+        o,m = '-- %s\n-- %s\n'%ast,self.m['lua']
         return self.gen_lua.__doc__ + o + '\n-- end file\n'
 
     def gen_tikz(self,ast,standalone=True):
         "% Generated from ⊔ AST:\n"
-        o = ''
+        o,m = '',self.m['tikz']
         if standalone:
             o += r'\documentclass[a4paper]{article} \usepackage{tikz}' + '\n'
             o += r'\begin{document}' + '\n'
         pos,ratio = layout(ast[0],ast[1]),4
         o += '%% %s\n%% %s\n'%ast 
-        Nodes,Edges = ast
-        m = [{'':('rectangle,draw=black!40,fill=gray!10',['p1','p2']),
-              'T':('circle,drop shadow,draw=green!40,fill=gray!20',['in1','in2','out1','out2']), 
-              'O':('rectangle,drop shadow,rounded corners=3pt,draw=red!40,fill=blue!25',[])
-              },
-             {'':'->,>=latex',
-              'I':'->,>=open diamond',
-              'L':'->,>=triangle 60'
-              }]
-        o += gen_tikz_header(m)
-        o += r'\begin{tikzpicture}[auto,node distance=15mm,semithick]'+ '\n'
+        Nodes,Edges = ast 
+        m = self.m['tikz']
+        o += gen_tikz_header(m,gettypes(ast)) + r'\begin{tikzpicture}[auto,node distance=15mm,semithick]'+ '\n'
         for n in pos:
             #name = n.encode('utf-8')
             name = n
@@ -369,12 +361,7 @@ class u:
 
     def gen_svg(self,ast):
         "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!-- Generated from ⊔ AST: -->\n"
-        m = [{'':('fill:black;','filter:url(#.shadow);fill-opacity:.1;',4,4,['p1','p2']),
-              'T':('fill:red;','fill:blue;fill-opacity:.6;',8,18,['p1','p2','p3','p4']),
-              'O':('fill:blue;','filter:url(#.shadow);fill-opacity:.1;',30,30,['in1','in2','out1','out2'])},
-             {'' : 'stroke:black; stroke-width:1; fill:none; marker-end:url(#.arrow);',
-              'I': 'stroke:green; stroke-width:2; fill:none; marker-end:url(#.arrow);',
-              'L': 'stroke:red; stroke-width:3; fill:none; marker-end:url(#.arrow);'}]
+        m = self.m['svg']
         pos,ratio = layout(ast[0],ast[1],'LR'),4
         Nodes,Edges = ast
         o = '<!-- doubledash replaced by double underscore\n' + re.sub(r'\-\-','__','%s\n%s'%ast) + '\n-->\n'
@@ -395,13 +382,14 @@ class u:
             style = 'node_' if (len(Nodes[n])<2 or not Nodes.has_key(n)) else 'node_%s'%Nodes[n][1]
             t = '' if not (Nodes.has_key(n) and (len(Nodes[n])>1) and m and m[0].has_key(Nodes[n][1])) else Nodes[n][1]
             o += '<g id="%s" class="%s" mx="%s" my="%s">'%(n,style,m[0][t][2],m[0][t][3])
-            o += '<rect rx="5"/><text x="%s" y="%s">%s</text>'%(pos[n][0]*ratio,pos[n][1]*ratio,label)
+            o += '<rect rx="5"/><text x="%s" y="%s">%s</text><g>'%(pos[n][0]*ratio,pos[n][1]*ratio,label)
             ports = m[0][t][4]
-            o += '<g>' 
+            delta = 200//len(ports)
+            d = delta//2 - 100
             for p in ports:
-                o += '<rect x="%s" y="%s" width="20" height="20" class="port" angle="5"/><text class="tiny">%s</text>'%(pos[n][0]*ratio,pos[n][1]*ratio,p)
-            o += '</g>' 
-            o += '</g>\n'
+                o += '<rect class="port" width="6" height="6" pos="%s"/><text class="tiny">%s</text>'%(d,p)
+                d += delta
+            o += '</g></g>\n'
         o += '</g>\n<g id=".connectors" >\n'
         for e in Edges:
             typ = 'edge_' if len(e)<5 else 'edge_%s'%e[4]
@@ -411,17 +399,17 @@ class u:
 
     def gen_aadl(self,ast):
         "-- Generated from ⊔ AST:\n"
-        o = '-- %s\n-- %s\n'%ast
+        o,m = '-- %s\n-- %s\n'%ast,self.m['aadl']
         return self.gen_aadl.__doc__ + o + '\n-- end file\n'
 
     def gen_sdl(self,ast):
         "# Generated from ⊔ AST:\n"
-        o = '# %s\n# %s\n'%ast
+        o,m = '# %s\n# %s\n'%ast,self.m['sdl']
         return self.gen_sdl.__doc__ + o + '\n# end file\n'
 
     def gen_lustre(self,ast):
         "-- Generated from ⊔ AST:\n"
-        o = '-- %s\n-- %s\n'%ast
+        o,m = '-- %s\n-- %s\n'%ast,self.m['lustre']
         return self.gen_lustre.__doc__ + o + '\n-- end file\n'
 
 
@@ -618,7 +606,7 @@ Example: <a href="u?tikz">/u?tikz</a></p>
         form,action,under,lang,args = False,reg.v.group(1),reg.v.group(2),reg.v.group(3),reg.v.group(5) if reg.v.group(5) else reg.v.group(4)
         if lang: lang = lang.lower()
         if (action,under,lang,args) == ('',None,None,None):
-            start_response('200 OK',[('Content-type',mime)])
+            start_response('200 OK',[('Content-type',mime),('Content-Disposition','filename=u.py')])
             return [(open(environ['SCRIPT_FILENAME']).read())] 
         elif action and action.lower() in ('about','help','usage'):
             mime,o = 'text/html;charset=UTF-8','<html><title>⊔ v%s</title>'%__version__ + application.__doc__ + ', '.join(__OUT_LANG__) + '</b></html>\n'
@@ -686,16 +674,18 @@ def layout(nodes,edges,rankdir='TB'):
             pos[reg.v.group(1)] = (int(reg.v.group(2))*100/bbx,int(reg.v.group(3))*100/bby)
     return pos
 
-def gen_tikz_header(m=[]):
+def gen_tikz_header(m=[],(ln,le)=({},{})):
     r"""\usetikzlibrary{shapes,fit,arrows,shadows,backgrounds}
-    \tikzset{node_O/.style = {draw,circle,inner sep=10pt,path pp={ \draw[black] (path pp bounding box.south) -- (path pp bounding box.north) (path pp bounding box.west) -- (path pp bounding box.east);}}} 
 """
+    #\tikzset{node_O/.style = {draw,circle,inner sep=10pt,path pp={ \draw[black] (path pp bounding box.south) -- (path pp bounding box.north) (path pp bounding box.west) -- (path pp bounding box.east);}}} 
     o = gen_tikz_header.__doc__
     if m:
         for n in m[0]:
-            o += r'\tikzstyle{node_%s} = [%s]'%(n,m[0][n][0]) + '\n'
+            if ln.has_key(n):
+                o += r'\tikzstyle{node_%s} = [%s]'%(n,m[0][n][0]) + '\n'
         for e in m[1]:
-            o += r'\tikzstyle{edge_%s} = [%s]'%(e,m[1][e]) + '\n'
+            if le.has_key(e):
+                o += r'\tikzstyle{edge_%s} = [%s]'%(e,m[1][e]) + '\n'
     return o + '\n'
 
 def include_js():
@@ -759,6 +749,22 @@ function nodes_path(b1,b2) {
           shape.setAttribute('y',b.y-my);
           shape.setAttribute('width',b.width+2*mx);
           shape.setAttribute('height',b.height+2*my);
+          var ports = shape.nextSibling.nextSibling.childNodes;
+          var x = 0; var y = 0;
+          for (var i = 0; i < ports.length; i++) {
+            if (ports[i].nodeName == 'rect') { 
+              var pos = parseInt(ports[i].getAttribute('pos'));
+              if (pos<0) {
+                x=b.x-mx-6; y=b.y-my-3+(pos+100)*(b.height+2*my)/100;
+              } else {
+                x=b.x+b.width+mx; y=b.y-my-3+(100-pos)*(b.height+2*my)/100;
+              }
+              ports[i].setAttribute('x',x); ports[i].setAttribute('y',y);
+            } 
+            if (ports[i].nodeName == 'text') { 
+              ports[i].setAttribute('x',x); ports[i].setAttribute('y',y);
+            } 
+          }
         }
       }
       var t = $('.connectors').childNodes;
@@ -783,10 +789,10 @@ def gen_svg_header(m,(ln,le)):
     ""
     o = '<style type="text/css">\n'
     o += 'text.tiny { font-size: 6pt; }\n'
-    o += 'rect.port { stroke:green; stroke-width:1; fill:blue; }\n'
+    o += 'rect.port { stroke-width:0; fill:lightblue; }\n'
     for n in m[0]:
         if ln.has_key(n):
-            o += 'g.node_%s text { %s }\ng.node_%s rect { %s }\n'%(n,m[0][n][0],n,m[0][n][1]) 
+            o += 'g.node_%s > text { %s }\ng.node_%s > rect { %s }\n'%(n,m[0][n][0],n,m[0][n][1]) 
     for e in m[1]:
         if le.has_key(e):
             o += 'g.edge_%s path { %s }\n'%(e,m[1][e]) 
@@ -803,63 +809,6 @@ def gettypes(ast):
         if len(e) > 4:
             el[e[4]] = True 
     return nl,el
-
-def gen_svg(ast,m=[]):
-    "<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n<!-- Generated from ⊔ AST: -->\n"
-    m = [{'':('fill:black;','filter:url(#.shadow);fill-opacity:.1;',4,4,['p1','p2']),
-          'T':('fill:red;','fill:blue;fill-opacity:.6;',8,18,['p1','p2','p3','p4']),
-          'O':('fill:blue;','filter:url(#.shadow);fill-opacity:.1;',30,30,['in1','in2','out1','out2'])},
-         {'' : 'stroke:black; stroke-width:1; fill:none; marker-end:url(#.arrow);',
-          'I': 'stroke:green; stroke-width:2; fill:none; marker-end:url(#.arrow);',
-          'L': 'stroke:red; stroke-width:3; fill:none; marker-end:url(#.arrow);'}]
-    pos,ratio = layout(ast[0],ast[1],'LR'),4
-    Nodes,Edges = ast
-    o = '<!-- doubledash replaced by double underscore\n' + re.sub(r'\-\-','__','%s\n%s'%ast) + '\n-->\n'
-    o += '<svg %s>\n'%_SVGNS
-    o += gen_svg_header(m,gettypes(ast))
-    o += '<title id=".title">⊔: %s</title>\n'%__title__
-    #o += '<link %s rel="shortcut icon" href="./logo16.png"/>\n'%(_XHTMLNS,pfx)
-    #o += '<script %s type="text/ecmascript" xlink:href="%s/%s"></script>\n'%(_XLINKNS,pfx,__JS__)
-    o += include_js()
-    o += '<g id=".nodes">\n'
-    for n in pos:
-        #label = n.encode('utf-8')
-        label = n
-        if ast[0][n]:
-            if ast[0][n][0]:
-                #label = ast[0][n][0].encode('utf-8')
-                label = ast[0][n][0]
-        style = 'node_' if (len(Nodes[n])<2 or not Nodes.has_key(n)) else 'node_%s'%Nodes[n][1]
-        t = '' if not (Nodes.has_key(n) and (len(Nodes[n])>1) and m and m[0].has_key(Nodes[n][1])) else Nodes[n][1]
-        o += '<g id="%s" class="%s" mx="%s" my="%s">'%(n,style,m[0][t][2],m[0][t][3])
-        o += '<rect rx="5"/><text x="%s" y="%s">%s</text>'%(pos[n][0]*ratio,pos[n][1]*ratio,label)
-        ports = m[0][t][4]
-        o += '<g>' 
-        for p in ports:
-            o += '<rect x="%s" y="%s" width="20" height="20" class="port" angle="5"/><text class="tiny">%s</text>'%(pos[n][0]*ratio,pos[n][1]*ratio,p)
-        o += '</g>' 
-        o += '</g>\n'
-    o += '</g>\n<g id=".connectors" >\n'
-    for e in Edges:
-        typ = 'edge_' if len(e)<5 else 'edge_%s'%e[4]
-        o += '<g class="%s" n1="%s" n2="%s"><path/></g>\n'%(typ,e[0],e[2])
-    o += '</g>\n'
-    return gen_svg.__doc__ + o + '\n</svg>\n<!-- end file -->\n'
-
-def gen_aadl(ast,m=[]):
-    "-- Generated from ⊔ AST:\n"
-    o = '-- %s\n-- %s\n'%ast
-    return gen_aadl.__doc__ + o + '\n-- end file\n'
-
-def gen_sdl(ast,m=[]):
-    "# Generated from ⊔ AST:\n"
-    o = '# %s\n# %s\n'%ast
-    return gen_sdl.__doc__ + o + '\n# end file\n'
-
-def gen_lustre(ast,m=[]):
-    "-- Generated from ⊔ AST:\n"
-    o = '-- %s\n-- %s\n'%ast
-    return gen_lustre.__doc__ + o + '\n-- end file\n'
 
 ################# MAIN ################
 
