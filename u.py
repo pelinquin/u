@@ -418,20 +418,23 @@ def reg(value):
 ######### WEB APPLICATION ###########
 
 def application(environ,start_response):
-    """ This is a WSGI Web service for the ⊔ language [SquareCup]\n[It is recommended to use it in SSL mode (https)]\n
-* Any URL argument (after ?) is interpreted as a valid ⊔ string and the default output is the Abstract Syntax Tree (a Python data structure).
-i.e. u?A->B
-* If a language name is given first, then the output is the generated code for this language.\ni.e. u?ada&A->B
-* With no other argument than a language name (no &), a local file browser is provided to select an input ⊔ file for upload.\ni.e. u?tikz
-* If the '_' character is given before the language name, then the output is the interpretation of the generated;
-   For 'svg' the graphics is rendered within the browser (i.e. u?_svg&A->B).
-   For 'tikz', the pdf reader is called for rendering the graphics.
-   For 'c', gcc is called to compile the generated code and execute the binary.\n
-* Special keywords:
-   'pdf' or 'paper' returns the generated paper on ⊔ in pdf format
-   'update' is used to update the web application with the last release from Github
-   'help','about' or 'usage' display this message.\n
-* If no argument is given, the output is the Python source code for reading or downloading.\n\nSupported languages are:\n
+    """<title>⊔</title><h1>⊔ [SquareCup] Web service</h1>
+<p>Any URL argument (after '?') is interpreted as a valid ⊔ string and the default output is the AST (a Python data structure).
+Example: <a href="u?A->B">u?A->B</a></p>
+<p>If a language name is given first, then the output is the generated code for this language. Example:<a href="u?ada&A->B">u?ada&A->B</a></p>
+<p>With no other argument than a language name (no '&'), a local file browser is provided to select an input ⊔ file for upload.
+Example:<a href="u?tikz">u?tikz</a></p>
+<p>If the '_' character is given before the language name, then the output is the interpretation of the generated language;</p>
+   <li>For <b>svg</b> the graphics is rendered within the browser. Example:<a href="u?_svg&A->B">u?_svg&A->B</a></li>
+   <li>For <b>tikz</b>, the pdf reader is called for rendering the graphics. Example:<a href="u?_tikz&A->B">u?_tikz&A->B</a></li>
+   <li>For <b>c</b>, gcc is called to compile the generated code and execute the binary.</li>
+<p>Special keywords:</p>
+   <li><i>pdf</i> or <i>paper</i> returns the generated paper on ⊔ in pdf format:<a href="u?pdf">u?pdf</a></li>
+   <li><i>update</i>(<a href="u?update">u?update</a>) is used to update the web application with the last release from 
+<a href="https://github.com/pelinquin/u">https://github.com/pelinquin/u</a></li>
+   <li><i>help</i>,<i>about</i> or <i>usage</i> displays this page.</li>
+<p>If no argument is given, <a href="u">u</a> the output is the Python source code for reading or downloading.
+</p><p>Supported languages are:</p>
 """
     s,mime,o = urllib.unquote(environ['QUERY_STRING']),'text/plain;charset=UTF-8','Error!'
     if reg(re.match(r'\s*(update$|about$|help$|usage$|pdf$|paper$|)(?:(_?)(%s|raw|ast)(?:&(.*)|)|(.*))\s*$'%'|'.join(__OUT_LANG__),s,re.I)):
@@ -441,15 +444,13 @@ i.e. u?A->B
             start_response('200 OK',[('Content-type',mime)])
             return [(open(environ['SCRIPT_FILENAME']).read())] 
         elif action and action.lower() in ('about','help','usage'):
-            o = application.__doc__ + ','.join(__OUT_LANG__)
+            mime,o = 'text/html;charset=UTF-8','<html><title>⊔%s</title>'%__version__ + application.__doc__ + ', '.join(__OUT_LANG__) + '</html>\n'
         elif action and action.lower() in ('paper','pdf'):
-            pwd = os.path.dirname(environ['SCRIPT_FILENAME'])
-            o = open('%s/u.pdf'%pwd).read()
+            o = open('%s/u.pdf'%os.path.dirname(environ['SCRIPT_FILENAME'])).read()
             mime = 'application/pdf'
         elif action and action.lower() == 'update':
-            pwd = os.path.dirname(environ['SCRIPT_FILENAME'])
             if environ['SERVER_NAME'] != 'pelinquin': # update not possible from RCF network
-                cmd = 'cd %s/..; rm -rf u; git clone git://github.com/pelinquin/u.git; cd u'%pwd
+                cmd = 'cd %s/..; rm -rf u; git clone git://github.com/pelinquin/u.git; cd u'%os.path.dirname(environ['SCRIPT_FILENAME'])
             else:
                 cmd = 'ls %s'%__file__
             res = subprocess.Popen((cmd), shell=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE).communicate()
