@@ -20,6 +20,7 @@
 #    along with ⊔ [SquareCup].  If not, see <http://www.gnu.org/licenses/>.
 #-----------------------------------------------------------------------------
 
+# The following code pass pychecker 
 # Warning ! There is a small bug in Emacs editor default font: switch ⊔ 'squarecup' (2293) and ⊓ 'squarecap' (2294) char !   
 
 r""" Model Based Engineering widelly use two dimensions graph-based diagrams. Because these diagrams represent viewpoints of a system, including dataflow, workflow and software architecture, they are the building blocks artifacts for specification, modeling and simulation activities. In particular code generation from this high level representation is mandatory.
@@ -235,7 +236,7 @@ class u:
                                })
             self.m['c'] = ({'':[]},{'':[]})
             
-    def parse(self,x,r=False):
+    def parse1(self,x):
         r""" test of doctest !
         parse('A"my_classA":class -类> B"my_classB":class')    # does not support well unicode!
         ({'A': ('my_classA', 'class'), 'B': ('my_classB', 'class')}, [('A', '->', 'B', None, '类')])
@@ -247,7 +248,7 @@ class u:
             x = eval(reduce(lambda y,k: re.sub(k[0],k[1],y),__RE_FILTER__,x))
         for s in x:
             if type(s).__name__ == 'list':
-                n,k,e = self.parse(s,True)
+                n,k,e = self.parse1(s)
                 mnid = k.keys()
                 if nid:
                     mnid = [nid]
@@ -280,13 +281,18 @@ class u:
                         oid,opo = nid,npo
                 Nodes.update(nodes)
                 kids.update(nodes)
-        return (Nodes,kids,Edges) if r else (Nodes,Edges)
+        return (Nodes,kids,Edges)
 
+    def parse(self,x):
+        "Use two functions for return type consistency"
+        n,k,e = self.parse1(x)
+        return n,e
+        
     def gen_c(self,ast):
         "/* Generated from ⊔ AST: */\n"
         o,m = '/* %s */\n/* %s */\n'%ast,self.m['c']
-        o += '/* Types parameters: %s*/'%m
-        Nodes = ast[0]
+        o += '/* Types parameters: %s %s */'%m
+        Nodes,Edges = ast
         for x in Nodes:
             if Nodes[x]:
                 if len(Nodes[x]) == 2 and Nodes[x][1] == 'class':
@@ -294,18 +300,18 @@ class u:
                     o += 'typedef struct %s {\n'%x
                     o += '  int a;\n'
                     o += '} %s;\n'%x
-        return self.gen_c.__doc__ + o + '\n/* end file */\n'
+        return self.gen_c.__doc__ + o + '\n/* %s Nodes %s Edges */\n'%(len(Nodes),len(Edges))
 
     def gen_python(self,ast):
         """#!/usr/bin/python\n# -*- coding: utf-8 -*-\n# Generated from ⊔ AST:\n"""
         o,m = '# %s\n# %s\n'%ast,self.m['python']
-        o += '# Types parameters: %s'%m
+        o += '# Types parameters: %s %s\n'%m
         return self.gen_python.__doc__ + o + '\n# end file\n'
 
     def gen_ada(self,ast):
         "-- Generated from ⊔ AST:\n"
         o,m = '-- %s\n-- %s\n\n'%ast,self.m['ada']
-        o += '-- Types parameters: %s'%m
+        o += '-- Types parameters: %s %s\n'%m
         o += 'with Ada.Text_IO;\n\n'
         o += 'procedure Hello is\nbegin\n\tAda.Text_IO.Put_Line("Hi!");\nend Hello;\n\n'
         return self.gen_ada.__doc__ + o + '\n-- end file\n'
@@ -313,31 +319,31 @@ class u:
     def gen_scala(self,ast):
         "// Generated from ⊔ AST:\n"
         o,m = '// %s\n// %s\n'%ast,self.m['scala']
-        o += '// Types parameters: %s'%m
+        o += '// Types parameters: %s %s\n'%m
         return self.gen_scala.__doc__ + o + '\n// end file\n'
 
     def gen_java(self,ast):
         "// Generated from ⊔ AST:\n"
         o,m = '// %s\n// %s\n'%ast,self.m['java']
-        o += '// Types parameters: %s'%m
+        o += '// Types parameters: %s %s\n'%m
         return self.gen_java.__doc__ + o + '\n// end file\n'
 
     def gen_ruby(self,ast):
         "# Generated from ⊔ AST:\n"
         o,m = '# %s\n# %s\n'%ast,self.m['ruby']
-        o += '# Types parameters: %s'%m
+        o += '# Types parameters: %s %s\n'%m
         return self.gen_ruby.__doc__ + o + '\n# end file\n'
 
     def gen_ocaml(self,ast):
         "(* Generated from ⊔ AST: *)\n"
         o,m = '(* %s *)\n(* %s *)\n'%ast,self.m['ocaml']
-        o += '(* Types parameters: %s)*'%m
+        o += '(* Types parameters: %s %s)*\n'%m
         return self.gen_ocaml.__doc__ + o + '\n(* end file *)\n'
 
     def gen_lua(self,ast):
         "-- Generated from ⊔ AST:\n"
         o,m = '-- %s\n-- %s\n'%ast,self.m['lua']
-        o += '-- Types parameters: %s'%m
+        o += '-- Types parameters: %s %s\n'%m
         return self.gen_lua.__doc__ + o + '\n-- end file\n'
 
     def gen_tikz(self,ast,standalone=True):
@@ -386,7 +392,7 @@ class u:
         #o += '<link %s rel="shortcut icon" href="./logo16.png"/>\n'%(_XHTMLNS,pfx)
         #o += '<script %s type="text/ecmascript" xlink:href="%s/%s"></script>\n'%(_XLINKNS,pfx,__JS__)
         o += '<!-- This requires some Javascript because Text bounding-box computation is only available client-side! -->\n'
-        o += '<!-- Any way to have bounding-box computation server side would help me so I can remove Javascript !-->\n'
+        o += '<!-- Any way to have bounding-box computation server side would help me so I can remove Javascript! -->\n'
         o += include_js()
         o += '<g id=".nodes">\n'
         for n in pos:
@@ -417,19 +423,19 @@ class u:
     def gen_aadl(self,ast):
         "-- Generated from ⊔ AST:\n"
         o,m = '-- %s\n-- %s\n'%ast,self.m['aadl']
-        o += '-- Types parameters: %s'%m
+        o += '-- Types parameters: %s %s\n'%m
         return self.gen_aadl.__doc__ + o + '\n-- end file\n'
 
     def gen_sdl(self,ast):
         "# Generated from ⊔ AST:\n"
         o,m = '# %s\n# %s\n'%ast,self.m['sdl']
-        o += '# Types parameters: %s'%m
+        o += '# Types parameters: %s %s\n'%m
         return self.gen_sdl.__doc__ + o + '\n# end file\n'
 
     def gen_lustre(self,ast):
         "-- Generated from ⊔ AST:\n"
         o,m = '-- %s\n-- %s\n'%ast,self.m['lustre']
-        o += '-- Types parameters: %s'%m
+        o += '-- Types parameters: %s %s\n'%m
         return self.gen_lustre.__doc__ + o + '\n-- end file\n'
 
 
@@ -661,8 +667,8 @@ Example: [<a href="u?tikz">/u?tikz</a>]</p>
                 mime = 'application/pdf'
             elif lang == 'svg':
                 mime = 'application/xhtml+xml'
-            elif lang in ('c','ada'):
-                mime == 'application/octet-stream'
+            #elif lang in ('c','ada'):
+            #    mime = 'application/octet-stream'
     header = [('Content-type',mime)]
     if lang:
         ext = 'u' if lang in (None, 'ast','raw') else __OUT_LANG__[lang]
@@ -851,13 +857,15 @@ def code_gen_test(ref=False):
         for l in __OUT_LANG__:
             if not os.path.isdir(l): os.mkdir(l)   
             refname,cmpname = '%s/%s_ref.%s'%(l,case[0],__OUT_LANG__[l]),'%s/%s.%s'%(l,case[0],__OUT_LANG__[l])
-            #if ref:
-            #    open(refname,'w').write(eval('gen_%s(ast)'%l).encode('utf-8'))
-            #else:
-            #    open(cmpname,'w').write(eval('gen_%s(ast)'%l).encode('utf-8'))    
-            #    r = subprocess.Popen(('diff',refname,cmpname),stdout=subprocess.PIPE).communicate()[0].strip()
-            #    if not re.match('^\s*$',r): print refname,r
-            #    assert re.match('^\s*$',r)
+            if ref:
+                open(refname,'w').write(eval('uobj.gen_%s(ast)'%l)) 
+                #open(refname,'w').write(eval('uobj.gen_%s(ast)'%l).encode('utf-8'))
+            else:
+                open(cmpname,'w').write(eval('uobj.gen_%s(ast)'%l))
+                #open(cmpname,'w').write(eval('uobj.gen_%s(ast)'%l).encode('utf-8'))    
+                r = subprocess.Popen(('diff',refname,cmpname),stdout=subprocess.PIPE).communicate()[0].strip()
+                if not re.match('^\s*$',r): print refname,r
+                assert re.match('^\s*$',r)
 
 def ast_test(ref=False):
     ""
@@ -867,7 +875,10 @@ def ast_test(ref=False):
         i = re.sub(r'\n','\\\\n',i)
         h += '\t# %02d\n\t\'%s\':\n\t\t%s,\n'%(n,i,uobj.parse(i))
     h += '\n}'
-    ast_hash = eval(h)
+    try:
+        eval(h)
+    except:
+        print 'error in ast!'
     reff = 'ref.txt'
     if ref:
         open(reff,'w').write(h)   
@@ -892,7 +903,7 @@ if __name__ == '__main__':
     gen_doc()
     gen_readme()
 
-    # debug!
+    # debug zone!
     #uobj = u()
     #print uobj.parse('A->B')
     #import antigravity
