@@ -36,7 +36,8 @@ __title__   = 'The Universal Short Graph Language'
 __version__ = '0.1a'
 __license__ = 'GPLv3'
 
-import os,sys,re,unicodedata,hashlib,shutil,subprocess,urllib
+import os,sys,re,hashlib,shutil,subprocess,urllib
+#import unicodedata
 
 __RE_U__ = r'''                # RegExp with 10 groups
    (?:                                # Token is NODE:
@@ -65,7 +66,6 @@ __RE_FILTER__ = [(r'(?m)\#.*$',''),            # remove comments
                  (r'\'\',\s*',''),             # remove left empty elements
                  (r',\s*\'\'','')]             # remove right empty elements
 
-_XHTMLNS  = 'xmlns="http://www.w3.org/1999/xhtml"'
 _SVGNS    = 'xmlns="http://www.w3.org/2000/svg"'
 _XLINKNS  = 'xmlns:xlink="http://www.w3.org/1999/xlink"'
 
@@ -82,6 +82,9 @@ __OUT_LANG__ = {'c'     :'c',
                 'aadl'  :'adl',
                 'sdl'   :'sdl',
                 'lustre':'lst'}
+
+__IN_MODEL__ = ['UML','SysML','AADL-Graph','Marte','Xcos','Kaos','Entity-Relation-Graph','Tree-Diagram',
+                'Network-Graph','Flowchart','Petri-net','State-Machine','Markov-Chain','Behavior-Tree'] 
 
 __CODE_GEN_SET__ = {
     ('Simple','#simple dot diagram\nA->B'):
@@ -213,7 +216,12 @@ class u:
             self.m[l] = ({'':[]},{'':[]})
             self.m['svg'] = ({'':('fill:black;','filter:url(#.shadow);fill-opacity:.1;',4,4,('p1','p2')),
                               'T':('fill:red;','fill:blue;fill-opacity:.6;',8,18,('p1','p2','p3','p4')),
-                              'O':('fill:blue;','filter:url(#.shadow);fill-opacity:.1;',30,30,('in1','in2','out1','out2'))},
+                              'O':('fill:blue;','filter:url(#.shadow);fill-opacity:.1;',30,30,('in1','in2','out1','out2')),
+                              'C':('fill:blue;','filter:url(#.shadow);fill-opacity:.1;',
+                                   30,60,('pin1','pin2','pin3','pin4','pin5','pin6','pin7','pin8',
+                                          'pin9','pin10','pin11','pin12','pin13','pin14','pin15','pin16')),
+                              'D':('fill:blue;','filter:url(#.shadow);fill-opacity:.1;',
+                                   20,40,('pin1','pin2','pin3','pin4','pin5','pin6'))},
                              {'' : 'stroke:black; stroke-width:1; fill:none; marker-end:url(#.arrow);',
                               'I': 'stroke:green; stroke-width:2; fill:none; marker-end:url(#.arrow);',
                               'L': 'stroke:red; stroke-width:3; fill:none; marker-end:url(#.arrow);'})
@@ -249,7 +257,7 @@ class u:
                             Edges.append(strip3((i,c[0]+c[4],j,c[1],c[2],c[3])))
                     c = []
                 moid = mnid
-                if oid and nodes.has_key(oid):
+                if oid and Nodes.has_key(oid):
                     t = list(Nodes[oid])
                     t.append(k.keys())
                     Nodes[oid] = tuple(t)
@@ -257,12 +265,11 @@ class u:
                 Nodes.update(n)
                 Edges += e
             else:
-                nodes,edges = {},[]
+                nodes = {}
                 for m in re.compile(__RE_U__,re.U|re.X).finditer(s):
                     a = map(lambda k:m.group(k),range(1,11))
                     if a[5] and a[9]: # this is an edge
                         c = a[5:10]
-                        c1 = a[5:10]
                     else: # this is a node
                         nid,npo = find_id(a[:5]),'.%s'%a[2] if a[2] else ''
                         if not nodes.has_key(nid):
@@ -277,7 +284,8 @@ class u:
 
     def gen_c(self,ast):
         "/* Generated from ⊔ AST: */\n"
-        o,m = '/* %s */\n/* %s */\n'%ast,self.m['aadl']
+        o,m = '/* %s */\n/* %s */\n'%ast,self.m['c']
+        o += '/* Types parameters: %s*/'%m
         Nodes = ast[0]
         for x in Nodes:
             if Nodes[x]:
@@ -291,11 +299,13 @@ class u:
     def gen_python(self,ast):
         """#!/usr/bin/python\n# -*- coding: utf-8 -*-\n# Generated from ⊔ AST:\n"""
         o,m = '# %s\n# %s\n'%ast,self.m['python']
+        o += '# Types parameters: %s'%m
         return self.gen_python.__doc__ + o + '\n# end file\n'
 
     def gen_ada(self,ast):
         "-- Generated from ⊔ AST:\n"
         o,m = '-- %s\n-- %s\n\n'%ast,self.m['ada']
+        o += '-- Types parameters: %s'%m
         o += 'with Ada.Text_IO;\n\n'
         o += 'procedure Hello is\nbegin\n\tAda.Text_IO.Put_Line("Hi!");\nend Hello;\n\n'
         return self.gen_ada.__doc__ + o + '\n-- end file\n'
@@ -303,26 +313,31 @@ class u:
     def gen_scala(self,ast):
         "// Generated from ⊔ AST:\n"
         o,m = '// %s\n// %s\n'%ast,self.m['scala']
+        o += '// Types parameters: %s'%m
         return self.gen_scala.__doc__ + o + '\n// end file\n'
 
     def gen_java(self,ast):
         "// Generated from ⊔ AST:\n"
         o,m = '// %s\n// %s\n'%ast,self.m['java']
+        o += '// Types parameters: %s'%m
         return self.gen_java.__doc__ + o + '\n// end file\n'
 
     def gen_ruby(self,ast):
         "# Generated from ⊔ AST:\n"
         o,m = '# %s\n# %s\n'%ast,self.m['ruby']
+        o += '# Types parameters: %s'%m
         return self.gen_ruby.__doc__ + o + '\n# end file\n'
 
     def gen_ocaml(self,ast):
         "(* Generated from ⊔ AST: *)\n"
         o,m = '(* %s *)\n(* %s *)\n'%ast,self.m['ocaml']
+        o += '(* Types parameters: %s)*'%m
         return self.gen_ocaml.__doc__ + o + '\n(* end file *)\n'
 
     def gen_lua(self,ast):
         "-- Generated from ⊔ AST:\n"
         o,m = '-- %s\n-- %s\n'%ast,self.m['lua']
+        o += '-- Types parameters: %s'%m
         return self.gen_lua.__doc__ + o + '\n-- end file\n'
 
     def gen_tikz(self,ast,standalone=True):
@@ -331,7 +346,7 @@ class u:
         if standalone:
             o += r'\documentclass[a4paper]{article} \usepackage{tikz}' + '\n'
             o += r'\begin{document}' + '\n'
-        pos,ratio = layout(ast[0],ast[1]),4
+        pos = layout(ast[0],ast[1])
         o += '%% %s\n%% %s\n'%ast 
         Nodes,Edges = ast 
         m = self.m['tikz']
@@ -364,12 +379,14 @@ class u:
         m = self.m['svg']
         pos,ratio = layout(ast[0],ast[1],'LR'),4
         Nodes,Edges = ast
-        o = '<!-- doubledash replaced by double underscore\n' + re.sub(r'\-\-','__','%s\n%s'%ast) + '\n-->\n'
+        o = '<!-- doubledash replaced by double underscore\n' + re.sub(r'\-\-','__','%s\n%s'%ast) + '\n-->\n' 
         o += '<svg %s>\n'%_SVGNS
         o += gen_svg_header(m,gettypes(ast))
         o += '<title id=".title">⊔: %s</title>\n'%__title__
         #o += '<link %s rel="shortcut icon" href="./logo16.png"/>\n'%(_XHTMLNS,pfx)
         #o += '<script %s type="text/ecmascript" xlink:href="%s/%s"></script>\n'%(_XLINKNS,pfx,__JS__)
+        o += '<!-- This requires some Javascript because Text bounding-box computation is only available client-side! -->\n'
+        o += '<!-- Any way to have bounding-box computation server side would help me so I can remove Javascript !-->\n'
         o += include_js()
         o += '<g id=".nodes">\n'
         for n in pos:
@@ -384,8 +401,8 @@ class u:
             o += '<g id="%s" class="%s" mx="%s" my="%s">'%(n,style,m[0][t][2],m[0][t][3])
             o += '<rect rx="5"/><text x="%s" y="%s">%s</text><g>'%(pos[n][0]*ratio,pos[n][1]*ratio,label)
             ports = m[0][t][4]
-            delta = 200//len(ports)
-            d = delta//2 - 100
+            delta = 200.0/len(ports)
+            d = delta/2.0 - 100
             for p in ports:
                 o += '<rect class="port" width="6" height="6" pos="%s"/><text class="tiny">%s</text>'%(d,p)
                 d += delta
@@ -400,22 +417,25 @@ class u:
     def gen_aadl(self,ast):
         "-- Generated from ⊔ AST:\n"
         o,m = '-- %s\n-- %s\n'%ast,self.m['aadl']
+        o += '-- Types parameters: %s'%m
         return self.gen_aadl.__doc__ + o + '\n-- end file\n'
 
     def gen_sdl(self,ast):
         "# Generated from ⊔ AST:\n"
         o,m = '# %s\n# %s\n'%ast,self.m['sdl']
+        o += '# Types parameters: %s'%m
         return self.gen_sdl.__doc__ + o + '\n# end file\n'
 
     def gen_lustre(self,ast):
         "-- Generated from ⊔ AST:\n"
         o,m = '-- %s\n-- %s\n'%ast,self.m['lustre']
+        o += '-- Types parameters: %s'%m
         return self.gen_lustre.__doc__ + o + '\n-- end file\n'
 
 
 def gen_readme():
     """Welcome to the ⊔ [SquareCup] Language Project !\n==========================================\n
-⊔ is a proposal for a 'Universal Short Graphical Language'\n\n
+⊔ is a proposal for a 'Universal Short Graph Language'\n\n
 This is a 'just one file' [Open-source](https://github.com/pelinquin/u/blob/master/COPYING) project, easy to use, easy to share!\n\n
 All is included or generated from the [u.py](https://github.com/pelinquin/u/blob/master/u.py) file.\n\n
 Launch that Python file to pass tests and to generate formated documentation.\n\n
@@ -586,21 +606,20 @@ def application(environ,start_response):
     """<title>⊔</title><style>h1,p,li,b{font-family:helvetica neue,helvetica,arial,sans-serif;} a{text-decoration:none;}</style>
 <h1><a href="https://github.com/pelinquin/u" style="font-size:64pt;color:DodgerBlue;" title="SquareCup">⊔</a> Web service</h1>
 <p>Any URL argument (after '?') is interpreted as a valid ⊔ string and the default output is the AST (a Python data structure).
-Example: <a href="u?A->B">/u?A->B</a></p>
-<p>If a language name is given first, then the output is the generated code for this language. Example: <a href="u?ada&A->B">/u?ada&A->B</a></p>
+Example: [<a href="u?A->B">/u?A->B</a>]</p>
+<p>If a language name is given first, then the output is the generated code for this language. Example: [<a href="u?ada&A->B">/u?ada&A->B</a>]</p>
 <p>With no other argument than a language name (no '&'), a local file browser is provided to select an input ⊔ file for upload.
-Example: <a href="u?tikz">/u?tikz</a></p>
+Example: [<a href="u?tikz">/u?tikz</a>]</p>
 <p>If the '_' character is given before the language name, then the output is the interpretation of the generated language;</p>
-   <li>For <b>svg</b> the graphics is rendered within the browser. Example: <a href="u?_svg&A->B">/u?_svg&A->B</a></li>
-   <li>For <b>tikz</b>, the pdf reader is called for rendering the graphics. Example: <a href="u?_tikz&A->B">/u?_tikz&A->B</a></li>
-   <li>For <b>c</b>, gcc is called to compile the generated code and execute the binary.</li>
+   <li>For <b>svg</b> the graphics is rendered within the browser. Example: [<a href="u?_svg&A->B">/u?_svg&A->B</a>]</li>
+   <li>For <b>tikz</b>, the pdf reader is called for rendering the graphics. Example: [<a href="u?_tikz&A->B">/u?_tikz&A->B</a>]</li>
 <p>Special keywords:</p>
-   <li><i>pdf</i> or <i>paper</i> returns the generated paper on ⊔ in pdf format:<a href="u?pdf">/u?pdf</a></li>
-   <li><i>update</i> (<a href="u?update">/u?update</a>) is used to update the web application with the last release from 
-<a href="https://github.com/pelinquin/u">https://github.com/pelinquin/u</a></li>
+   <li><i>pdf</i> or <i>paper</i> returns the generated paper on ⊔ in pdf format: [<a href="u?pdf">/u?pdf</a>]</li>
+   <li><i>update</i> [<a href="u?update">/u?update</a>] is used to update the web application with the last release from 
+[<a href="https://github.com/pelinquin/u">https://github.com/pelinquin/u</a>]</li>
    <li><i>help</i>,<i>about</i> or <i>usage</i> displays this page.</li>
-<p>If no argument is given, <a href="u">/u</a> the output is the Python source code for reading or downloading.
-</p><p>Supported languages are:</p><b>"""
+<p>If no argument is given, the output [<a href="u">/u</a>] is the Python source code for reading or downloading.
+</p><p>Supported output languages are:</p><b>"""
     s,mime,o,uobj = urllib.unquote(environ['QUERY_STRING']),'text/plain;charset=UTF-8','Error!',u()
     if reg(re.match(r'\s*(update$|about$|help$|usage$|pdf$|paper$|)(?:(_?)(%s|raw|ast)(?:&(.*)|)|(.*))\s*$'%'|'.join(__OUT_LANG__),s,re.I)):
         form,action,under,lang,args = False,reg.v.group(1),reg.v.group(2),reg.v.group(3),reg.v.group(5) if reg.v.group(5) else reg.v.group(4)
@@ -609,7 +628,8 @@ Example: <a href="u?tikz">/u?tikz</a></p>
             start_response('200 OK',[('Content-type',mime),('Content-Disposition','filename=u.py')])
             return [(open(environ['SCRIPT_FILENAME']).read())] 
         elif action and action.lower() in ('about','help','usage'):
-            mime,o = 'text/html;charset=UTF-8','<html><title>⊔ v%s</title>'%__version__ + application.__doc__ + ', '.join(__OUT_LANG__) + '</b></html>\n'
+            mime,o = 'text/html;charset=UTF-8','<html><title>⊔ v%s</title>'%__version__ + application.__doc__ + ', '.join(__OUT_LANG__) + '</b>\n'
+            o += '<p>Supported Input Modeling Formalism are:</p><b>' + ', '.join(__IN_MODEL__) + '</b></html>\n'
         elif action and action.lower() in ('paper','pdf'):
             o = open('%s/u.pdf'%os.path.dirname(environ['SCRIPT_FILENAME'])).read()
             mime = 'application/pdf'
@@ -750,18 +770,22 @@ function nodes_path(b1,b2) {
           shape.setAttribute('width',b.width+2*mx);
           shape.setAttribute('height',b.height+2*my);
           var ports = shape.nextSibling.nextSibling.childNodes;
-          var x = 0; var y = 0;
+          var x = 0; var y = 0; 
+          var pos = 0;
           for (var i = 0; i < ports.length; i++) {
             if (ports[i].nodeName == 'rect') { 
               var pos = parseInt(ports[i].getAttribute('pos'));
-              if (pos<0) {
-                x=b.x-mx-6; y=b.y-my-3+(pos+100)*(b.height+2*my)/100;
-              } else {
-                x=b.x+b.width+mx; y=b.y-my-3+(100-pos)*(b.height+2*my)/100;
-              }
+              if (pos<0) { x=b.x-mx-6; y=b.y-my-3+(pos+100)*(b.height+2*my)/100;
+              } else { x=b.x+b.width+mx; y=b.y-my-3+(100-pos)*(b.height+2*my)/100; }
               ports[i].setAttribute('x',x); ports[i].setAttribute('y',y);
             } 
             if (ports[i].nodeName == 'text') { 
+              ports[i].setAttribute('dominant-baseline','middle');
+              if (pos<0) { x=b.x-mx+1; y=b.y-my+(pos+100)*(b.height+2*my)/100;
+              } else {
+                ports[i].setAttribute('text-anchor','end');
+                x=b.x+b.width+mx-1; y=b.y-my+(100-pos)*(b.height+2*my)/100;
+              }
               ports[i].setAttribute('x',x); ports[i].setAttribute('y',y);
             } 
           }
@@ -788,7 +812,7 @@ def svg_defs():
 def gen_svg_header(m,(ln,le)):
     ""
     o = '<style type="text/css">\n'
-    o += 'text.tiny { font-size: 6pt; }\n'
+    o += 'text.tiny { font-size: 4pt; fill:DarkSlateGray; }\n'
     o += 'rect.port { stroke-width:0; fill:lightblue; }\n'
     for n in m[0]:
         if ln.has_key(n):
