@@ -37,7 +37,7 @@ __title__   = 'The Universal Short Graph Language'
 __version__ = '0.1a'
 __license__ = 'GPLv3'
 
-import os,sys,re,hashlib,shutil,subprocess,urllib
+import os,sys,re,hashlib,shutil,subprocess,urllib,datetime
 #import unicodedata
 
 __RE_U__ = r'''                # RegExp with 10 groups
@@ -217,7 +217,7 @@ class u:
             self.m[l] = ({'':[]},{'':[]})
             self.m['svg'] = ({'':('fill:black;','filter:url(#.shadow);fill-opacity:.1;',4,4,('p1','p2')),
                               'T':('fill:red;','fill:blue;fill-opacity:.6;',8,18,('p1','p2','p3','p4')),
-                              'R':('fill:red;','fill:none;stroke:black;stroke-width:1;',0,0,()),
+                              'R':('fill:red;font-family:helvetica,arial,sans-serif;}','fill:none;stroke:black;stroke-width:1;',0,0,()),
                               'O':('fill:blue;','filter:url(#.shadow);fill-opacity:.1;',30,30,('in1','in2','out1','out2')),
                               'C':('fill:blue;','filter:url(#.shadow);fill-opacity:.1;',
                                    30,60,('pin1','pin2','pin3','pin4','pin5','pin6','pin7','pin8',
@@ -237,6 +237,10 @@ class u:
                                })
             self.m['c'] = ({'':[]},{'':[]})
             
+    def merge(self,a,b):
+        ""
+        return (1,2)
+
     def parse1(self,x):
         r""" test of doctest !
         parse('A"my_classA":class -类> B"my_classB":class')    # does not support well unicode!
@@ -274,7 +278,10 @@ class u:
                         c = a[5:10]
                     else: # this is a node
                         nid,npo = find_id(a[:5]),'.%s'%a[2] if a[2] else ''
-                        if not nodes.has_key(nid):
+                        if nodes.has_key(nid):
+                            pass
+                            #print 'double'
+                        else:
                             nodes[nid] = strip3(tuple(a[1:2]+a[3:5]))
                         if c and oid and nid:
                             Edges.append(strip3((oid+opo,c[0]+c[4],nid+npo,c[1],c[2],c[3])))
@@ -291,42 +298,64 @@ class u:
 
     def hf(self,appli):
         "Add header and footer to generated code"
-        com = __OUT_LANG__[re.sub('gen_','',appli.__name__)][1]
+        lang = re.sub('gen_','',appli.__name__)
+        com = __OUT_LANG__[lang][1]
         (sc,ec,head) = com
         def app(ast):
             Nodes,Edges = ast
-            o = '%s%s Generated Code from ⊔ - Do not edit by hand! %s\n'%(head,sc,ec)
-            o += '%s The ⊔ AST is: %s %s\n'%(sc,ast,ec)
+            d = '%s'%datetime.datetime.now()
+            o = '%s%s ⊔ Generated Code [%s] %s\n'%(head,sc,d[:19],ec)
+            o += '%s ******** Do not edit by hand! ******** %s\n'%(sc,ec)
+            digest = hashlib.sha1(open(__file__).read()).hexdigest()
+            o += '%s SHA1: %s %s\n'%(sc,digest[:-8],ec)
+            o += '%s Forge:  https://github.com/pelinquin/u %s\n'%(sc,ec)
+            o += '%s © Copyright 2011 Rockwell Collins, Inc %s\n'%(sc,ec)
+            o += '%s ** GNU General Public License  (v3) ** %s\n'%(sc,ec)
+            o += '\n%s AST = %s %s\n'%(sc,ast,ec)
+            o += '\n%s Types parameters: %s %s\n'%(sc,self.m[lang],ec)
             o += appli(ast)
             o += '\n%s %s Nodes %s Edges %s'%(sc,len(Nodes),len(Edges),ec)
-            return o + '\n%s end file %s\n'%(sc,ec)
+            return o + '\n%s The end of file %s\n'%(sc,ec)
         return app
 
     def gen_c(self,ast):
-        "/* The ⊔ AST is: */\n"
-        o,m = '/* %s */\n/* %s */\n'%ast,self.m['c']
-        o += '/* Types parameters: %s %s */'%m
+        "/* C */\n"
+        m = self.m['c']
+        o = '\n'
         Nodes,Edges = ast
         for x in Nodes:
             if Nodes[x]:
-                if len(Nodes[x]) == 2 and Nodes[x][1] == 'class':
-                    o += '\n/* Class: %s */\n'%Nodes[x][0]
-                    o += 'typedef struct %s {\n'%x
-                    o += '  int a;\n'
-                    o += '} %s;\n'%x
+                if len(Nodes[x]) == 2:
+                    if Nodes[x][1] == 'class':
+                        o += '\n/* Class: %s */\n'%Nodes[x][0]
+                        o += 'typedef struct %s {\n'%x
+                        o += '  int a;\n'
+                        o += '} %s;\n'%x
+                    elif Nodes[x][1] == 'main':
+                        o += '\nint main(void) {\n'
+                        o += '  return(0); \n}\n'
         return self.gen_c.__doc__ + o
 
     def gen_python(self,ast):
-        """#!/usr/bin/python\n# -*- coding: utf-8 -*-\n# Generated from ⊔ AST:\n"""
-        o,m = '# %s\n# %s\n'%ast,self.m['python']
-        o += '# Types parameters: %s %s\n'%m
+        "## Python 2.7"
+        o = '\n\n'
+        Nodes,Edges = ast
+        for x in Nodes:
+            if Nodes[x]:
+                if len(Nodes[x]) == 2:
+                    if Nodes[x][1] == 'class':
+                        o += '\nclass %s:\n'%x
+                        o += '\t""" %s """\n'%Nodes[x][0]
+                        o += '\ta=0\n'
+                    elif Nodes[x][1] == 'main':
+                        o += '\nif __name__ == \'__main__\': \n'
+                        o += '\tprint \'yes\'\n'
         return self.gen_python.__doc__ + o 
 
     def gen_ada(self,ast):
-        "-- Generated from ⊔ AST:\n"
-        o,m = '-- %s\n-- %s\n\n'%ast,self.m['ada']
-        o += '-- Types parameters: %s %s\n'%m
-        o += 'with Ada.Text_IO;\n\n'
+        "-- ADA 95\n"
+        m = self.m['ada']
+        o = 'with Ada.Text_IO;\n\n'
         o += 'procedure Hello is\nbegin\n\tAda.Text_IO.Put_Line("Hi!");\nend Hello;\n\n'
         return self.gen_ada.__doc__ + o 
 
@@ -394,7 +423,7 @@ class u:
             o +=  r'\end{document}'
         return self.gen_tikz.__doc__  + o 
 
-    def gen_svg(self,ast,with_js=True):
+    def gen_svg(self,ast,with_js=False):
         """<!-- the \'with_js\' boolean defines if Javascript is requested or not -->\n"""
         m = self.m['svg']
         pos,ratio = layout(ast[0],ast[1],'LR'),4
@@ -411,7 +440,7 @@ class u:
         if with_js:
             o += include_js()
         o += '<g id=".nodes">\n'
-        Ports,Nodebox = {},{}
+        Ports,Nodebox,Nodeports = {},{},{}
         for n in pos:
             #label = n.encode('utf-8')
             label = n
@@ -421,13 +450,15 @@ class u:
                     label = ast[0][n][0]
             style = 'node_' if (len(Nodes[n])<2 or not Nodes.has_key(n)) else 'node_%s'%Nodes[n][1]
             t = '' if not (Nodes.has_key(n) and (len(Nodes[n])>1) and m and m[0].has_key(Nodes[n][1])) else Nodes[n][1]
-            o += '<g id="%s" class="%s" mx="%s" my="%s">'%(n,style,m[0][t][2],m[0][t][3])
+            mx,my = m[0][t][2],m[0][t][3]
+            o += '<g id="%s" class="%s" mx="%s" my="%s">'%(n,style,mx,my)
             #label = '<tspan>%s</tspan><tspan x="%s" dy="1em">%s</tspan><tspan x="%s" dy="1em">%s</tspan>'%(n,pos[n][0]*ratio,n,pos[n][0]*ratio,n)
             x,y,w,h = getbbox(label,pos[n][0]*ratio,pos[n][1]*ratio)
-            Nodebox[n] = (x,y,w,h)
+            Nodebox[n],Nodeports[n] = (x-mx,y-my,w+2*mx,h+2*my),[]
             label = '<tspan>%s</tspan>'%label
             #o += '<rect rx="5"/><text x="%s" y="%s" dominant-baseline="central" text-anchor="middle">%s</text>'%(pos[n][0]*ratio,pos[n][1]*ratio,label)
-            o += '<rect/><text class="node" x="%s" y="%s">%s</text>'%(pos[n][0]*ratio,pos[n][1]*ratio,label)
+            o += '<rect rx="4" x="%s" y="%s" width="%s" height="%s"/>'%Nodebox[n]
+            o += '<text class="node" x="%s" y="%s">%s</text>'%(pos[n][0]*ratio,pos[n][1]*ratio,label)
             o += '<g>' 
             ports = m[0][t][4]
             Ports[n] = ports
@@ -435,24 +466,48 @@ class u:
                 delta = 200.0/len(ports)
                 d = delta/2.0 - 100
                 for p in ports:
-                    o += '<rect class="port" width="6" height="6" pos="%s"/><text class="tiny">%s</text>'%(d,p)
+                    b = Nodebox[n]
+                    if d<0:
+                        anchor,x,y = 'start',b[0]+1, b[1] + (d+100)*b[3]/100 
+                        rx = x-7
+                        Nodeports[n].append((x-6,y));
+                    else:
+                        anchor,x,y = 'end',b[0] + b[2]-1, b[1] + (100-d)*b[3]/100
+                        rx = x+1
+                        Nodeports[n].append((x+6,y));
+                    o += '<rect class="port" x="%s" y="%s" width="6" height="6" pos="%s"/>'%(rx,y-3,d)
+                    o += '<text class="tiny" x="%s" y="%s" dominant-baseline="middle" text-anchor="%s">%s</text>'%(x,y,anchor,p)
                     d += delta
             o += '</g>'
-            if not with_js:
-                o += '<rect style="stroke:red;stroke-width:1;fill:none;" x="%s" y="%s" width="%s" height="%s"/>'%Nodebox[n]
-            #o += '<circle r="1" cx="%s" cy="%s"/>'%(pos[n][0]*ratio,pos[n][1]*ratio) # reference point
+            #if not with_js:
+            #    o += '<rect style="stroke:red;stroke-width:1;fill:none;" x="%s" y="%s" width="%s" height="%s"/>'%Nodebox[n]
             o += '</g>\n'
         o += '</g>\n<g id=".connectors" >\n'
         for e in Edges:
             typ = 'edge_' if len(e)<5 else 'edge_%s'%e[4]
             n1,n2,p1,p2 = e[0],e[2],'',''
+            ep1,ep2 = '',''
             if re.search(r'\.',e[0]):
                 [n1,p1] = e[0].split('.')
-                p1 = ' p1="%s"'%Ports[n1].index(p1)
+                if re.match(r'^\d+$',p1):
+                    ep1 = int(p1)
+                    p1 = ' p1="%s"'%int(p1)
+                else:
+                    ep1 = Ports[n1].index(p1)
+                    p1 = ' p1="%s"'%Ports[n1].index(p1)
             if re.search(r'\.',e[2]):
-                [n2,p2] = e[2].split('.')
-                p2 = ' p2="%s"'%Ports[n2].index(p2)
-            o += '<g class="%s" n1="%s" n2="%s"%s%s><path d="%s"/></g>\n'%(typ,n1,n2,p1,p2,nodes_path2(Nodebox[n1],Nodebox[n2]))
+                [n2,p2] = e[2].split('.') 
+                if re.match(r'^\d+$',p2):
+                    ep2 = int(p2)
+                    p2 = ' p2="%s"'%int(p2)
+                else:
+                    ep2 = Ports[n2].index(p2)
+                    p2 = ' p2="%s"'%Ports[n2].index(p2)
+            if ep1 != '' and ep2 != '':
+                d = nodes_path2(Nodeports[n1][ep1],Nodeports[n2][ep2],Nodebox.values())
+            else:
+                d = nodes_path(Nodebox[n1],Nodebox[n2])
+            o += '<g class="%s" n1="%s" n2="%s"%s%s><path d="%s"/></g>\n'%(typ,n1,n2,p1,p2,d)
         o += '</g>\n'
         return self.gen_svg.__doc__ + o + '\n</svg>'
 
@@ -494,8 +549,10 @@ def gen_apache_conf():
 # This file is generated. Do not edit by hands!
 # Place this file in '/etc/apache2/conf.d' directory
 # and restart Apache: '/etc/init.d/apache2 restart'"""
-    prg,path = os.path.basename(sys.argv[0])[:-3],os.path.abspath(sys.argv[0])
-    open('%s.conf'%prg,'w').write('%s\n\nWSGIScriptAlias /%s %s\n'%(gen_apache_conf.__doc__,prg,path))
+    prg,path = os.path.basename(sys.argv[0])[:-3],os.path.abspath(sys.argv[0]) 
+    o = 'WSGIScriptAlias /%s %s\n'%(prg,path)
+    o += 'AliasMatch /fonts/([^\.]*\.otf) %s/fonts/$1\n'%os.path.dirname(path)
+    open('%s.conf'%prg,'w').write('%s\n\n'%gen_apache_conf.__doc__+o)
 
 def tex_section():
     r"""\section{Parsing}
@@ -753,7 +810,7 @@ def gen_tikz_header(m=[],(ln,le)=({},{})):
 
 def getbbox(text,x,y):
     ""
-    ajust = {'i':.5,'w':1.35}
+    ajust = {'i':.5,'l':.5,'w':1.35}
     h,l = 18,.0
     for c in text:
         if ajust.has_key(c):
@@ -762,11 +819,68 @@ def getbbox(text,x,y):
             l += 1.
     return x,y-h+3,l*10,h+1
 
-def nodes_path2(b1,b2):
-    x1,y1,x2,y2 = b1[0] + b1[2]/2, b1[1] + b1[3]/2,b2[0] + b2[2]/2, b2[1] + b2[3]/2
-    return 'M%s,%sL%s,%s'%(x1,y2,x2,y2)
+def nodes_path2(p1,p2,nodes=[]):
+    ""
+    m = 20
+    x1,y1,x2,y2 = p1[0],p1[1],p2[0],p2[1]
+    o = 'M%s,%s'%(x1,y1)
+    if abs(x2-x1) > abs(y2-y1):
+        o += 'L%s,%s'%((x2+x1)//2,y1)
+        o += 'L%s,%s'%((x2+x1)//2,y2)
+        for n in nodes:
+            if n[1] < y2 and y2 < n[1] + n[3]:
+                if x2>x1:
+                    if n[0] > x1 and n[0]< x2:
+                        if y1 != y2:
+                            if ((n[1]-y2)//(y1-y2))<0:
+                                o += 'L%s,%s'%((x2+x1)//2,n[1])
+                                o += 'L%s,%s'%(x2,n[1])
+                            else:
+                                o += 'L%s,%s'%((x2+x1)//2,(n[1]+n[3]))
+                                o += 'L%s,%s'%(x2,(n[1]+n[3]))
+                        else:
+                            o += 'L%s,%s'%((x2+x1)//2,(n[1]+n[3]))
+                            o += 'L%s,%s'%(x2,(n[1]+n[3]))
+    else:        
+        o += 'L%s,%s'%(x1,(y2+y1)//2)
+        o += 'L%s,%s'%(x2,(y2+y1)//2)
+    o += 'L%s,%s'%(x2,y2)
+    return o
+
+def nodes_path2_old(p1,p2,nodes=[]):
+    ""
+    m = 20
+    x1,y1,x2,y2 = p1[0],p1[1],p2[0],p2[1]
+    o = 'M%s,%s'%(x1,y1)
+    o += 'L%s,%s'%(x1,y1)
+    if abs(x2-x1) > abs(y2-y1):
+        for n in nodes:
+            if n[1] < y1 and n[1] + n[3] > y1:
+                if n[0] > x1:
+                    o += 'L%s,%s'%(n[0],y1)
+        o += 'L%s,%s'%(x2,y1)
+    else:
+        
+        o += 'L%s,%s'%(x1,y2)
+    o += 'L%s,%s'%(x2,y2)
+    o += 'L%s,%s'%(x2,y2)
+    return o
 
 def nodes_path(b1,b2):
+    ""
+    m = 20
+    x1,y1,x2,y2 = b1[0] + b1[2]/2, b1[1] + b1[3]/2,b2[0] + b2[2]/2, b2[1] + b2[3]/2
+    o = 'M%s,%s'%(x1,y1)
+    o += 'L%s,%s'%(x1+m,y1)
+    if abs(x2-x1) > abs(y2-y1):
+        o += 'L%s,%s'%(x2-m,y1)
+    else:
+        o += 'L%s,%s'%(x1,y2)
+    o += 'L%s,%s'%(x2-m,y2)
+    o += 'L%s,%s'%(x2,y2)
+    return o
+
+def nodes_path_old(b1,b2):
     ""
     x1,y1 = b1[0] + b1[2]/2, b1[1] + b1[3]/2
     x2,y2 = b2[0] + b2[2]/2, b2[1] + b2[3]/2
@@ -804,11 +918,12 @@ def nodes_path(b1,b2):
 def include_js():
     r"""
 if (typeof($)=='undefined') { function $(id) { return document.getElementById(id.replace(/^#/,'')); } }
-var nodeBox  = [];
+var nodeBox   = [];
+var nodePorts = [];
 
 function nodes_path1(x1,y1,b2,way) {
-  var x2 = b2[0].x + b2[0].width/2; var y2 = b2[0].y + b2[0].height/2;
-  var h2 = 1 + b2[0].height/2 + b2[2]; var l2 = 1 + b2[0].width/2 + b2[1];
+  var x2 = b2.x + b2.width/2; var y2 = b2.y + b2.height/2;
+  var h2 = 1 + b2.height/2; var l2 = 1 + b2.width/2;
   if (x2 == x1) {
     if (y2<y1) { y2 += h2;
     } else { y2 -= h2; }
@@ -834,13 +949,23 @@ function nodes_path1(x1,y1,b2,way) {
 }
 
 function nodes_path2(x1,y1,x2,y2) {
-  return ('M'+x2+','+y2+'L'+x1+','+y1);
+  var m = 20;
+  var o = 'M'+x2+','+y2;
+  o += 'L' + (x2+m) + ',' + y2;
+  if (Math.abs(x2-x1)>Math.abs(y2-y1)) {
+    o += 'L' + (x1-m) + ',' + y2;
+  } else {
+    o += 'L' + x2 + ',' + y1;
+  }
+  o += 'L' + (x1-m) + ',' + y1;
+  o += 'L' + x1 + ',' + y1;
+  return (o);
 }
 
 function nodes_path(b1,b2) {
-  var x1 = b1[0].x + b1[0].width/2; var y1 = b1[0].y + b1[0].height/2;
-  var x2 = b2[0].x + b2[0].width/2; var y2 = b2[0].y + b2[0].height/2;
-  var h1 = 1 + b1[0].height/2 + b1[2]; var l1 = 1 + b1[0].width/2 + b1[1];
+  var x1 = b1.x + b1.width/2; var y1 = b1.y + b1.height/2;
+  var x2 = b2.x + b2.width/2; var y2 = b2.y + b2.height/2;
+  var h1 = 1 + b1.height/2; var l1 = 1 + b1.width/2;
   if (x1 == x2) {
     if (y1<y2) { y1 += h1;
     } else { y1 -= h1; }
@@ -857,7 +982,7 @@ function nodes_path(b1,b2) {
       } else { x1 -= l1; y1 -= l1/P; }
     }
   }
-  var h2 = 1 + b2[0].height/2 + b2[2]; var l2 = 1 + b2[0].width/2 + b2[1];
+  var h2 = 1 + b2.height/2; var l2 = 1 + b2.width/2;
   if (x2 == x1) {
     if (y2<y1) { y2 += h2;
     } else { y2 -= h2; }
@@ -880,39 +1005,40 @@ function nodes_path(b1,b2) {
       var t = $('.nodes').childNodes;
       for (var n = 0; n < t.length; n++) {
         if (t[n].nodeName == 'g') { 
-          nodeBox[t[n].id] = [t[n].firstChild.nextSibling.getBBox(),parseInt(t[n].getAttribute('mx')),parseInt(t[n].getAttribute('my')),[]]; 
+          var mx = parseInt(t[n].getAttribute('mx')); var my = parseInt(t[n].getAttribute('my'));
+          var b = t[n].firstChild.nextSibling.getBBox();
+          b.x -= mx; b.y -= my; b.width += 2*mx; b.height += 2*my;
+          nodeBox[t[n].id] = b;
+          nodePorts[t[n].id] = [];
         } 
       }
       for (var n = 0; n < t.length; n++) {
         if (t[n].nodeName == 'g') {
-          var mx = nodeBox[t[n].id][1];
-          var my = nodeBox[t[n].id][2];
-          var b = nodeBox[t[n].id][0];
-          //alert (b.x + ' ' + b.y + ' ' + b.width + ' ' + b.height);
+          var b = nodeBox[t[n].id];
           var shape = t[n].firstChild;
-          shape.setAttribute('x',b.x-mx);
-          shape.setAttribute('y',b.y-my);
-          shape.setAttribute('width',b.width+2*mx);
-          shape.setAttribute('height',b.height+2*my);
+          shape.setAttribute('x',b.x);
+          shape.setAttribute('y',b.y);
+          shape.setAttribute('width',b.width);
+          shape.setAttribute('height',b.height);
           var ports = shape.nextSibling.nextSibling.childNodes;
           var x = 0; var y = 0; 
           var pos = 0;
           for (var i = 0; i < ports.length; i++) {
             if (ports[i].nodeName == 'rect') { 
               var pos = parseInt(ports[i].getAttribute('pos'));
-              if (pos<0) { x=b.x-mx-6; y=b.y-my-3+(pos+100)*(b.height+2*my)/100;
-              } else { x=b.x+b.width+mx; y=b.y-my-3+(100-pos)*(b.height+2*my)/100; }
+              if (pos<0) { x=b.x-6; y=b.y-3+(pos+100)*b.height/100;
+              } else { x=b.x+b.width; y=b.y-3+(100-pos)*b.height/100; }
               ports[i].setAttribute('x',x); ports[i].setAttribute('y',y);
             } 
             if (ports[i].nodeName == 'text') { 
               ports[i].setAttribute('dominant-baseline','middle');
               if (pos<0) { 
-                x=b.x-mx+1; y=b.y-my+(pos+100)*(b.height+2*my)/100;
-                nodeBox[t[n].id][3].push([x-6,y]);
+                x=b.x+1; y=b.y+(pos+100)*b.height/100;
+                nodePorts[t[n].id].push([x-6,y]);
               } else {
                 ports[i].setAttribute('text-anchor','end');
-                x=b.x+b.width+mx-1; y=b.y-my+(100-pos)*(b.height+2*my)/100;
-                nodeBox[t[n].id][3].push([x+6,y]);
+                x=b.x+b.width-1; y=b.y+(100-pos)*b.height/100;
+                nodePorts[t[n].id].push([x+6,y]);
               }
               ports[i].setAttribute('x',x); ports[i].setAttribute('y',y);
             } 
@@ -922,22 +1048,24 @@ function nodes_path(b1,b2) {
       var t = $('.connectors').childNodes;
       for ( var n = 0; n < t.length; n++ ) {
         if (t[n].nodeName == 'g') { 
+          var d = '';
           if (t[n].hasAttribute('p1')) { 
-            var tg1 =  nodeBox[t[n].getAttribute('n1')][3][t[n].getAttribute('p1')];
+            var tg1 =  nodePorts[t[n].getAttribute('n1')][t[n].getAttribute('p1')];
             if (t[n].hasAttribute('p2')) { 
-              var tg2 =  nodeBox[t[n].getAttribute('n2')][3][t[n].getAttribute('p2')];
-              t[n].firstChild.setAttribute('d',nodes_path2(tg2[0],tg2[1],tg1[0],tg1[1]));
+              var tg2 =  nodePorts[t[n].getAttribute('n2')][t[n].getAttribute('p2')];
+              d = nodes_path2(tg2[0],tg2[1],tg1[0],tg1[1]);
             } else {
-              t[n].firstChild.setAttribute('d',nodes_path1(tg1[0],tg1[1],nodeBox[t[n].getAttribute('n2')],true));
+              d = nodes_path1(tg1[0],tg1[1],nodeBox[t[n].getAttribute('n2')],true);
             }
           } else {
             if (t[n].hasAttribute('p2')) { 
-              var tg2 =  nodeBox[t[n].getAttribute('n2')][3][t[n].getAttribute('p2')];
-              t[n].firstChild.setAttribute('d',nodes_path1(tg2[0],tg2[1],nodeBox[t[n].getAttribute('n1')],false));
+              var tg2 =  nodePorts[t[n].getAttribute('n2')][t[n].getAttribute('p2')];
+              d = nodes_path1(tg2[0],tg2[1],nodeBox[t[n].getAttribute('n1')],false);
             } else {
-              t[n].firstChild.setAttribute('d',nodes_path(nodeBox[t[n].getAttribute('n2')],nodeBox[t[n].getAttribute('n1')]));
+              d = nodes_path(nodeBox[t[n].getAttribute('n2')],nodeBox[t[n].getAttribute('n1')]);
             }
           }
+          t[n].firstChild.setAttribute('d',d);
         }
       }
     }"""
@@ -956,21 +1084,15 @@ def gen_svg_header(m,(ln,le)):
     ""
     o = '<style type="text/css">\n'
 
-    #o += '@font-face { font-family: Graublau Sans Web; src: url(\'fonts/GraublauWeb.otf\') format("opentype"); }'
-    #o += 'text { font-family: Graublau Sans Web; }'
-
-    o += '@font-face { font-family: TOTO; src: url(\'fonts/VAG-HandWritten.otf\') format("opentype"); }'
-    o += 'text { font-family: TOTO; }'
-
-
-    #o += 'text {font-family:helvetica neue,helvetica,arial,sans-serif;}'
-
-    o += 'text.tiny { font-size: 4pt; fill:DarkSlateGray; }\n'
-    o += 'text.node { font-size: 1em; }\n'
-    o += 'rect.port { stroke-width:0; fill:lightblue; }\n'
+    o += '@font-face { font-family: Graublau; src: url(\'./fonts/GraublauWeb.otf\') format("opentype"); }'
+    o += '@font-face { font-family: vag; src: url(\'./fonts/VAG-HandWritten.otf\') format("opentype"); }'
+    o += 'text {font-family:vag,helvetica neue,helvetica,arial,sans-serif;}'
+    o += 'text.tiny { font-family:helvetica neue,helvetica,arial,sans-serif;font-size: 4pt; fill:DarkSlateGray; }\n'
+    o += 'text.node { font-size: 1em; } text:hover { font-weight:bold;} rect.port { stroke-width:0; fill:lightblue; }\n'
+    o += 'path:hover, rect:hover { opacity:0.5; cursor:crosshair;}\n'
     for n in m[0]:
         if ln.has_key(n):
-            o += 'g.node_%s > text { %s }\ng.node_%s > rect { %s }\n'%(n,m[0][n][0],n,m[0][n][1]) 
+            o += 'g.node_%s > text { %s } g.node_%s > rect { %s }\n'%(n,m[0][n][0],n,m[0][n][1]) 
     for e in m[1]:
         if le.has_key(e):
             o += 'g.edge_%s path { %s }\n'%(e,m[1][e]) 
@@ -1035,10 +1157,6 @@ def ast_test(ref=False):
             content = open(reff).read()
             assert content == h
 
-def gen_code(env):
-    return 'bleble'
-
-
 if __name__ == '__main__':
     "Run the module or use it as WSGI application with an Apache server"
     try:
@@ -1065,7 +1183,10 @@ if __name__ == '__main__':
     
     #ast = uobj.parse('A->B')
     #print uobj.header(uobj.gen_c)(ast)
-
+    
+    #a = (1,None,'toto','hh')
+    #b = (2,6,'toto')
+    #print uobj.merge(a,b)
 
 
 # the end
