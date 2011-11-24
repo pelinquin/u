@@ -49,12 +49,12 @@ __RE_U__ = r'''                # RegExp with 10 groups
     (?::([^\W\d_]\w*)|)               #  Type      G4
     (?:\(([^\)]*)\))?                 #  Arguments G5
    )|(?:                              # Or EDGE:
-    ([\-<>])                          #  Head      G6
+    ([\-=<>])                         #  Head      G6
     (?:\"([^\"]*)\")?                 #  Label     G7
     (?:([^\W\d_]\w*)|)                #  Type      G8
     #([^\W\d_a-zA-Z])?                #  Type      G8
     (?:\(([^\)]*)\))?                 #  Arguments G9
-    ([\-<>])                          #  Tail      G10
+    ([\-=<>])                         #  Tail      G10
    )
 '''
 
@@ -67,6 +67,7 @@ __RE_FILTER__ = [(r'(?m)\#.*$',''),            # remove comments
                  (r'\'\',\s*',''),             # remove left empty elements
                  (r',\s*\'\'','')]             # remove right empty elements
 
+_XHTMLNS  = 'xmlns="http://www.w3.org/1999/xhtml"'
 _SVGNS    = 'xmlns="http://www.w3.org/2000/svg"'
 _XLINKNS  = 'xmlns:xlink="http://www.w3.org/1999/xlink"'
 
@@ -136,6 +137,16 @@ __AST_SET__ = [
     'A B C',
     'A B C D',
     'A"label1" A"label2"',
+    'A A"label"',
+    'A"label" A',
+    'A:T A"label"',
+    'A"label" A:T',
+    'A{a} A"label"',
+    'A"label" A{a}',
+    'A(x) A"label"',
+    'A"label" A(x)',
+    'A A"label1" A"label2"(x)',
+    'A"label2"(x) A"label" A',
     '"label":T1 "label":T2',
     'A"label" B"label"',
     'A{a} B{b1 b2} C{c1 c2 c3}',
@@ -305,13 +316,18 @@ class u:
             Nodes,Edges = ast
             d = '%s'%datetime.datetime.now()
             o = '%s%s ⊔ Generated Code [%s] %s\n'%(head,sc,d[:19],ec)
+            o += '%s CPU Times:  %s   %s\n'%(sc,os.times()[:-1],ec)            
             o += '%s ******** Do not edit by hand! ******** %s\n'%(sc,ec)
             digest = hashlib.sha1(open(__file__).read()).hexdigest()
             o += '%s SHA1: %s %s\n'%(sc,digest[:-8],ec)
             o += '%s Forge:  https://github.com/pelinquin/u %s\n'%(sc,ec)
             o += '%s © Copyright 2011 Rockwell Collins, Inc %s\n'%(sc,ec)
             o += '%s ** GNU General Public License  (v3) ** %s\n'%(sc,ec)
-            o += '\n%s AST = %s %s\n'%(sc,ast,ec)
+            dast = '%s %s'%ast
+            if re.search(r'\-{2}',dast):
+                o += '\n%s ! Doubledash replaced by double underscore %s\n'%(sc,ec)        
+                dast = re.sub(r'\-\-','__','%s'%dast)
+            o += '\n%s AST = %s %s\n'%(sc,dast,ec)
             o += '\n%s Types parameters: %s %s\n'%(sc,self.m[lang],ec)
             o += appli(ast)
             o += '\n%s %s Nodes %s Edges %s'%(sc,len(Nodes),len(Edges),ec)
@@ -360,33 +376,28 @@ class u:
         return self.gen_ada.__doc__ + o 
 
     def gen_scala(self,ast):
-        "// Generated from ⊔ AST:\n"
-        o,m = '// %s\n// %s\n'%ast,self.m['scala']
-        o += '// Types parameters: %s %s\n'%m
+        "// Scala\n"
+        o,m = '',self.m['scala']
         return self.gen_scala.__doc__ + o 
 
     def gen_java(self,ast):
-        "// Generated from ⊔ AST:\n"
-        o,m = '// %s\n// %s\n'%ast,self.m['java']
-        o += '// Types parameters: %s %s\n'%m
+        "// Java\n"
+        o,m = '',self.m['java']
         return self.gen_java.__doc__ + o 
 
     def gen_ruby(self,ast):
         "# Generated from ⊔ AST:\n"
-        o,m = '# %s\n# %s\n'%ast,self.m['ruby']
-        o += '# Types parameters: %s %s\n'%m
-        return self.gen_ruby.__doc__ + o + '\n# end file\n'
+        o,m = '',self.m['ruby']
+        return self.gen_ruby.__doc__ + o 
 
     def gen_ocaml(self,ast):
-        "(* Generated from ⊔ AST: *)\n"
-        o,m = '(* %s *)\n(* %s *)\n'%ast,self.m['ocaml']
-        o += '(* Types parameters: %s %s)*\n'%m
+        "(* Objective Caml *)\n"
+        o,m = '',self.m['ocaml']
         return self.gen_ocaml.__doc__ + o 
 
     def gen_lua(self,ast):
-        "-- Generated from ⊔ AST:\n"
-        o,m = '-- %s\n-- %s\n'%ast,self.m['lua']
-        o += '-- Types parameters: %s %s\n'%m
+        "-- Lua \n"
+        o,m = '',self.m['lua']
         return self.gen_lua.__doc__ + o 
 
     def gen_tikz(self,ast,standalone=True):
@@ -428,15 +439,11 @@ class u:
         m = self.m['svg']
         pos,ratio = layout(ast[0],ast[1],'LR'),4
         Nodes,Edges = ast
-        #o = '<!-- doubledash replaced by double underscore\n' + re.sub(r'\-\-','__','%s\n%s'%ast) + '\n-->\n' 
-        o = '<!-- doubledash replaced by double underscore -->\n' 
-        o += '<svg %s>\n'%_SVGNS
-        o += gen_svg_header(m,gettypes(ast))
+        o = '<svg %s>\n'%_SVGNS
         o += '<title id=".title">⊔: %s</title>\n'%__title__
-        #o += '<link %s rel="shortcut icon" href="./logo16.png"/>\n'%(_XHTMLNS,pfx)
-        #o += '<script %s type="text/ecmascript" xlink:href="%s/%s"></script>\n'%(_XLINKNS,pfx,__JS__)
-        o += '<!-- This requires some Javascript because Text bounding-box computation is only available client-side! -->\n'
-        o += '<!-- Any way to have bounding-box computation server side would help me so I can remove Javascript! -->\n'
+        o += get_favicon()
+        o += '<g id="logo"><path stroke-width="5" fill="none" stroke="blue"  title="⊔ [http://github.com/pelinquin/u]" opacity=".02" d="M10,10L10,35L30,35L30,10"/><path d="M33,18 L27,21 L33,24Z" fill="white"/></g>\n'
+        o += gen_svg_header(m,gettypes(ast))
         if with_js:
             o += include_js()
         o += '<g id=".nodes">\n'
@@ -456,7 +463,6 @@ class u:
             x,y,w,h = getbbox(label,pos[n][0]*ratio,pos[n][1]*ratio)
             Nodebox[n],Nodeports[n] = (x-mx,y-my,w+2*mx,h+2*my),[]
             label = '<tspan>%s</tspan>'%label
-            #o += '<rect rx="5"/><text x="%s" y="%s" dominant-baseline="central" text-anchor="middle">%s</text>'%(pos[n][0]*ratio,pos[n][1]*ratio,label)
             o += '<rect rx="4" x="%s" y="%s" width="%s" height="%s"/>'%Nodebox[n]
             o += '<text class="node" x="%s" y="%s">%s</text>'%(pos[n][0]*ratio,pos[n][1]*ratio,label)
             o += '<g>' 
@@ -470,14 +476,15 @@ class u:
                     if d<0:
                         anchor,x,y = 'start',b[0]+1, b[1] + (d+100)*b[3]/100 
                         rx = x-7
-                        Nodeports[n].append((x-6,y));
+                        Nodeports[n].append((x-6,y))
                     else:
                         anchor,x,y = 'end',b[0] + b[2]-1, b[1] + (100-d)*b[3]/100
                         rx = x+1
-                        Nodeports[n].append((x+6,y));
+                        Nodeports[n].append((x+6,y))
                     o += '<rect class="port" x="%s" y="%s" width="6" height="6" pos="%s"/>'%(rx,y-3,d)
                     o += '<text class="tiny" x="%s" y="%s" dominant-baseline="middle" text-anchor="%s">%s</text>'%(x,y,anchor,p)
                     d += delta
+            #print Nodeports
             o += '</g>'
             #if not with_js:
             #    o += '<rect style="stroke:red;stroke-width:1;fill:none;" x="%s" y="%s" width="%s" height="%s"/>'%Nodebox[n]
@@ -492,19 +499,27 @@ class u:
                 if re.match(r'^\d+$',p1):
                     ep1 = int(p1)
                     p1 = ' p1="%s"'%int(p1)
-                else:
+                elif p1 in Ports[n1]:
                     ep1 = Ports[n1].index(p1)
                     p1 = ' p1="%s"'%Ports[n1].index(p1)
+                else:
+                    p1 = ''
             if re.search(r'\.',e[2]):
                 [n2,p2] = e[2].split('.') 
                 if re.match(r'^\d+$',p2):
                     ep2 = int(p2)
                     p2 = ' p2="%s"'%int(p2)
-                else:
+                elif p2 in Ports[n2]:
                     ep2 = Ports[n2].index(p2)
                     p2 = ' p2="%s"'%Ports[n2].index(p2)
-            if ep1 != '' and ep2 != '':
+                else:
+                    p2 = ''
+            if ep1 != '' and ep2 != '' and ep1<len(Nodeports[n1]) and ep2<len(Nodeports[n2]):
                 d = nodes_path2(Nodeports[n1][ep1],Nodeports[n2][ep2],Nodebox.values())
+            elif ep1 != '' and ep1<len(Nodeports[n1]):
+                d = nodes_path1(Nodebox[n2],Nodeports[n1][ep1],False)
+            elif ep2 != '' and ep2<len(Nodeports[n2]):
+                d = nodes_path1(Nodebox[n1],Nodeports[n2][ep2],True)
             else:
                 d = nodes_path(Nodebox[n1],Nodebox[n2])
             o += '<g class="%s" n1="%s" n2="%s"%s%s><path d="%s"/></g>\n'%(typ,n1,n2,p1,p2,d)
@@ -512,23 +527,19 @@ class u:
         return self.gen_svg.__doc__ + o + '\n</svg>'
 
     def gen_aadl(self,ast):
-        "-- Generated from ⊔ AST:\n"
-        o,m = '-- %s\n-- %s\n'%ast,self.m['aadl']
-        o += '-- Types parameters: %s %s\n'%m
+        "-- AADL\n"
+        o,m = '',self.m['aadl']
         return self.gen_aadl.__doc__ + o 
 
     def gen_sdl(self,ast):
-        "# Generated from ⊔ AST:\n"
-        o,m = '# %s\n# %s\n'%ast,self.m['sdl']
-        o += '# Types parameters: %s %s\n'%m
+        "# SDL\n"
+        o,m = '',self.m['sdl']
         return self.gen_sdl.__doc__ + o 
 
     def gen_lustre(self,ast):
-        "-- Generated from ⊔ AST:\n"
-        o,m = '-- %s\n-- %s\n'%ast,self.m['lustre']
-        o += '-- Types parameters: %s %s\n'%m
+        "-- Lustre\n"
+        o,m = '',self.m['lustre']
         return self.gen_lustre.__doc__ + o 
-
 
 def gen_readme():
     """Welcome to the ⊔ [SquareCup] Language Project !\n==========================================\n
@@ -549,10 +560,13 @@ def gen_apache_conf():
 # This file is generated. Do not edit by hands!
 # Place this file in '/etc/apache2/conf.d' directory
 # and restart Apache: '/etc/init.d/apache2 restart'"""
+    digest = hashlib.sha1(open(__file__).read()).hexdigest()
     prg,path = os.path.basename(sys.argv[0])[:-3],os.path.abspath(sys.argv[0]) 
-    o = 'WSGIScriptAlias /%s %s\n'%(prg,path)
+    o = '# SHA1:%s\n\n'%digest
+    o += 'WSGIScriptAlias /%s %s\n'%(prg,path)
+    o += 'WSGIScriptAlias /⊔ %s\n'%path
     o += 'AliasMatch /fonts/([^\.]*\.otf) %s/fonts/$1\n'%os.path.dirname(path)
-    open('%s.conf'%prg,'w').write('%s\n\n'%gen_apache_conf.__doc__+o)
+    open('%s.conf'%prg,'w').write('%s\n'%gen_apache_conf.__doc__+o)
 
 def tex_section():
     r"""\section{Parsing}
@@ -701,6 +715,12 @@ def reg(value):
 
 ######### WEB APPLICATION ###########
 
+def get_favicon():
+    d = '%s'%datetime.datetime.now() # this is ack to change favicon in the cache
+    code = '<svg xmlns="http://www.w3.org/2000/svg" n="%s"><path stroke-width="2.5" fill="none" stroke="blue" d="M3,1 L3,14 L13,14 L13,1"/><path d="M33,18 L27,21 L33,24Z" fill="white"/>'%d
+    data = code.encode('base64').replace('\n','')
+    return '<link %s rel="shortcut icon" type="image/svg+xml" href="data:image/svg+xml;base64,%s"/>\n'%(_XHTMLNS,data)
+
 def application(environ,start_response):
     """<title>⊔</title><style>h1,p,li,b{font-family:helvetica neue,helvetica,arial,sans-serif;} a{text-decoration:none;}</style>
 <h1><a href="https://github.com/pelinquin/u" style="font-size:64pt;color:DodgerBlue;" title="SquareCup">⊔</a> Web service</h1>
@@ -727,7 +747,8 @@ Example: [<a href="u?tikz">/u?tikz</a>]</p>
             start_response('200 OK',[('Content-type',mime),('Content-Disposition','filename=u.py')])
             return [(open(environ['SCRIPT_FILENAME']).read())] 
         elif action and action.lower() in ('about','help','usage'):
-            mime,o = 'text/html;charset=UTF-8','<html><title>⊔ v%s</title>'%__version__ + application.__doc__ + ', '.join(__OUT_LANG__) + '</b>\n'
+            mime,o = 'text/html;charset=UTF-8','<html><title>⊔ v%s</title>%s'%(__version__,get_favicon())
+            o += application.__doc__ + ', '.join(__OUT_LANG__) + '</b>\n'
             o += '<p>Supported Input Modeling Formalism are:</p><b>' + ', '.join(__IN_MODEL__) + '</b></html>\n'
         elif action and action.lower() in ('paper','pdf'):
             o = open('%s/u.pdf'%os.path.dirname(environ['SCRIPT_FILENAME'])).read()
@@ -774,6 +795,9 @@ Example: [<a href="u?tikz">/u?tikz</a>]</p>
 
 def strip3(z):
     return z[:-3] if not (z[-1] or z[-2] or z[-3]) else z[:-2] if not (z[-1] or z[-2]) else z[:-1] if not z[-1] else z
+
+def strip4(z):
+    return z[:-4] if not (z[-1] or z[-2] or z[-3] or z[-4]) else z[:-3] if not (z[-1] or z[-2] or z[-3]) else z[:-2] if not (z[-1] or z[-2]) else z[:-1] if not z[-1] else z
     
 ######### UTILITIES ###########
 
@@ -866,7 +890,7 @@ def nodes_path2_old(p1,p2,nodes=[]):
     o += 'L%s,%s'%(x2,y2)
     return o
 
-def nodes_path(b1,b2):
+def nodes_path_old(b1,b2):
     ""
     m = 20
     x1,y1,x2,y2 = b1[0] + b1[2]/2, b1[1] + b1[3]/2,b2[0] + b2[2]/2, b2[1] + b2[3]/2
@@ -880,14 +904,13 @@ def nodes_path(b1,b2):
     o += 'L%s,%s'%(x2,y2)
     return o
 
-def nodes_path_old(b1,b2):
+def nodes_path1(b,p,way):
     ""
-    x1,y1 = b1[0] + b1[2]/2, b1[1] + b1[3]/2
-    x2,y2 = b2[0] + b2[2]/2, b2[1] + b2[3]/2
-    h1,l1 = 1 + b1[3]/2 + b1[22], 1 + b1[2]/2 + b1[11]
+    x1,y1,x2,y2 = b[0] + b[2]/2, b[1] + b[3]/2, p[0],p[1] 
+    h1,l1 = 1 + b[3]/2, 1 + b[2]/2
     if x1 == x2:
         if y1<y2:  
-            y1 += h1;
+            y1 += h1
         else: 
             y1 -= h1
     elif y1 == y2:
@@ -912,7 +935,61 @@ def nodes_path_old(b1,b2):
             else:
                 x1 -= l1
                 y1 -= l1/P
-    h2,l2 = 1 + b2[0].height/2 + b2[2], 1 + b2[0].width/2 + b2[1]
+    if way:
+        d = 'M%s,%sL%s,%s'%(x1,y1,x2,y2)
+    else:
+        d = 'M%s,%sL%s,%s'%(x2,y2,x1,y1)
+    return d
+
+def nodes_path(b1,b2):
+    ""
+    x1,y1,x2,y2 = b1[0] + b1[2]/2, b1[1] + b1[3]/2, b2[0] + b2[2]/2, b2[1] + b2[3]/2
+    h1,l1,h2,l2 = 1 + b1[3]/2, 1 + b1[2]/2, 1 + b2[3]/2, 1 + b2[2]/2
+    if x1 == x2:
+        if y1<y2:  
+            y1 += h1
+            y2 -= h2
+        else: 
+            y1 -= h1
+            y2 += h2
+    elif y1 == y2:
+        if x1<x2: 
+            x1 += l1
+            x2 -= l2
+        else: 
+            x1 -= l1
+            x2 += l2
+    else:
+        Q,R = x1-x2,y1-y2
+        P = Q/R
+        if abs(P) < l1/h1:
+            if R<0: 
+                y1 += h1 
+                x1 += h1*P
+            else: 
+                y1 -= h1
+                x1 -= h1*P
+        else:
+            if Q<0:
+                x1 += l1
+                y1 += l1/P
+            else:
+                x1 -= l1
+                y1 -= l1/P
+        if abs(P) < l2/h2:
+            if R>0: 
+                y2 += h2 
+                x2 += h2*P
+            else: 
+                y2 -= h2
+                x2 -= h2*P
+        else:
+            if Q>0:
+                x2 += l2
+                y2 += l2/P
+            else:
+                x2 -= l2
+                y2 -= l2/P
     return 'M%s,%sL%s,%s'%(x1,y1,x2,y2)
 
 def include_js():
@@ -966,6 +1043,7 @@ function nodes_path(b1,b2) {
   var x1 = b1.x + b1.width/2; var y1 = b1.y + b1.height/2;
   var x2 = b2.x + b2.width/2; var y2 = b2.y + b2.height/2;
   var h1 = 1 + b1.height/2; var l1 = 1 + b1.width/2;
+  var h2 = 1 + b2.height/2; var l2 = 1 + b2.width/2;
   if (x1 == x2) {
     if (y1<y2) { y1 += h1;
     } else { y1 -= h1; }
@@ -982,7 +1060,6 @@ function nodes_path(b1,b2) {
       } else { x1 -= l1; y1 -= l1/P; }
     }
   }
-  var h2 = 1 + b2.height/2; var l2 = 1 + b2.width/2;
   if (x2 == x1) {
     if (y2<y1) { y2 += h2;
     } else { y2 -= h2; }
@@ -1181,12 +1258,12 @@ if __name__ == '__main__':
     #for m in re.compile(r'\s*(\w+)\s*',re.U).finditer(s):
     #    print m.groups()
     
-    #ast = uobj.parse('A->B')
+    ast = uobj.parse('A.1->B.0')
+    uobj.gen_svg(ast)
     #print uobj.header(uobj.gen_c)(ast)
     
     #a = (1,None,'toto','hh')
     #b = (2,6,'toto')
     #print uobj.merge(a,b)
-
 
 # the end
