@@ -26,7 +26,7 @@
 r""" Model Based Engineering widelly use two dimensions graph-based diagrams. Because these diagrams represent viewpoints of a system, including dataflow, workflow and software architecture, they are the building blocks artifacts for specification, modeling and simulation activities. In particular code generation from this high level representation is mandatory.
 The data format for these diagrams may be graphical; bitmap or vectorial, unfortunatelly mixing rendering/layout data with semantics.
 \textsc{xml} based formats are also used like \textsc{xmi} for \textsc{mof/uml}. However, those formats suffering of several drawbacks like unreadability, unsusefull verbosity and not well adapted structure for representing graphs. \textsc{hutl} and \textsc{json} are not used.
-The \emph{Graphviz} \textsc{dot} language or the simple \textsc{yuml} syntax have nice features but lacks to provide native typing and nesting. Our proposal in this paper is a typed graph dedicated language called \usgl{}, provinding the very minimal syntax for graphic and code generation. The language is mainly defined by one given Regular Expression. We present a non formal interpretation of the language, with examples from various models like \textsc{uml}, \emph{SysML}, \emph{Marte}, \textsc{aadl}, \emph{Xcos}, \emph{Kaos}, Entity-Relation Graph, Tree Diagram, Network graph, Flowchart, Petri-Net, State Machine, Markov Chain, Behavior Tree,...
+The \emph{Graphviz} \textsc{dot} language or the simple \textsc{yuml} syntax have nice features but lacks to provide native typing and nesting. Our proposal in this paper is a typed graph dedicated language called \usgl{}, provinding the very minimal syntax for graphic and code generation. The language is mainly defined by one given Regular Expression. We present a non formal interpretation of the language, with examples from various models like \textsc{uml}, \emph{SysML}, \emph{Marte}, \textsc{aadl}, \emph{Xcos}, \emph{Kaos}, Entity-Relation Graph, Tree Diagram, Network graph, Flowchart, Petri-Net, State Machine, Markov Chain, Behavior Tree, Flow-based programming diagram,...
 This language is a universal representation for input of multi-model code generator tools. We provide as a proof of principe some simple example of code generation for C, Ada, Python, Java, Ocaml, Ruby and Scala Coding Languages. Generation can produce textual representation for \textsc{aadl},\textsc{sdl} and Lustre (Scade) and rely on their own chain to generate code.
 Graphic generation is also supported for Tikz to documents and \textsc{svg} for web viewer/editor. 
 Actually, we are introducing the concept of \emph{differential dual editing}; where textual and graphical editing are well supported by our language. All source code for a prototype parser and code generators, document generator in \pyt{} is attached to this \textsc{pdf} file.
@@ -34,11 +34,25 @@ Actually, we are introducing the concept of \emph{differential dual editing}; wh
 __author__  = 'Laurent Fournier'
 __email__   = 'lfournie@rockwellcollins.com'
 __title__   = 'The Universal Short Graph Language'
-__version__ = '0.1a'
+__version__ = '0.1c'
 __license__ = 'GPLv3'
+__url__     = 'github/pelinquin/u'
 
 import os,sys,re,hashlib,shutil,subprocess,urllib,datetime
 #import unicodedata
+
+__RE_LABEL__ = r'''
+   (
+    "{3}.*?"{3}|             # triple double quote
+    '{3}.*?'{3}|             # triple simple quote
+    "(?:(?:[^"\\]|\\.)*)"|   # double quote with escape
+    '(?:(?:[^'\\]|\\.)*)'    # simple quote with escape
+   )
+'''
+
+__RE_LABEL__ = r'''
+   ("{3}.*?"{3}|'{3}.*?'{3}|"(?:(?:[^"\\]|\\.)*)"|'(?:(?:[^'\\]|\\.)*)')
+'''
 
 __RE_U__ = r'''                # RegExp with 10 groups
    (?:                                # Token is NODE:
@@ -52,7 +66,7 @@ __RE_U__ = r'''                # RegExp with 10 groups
     ([\-=<>])                         #  Head      G6
     (?:\"([^\"]*)\")?                 #  Label     G7
     (?:([^\W\d_]\w*)|)                #  Type      G8
-    #([^\W\d_a-zA-Z])?                #  Type      G8
+    #([^\W\d_a-zA-Z])?                 #  Type      G8
     (?:\(([^\)]*)\))?                 #  Arguments G9
     ([\-=<>])                         #  Tail      G10
    )
@@ -71,19 +85,22 @@ _XHTMLNS  = 'xmlns="http://www.w3.org/1999/xhtml"'
 _SVGNS    = 'xmlns="http://www.w3.org/2000/svg"'
 _XLINKNS  = 'xmlns:xlink="http://www.w3.org/1999/xlink"'
 
-__OUT_LANG__ = {'c'     :['c',('/*','*/','')],
-                'python':['py',('#','','#!/usr/bin/python\n# -*- coding: utf-8 -*-\n')],
-                'ada'   :['adb',('--','','')],
-                'scala' :['scl',('--','','')],
-                'java'  :['java',('//','','')],
-                'ruby'  :['rb',('#','','')],
-                'ocaml' :['ml',('(*','*)','')],
-                'lua'   :['lua',('--','','')],
-                'tikz'  :['tex',('%','','')],
-                'svg'   :['svg',('<!--','-->','<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n')],
-                'aadl'  :['adl',('--','','')],
-                'sdl'   :['sdl',('--','','')],
-                'lustre':['lst',('--','','')]}
+__OUT_LANG__ = {'c'      :['c'   ,('/*'  ,'*/' ,'')],
+                'python' :['py'  ,('#'   ,''   ,'#!/usr/bin/python\n# -*- coding: utf-8 -*-\n')],
+                'ada'    :['adb' ,('--'  ,''   ,'')],
+                'scala'  :['scl' ,('--'  ,''   ,'')],
+                'java'   :['java',('//'  ,''   ,'')],
+                'ruby'   :['rb'  ,('#'   ,''   ,'')],
+                'ocaml'  :['ml'  ,('(*'  ,'*)' ,'')],
+                'haskell':['hs'  ,('{-'  ,'-}' ,'')],
+                'lua'    :['lua' ,('--'  ,''   ,'')],
+                'tikz'   :['tex' ,('%'   ,''   ,'')],
+                'svg'    :['svg' ,('<!--','-->','<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n')],
+                'aadl'   :['adl' ,('--'  ,''   ,'')],
+                'sdl'    :['sdl' ,('--'  ,''   ,'')],
+                'lustre' :['lst' ,('--'  ,''   ,'')],
+                'vhdl'   :['hdl' ,('--'  ,''   ,'')],
+                'systemc':['sc'  ,('//'  ,''   ,'')]}
 
 __IN_MODEL__ = ['UML','SysML','AADL-Graph','Marte','Xcos','Kaos','Entity-Relation-Graph','Tree-Diagram',
                 'Network-Graph','Flowchart','Petri-net','State-Machine','Markov-Chain','Behavior-Tree'] 
@@ -100,111 +117,116 @@ __CODE_GEN_SET__ = {
     }
 
 __AST_SET__ = [
-    'A',
-    '"L"',
-    ':T',
-    '{a}',
-    'A"L"',
-    'A:T',
-    'A{a}',
-    '"L":T',
-    '"L"{a}',
-    ':T{a}',
-    'A"L":T',
-    'A"L"{a}',
-    '"L":T{a}',
-    'A:T{a}',
-    'A"L":T{}',
-    'A"L":T{}(arg)',
-    'A(arg1,arg2)',
-    '"L"(arg)',
-    ':T(arg)',
-    'Aaa',
-    'A1',
-    ' A',
-    'A ',
-    ' A ',
-    '\n\nA\n\n',
-    'éàùç',
-    '您您好',
-    '"This is a long label" ',
-    '"Label with \"escape\" substring" ',
-    '"Multi\nlines\nlabel" ',
-    #' """This is "a" \'very\' \nlong label""" ',
-    #' \'Simple quote\' ',
-    'A:Type1 B:Type2',
-    'A B',
-    'A B C',
-    'A B C D',
-    'A"label1" A"label2"',
-    'A A"label"',
-    'A"label" A',
-    'A:T A"label"',
-    'A"label" A:T',
-    'A{a} A"label"',
-    'A"label" A{a}',
-    'A(x) A"label"',
-    'A"label" A(x)',
-    'A A"label1" A"label2"(x)',
-    'A"label2"(x) A"label" A',
-    '"label":T1 "label":T2',
-    'A"label" B"label"',
-    'A{a} B{b1 b2} C{c1 c2 c3}',
-    'A{a} B {b} {c}',
-    'A{a} B[b]',
-    ':T1{a b} :T2{c d}',
-    'A{ B{c b} C{e f} }',
-    'A{B{C{c}}}',
-    '"x-y"',
-    '"x+y"',
-    '"x*y"',
-    '"x/y"',
-    '"x.y"',
-    '"x,y"',
-    '"x%y"',
-    '"x^y"',
-    '"x=y"',
-    '"x:y"',
-    '"x&y"',
-    '"x|y"',
-    '"x>y"',
-    '"x<y"',
-    '#comment\nA',
-    ' #comment1\nA\n #comment2',
-    'A->B',
-    'A->B->C',
-    'A--B', 
-    'C->D',
-    'E>-F',
-    'G>>H',
-    'I<>J',
-    'K<-L',
-    'M-<N',
-    'O<<P', 
-    'Q><R',
-    'A ->B',
-    'A-> B',
-    'A -> B',
-    'A->A',
-    'A -"label"- B',
-    'A -Type- B',
-    'A -(arg)- B',
-    'A -"label"Type- B',
-    'A -Type(arg)- B',
-    'A -"label"(arg)- B',
-    'A -"label"Type(arg)- B',
-    'A -(arg1,arg2,arg3)- B',
-    'A{a1 a2} -> B{b1 b2}',
-    '{a1 a2} -> B{b1 b2}',
-    'A{a1 a2} -> {b1 b2}',
-    '{a1 a2} -> {b1 b2}',
-    'A{a1 -> a2} B{b1 -> b2}',
-    'A{a1 -> a2} -> B{b1 -> b2}',
-    'A.1 -> B.2',
-    'A.por1 -> B.por2',
-    'A:T1 B:T2 A.1->B.2',
-    'A.1->B.2 A:T1 B:T2']
+    ('OnlyId'                 ,'A'),
+    ('OnlyLabel'              ,'"L"'),
+    ('OnlyType'               ,':T'),
+    ('OnlyChild'              ,'{a}'),
+    ('Id+Label'               ,'A"L"'),
+    ('Id+Type'                ,'A:T'),
+    ('Id+Child'               ,'A{a}'),
+    ('Label+Type'             ,'"L":T'),
+    ('Label+Child'            ,'"L"{a}'),
+    ('Type+Child'             ,':T{a}'),
+    ('Id+Label+Type'          ,'A"L":T'),
+    ('Id+Label+Child'         ,'A"L"{a}'),
+    ('Label+Type+Child'       ,'"L":T{a}'),
+    ('Id+Type+Child'          ,'A:T{a}'),
+    ('Id+Label+Type+Child'    ,'A"L":T{}'),
+    ('Id+Label+Type+Arg+Child','A"L":T(arg){}'),
+    ('Id with two args'       ,'A(arg1,arg2)'),
+    ('Label+argument'         ,'"L"(arg)'),
+    ('Type+argument'          ,':T(arg)'),
+    ('Word Id'                ,'Aaa'),
+    ('Not first digit'        ,'A1'),
+    ('white space'            ,' A'),
+    ('end white space'        ,'A '),
+    ('both white spaces'      ,' A '),
+    ('several lines'          ,'\n\nA\n\n'),
+    ('latin1 char'            ,'éàùç'),
+    ('unicode char'           ,'您您好'),
+    ('long label'             ,'"This is a long label" '),
+    ('label with quotes'      ,'"Label with \"escape\" substring" '),
+    (''                       ,'"Multi\nlines\nlabel" '),
+    #(''                       ,' """This is "a" \'very\' \nlong label""" '),
+    #(''                       ,' \'Simple quote\' '),
+    (''                       ,'A:Type1 B:Type2'),
+    (''                       ,'A B'),
+    (''                       ,'A B C'),
+    (''                       ,'A B C D'),
+    (''                       ,'A"label1" A"label2"'),
+    (''                       ,'A A"label"'),
+    (''                       ,'A"label" A'),
+    (''                       ,'A:T A"label"'),
+    (''                       ,'A"label" A:T'),
+    (''                       ,'A{a} A"label"'),
+    (''                       ,'A"label" A{a}'),
+    (''                       ,'A(x) A"label"'),
+    (''                       ,'A"label" A(x)'),
+    (''                       ,'A A"label1" A"label2"(x)'),
+    (''                       ,'A"label2"(x) A"label" A'),
+    (''                       ,'"label":T1 "label":T2'),
+    (''                       ,'A"label" B"label"'),
+    (''                       ,'A{a} B{b1 b2} C{c1 c2 c3}'),
+    (''                       ,'A{a} B {b} {c}'),
+    (''                       ,'A{a} B[b]'),
+    (''                       ,':T1{a b} :T2{c d}'),
+    (''                       ,'A{ B{c b} C{e f} }'),
+    (''                       ,'A{B{C{c}}}'),
+    (''                       ,'"x-y"'),
+    (''                       ,'"x+y"'),
+    (''                       ,'"x*y"'),
+    (''                       ,'"x/y"'),
+    (''                       ,'"x.y"'),
+    (''                       ,'"x,y"'),
+    (''                       ,'"x%y"'),
+    (''                       ,'"x^y"'),
+    (''                       ,'"x=y"'),
+    (''                       ,'"x:y"'),
+    (''                       ,'"x&y"'),
+    (''                       ,'"x|y"'),
+    (''                       ,'"x>y"'),
+    (''                       ,'"x<y"'),
+    (''                       ,'#comment\nA'),
+    (''                       ,' #comment1\nA\n #comment2'),
+    (''                       ,'A->B'),
+    (''                       ,'A->B->C'),
+    (''                       ,'A--B'), 
+    (''                       ,'C->D'),
+    (''                       ,'E>-F'),
+    (''                       ,'G>>H'),
+    (''                       ,'I<>J'),
+    (''                       ,'K<-L'),
+    (''                       ,'M-<N'),
+    (''                       ,'O<<P'), 
+    (''                       ,'Q><R'),
+    (''                       ,'A ->B'),
+    (''                       ,'A-> B'),
+    (''                       ,'A -> B'),
+    (''                       ,'A->A'),
+    (''                       ,'A -"label"- B'),
+    (''                       ,'A -Type- B'),
+    (''                       ,'A -(arg)- B'),
+    (''                       ,'A -"label"Type- B'),
+    (''                       ,'A -Type(arg)- B'),
+    (''                       ,'A -"label"(arg)- B'),
+    (''                       ,'A -"label"Type(arg)- B'),
+    (''                       ,'A -(arg1,arg2,arg3)- B'),
+    (''                       ,'A{a1 a2} -> B{b1 b2}'),
+    (''                       ,'{a1 a2} -> B{b1 b2}'),
+    (''                       ,'A{a1 a2} -> {b1 b2}'),
+    (''                       ,'{a1 a2} -> {b1 b2}'),
+    (''                       ,'A{a1 -> a2} B{b1 -> b2}'),
+    (''                       ,'A{a1 -> a2} -> B{b1 -> b2}'),
+    (''                       ,'A.1 -> B.2'),
+    (''                       ,'A.por1 -> B.por2'),
+    (''                       ,'A:T1 B:T2 A.1->B.2'),
+    (' '                      ,'A.1->B.2 A:T1 B:T2'),
+    ('Double definition'      ,'A{a} A{b}'),
+    ('Double definition'      ,'A{a} A{b}'),
     
+]
+
+
 def find_id(x):
     "find Node id "
     if x[0]: # name
@@ -226,31 +248,46 @@ class u:
         self.m = {}
         for l in __OUT_LANG__:
             self.m[l] = ({'':[]},{'':[]})
-            self.m['svg'] = ({'':('fill:black;','filter:url(#.shadow);fill-opacity:.1;',4,4,('p1','p2')),
-                              'T':('fill:red;','fill:blue;fill-opacity:.6;',8,18,('p1','p2','p3','p4')),
-                              'R':('fill:red;font-family:helvetica,arial,sans-serif;}','fill:none;stroke:black;stroke-width:1;',0,0,()),
-                              'O':('fill:blue;','filter:url(#.shadow);fill-opacity:.1;',30,30,('in1','in2','out1','out2')),
-                              'C':('fill:blue;','filter:url(#.shadow);fill-opacity:.1;',
-                                   30,60,('pin1','pin2','pin3','pin4','pin5','pin6','pin7','pin8',
-                                          'pin9','pin10','pin11','pin12','pin13','pin14','pin15','pin16')),
-                              'D':('fill:blue;','filter:url(#.shadow);fill-opacity:.1;',
-                                   20,40,('pin1','pin2','pin3','pin4','pin5','pin6'))},
-                             {'' : 'stroke:black; stroke-width:1; fill:none; marker-end:url(#.arrow);',
-                              'I': 'stroke:green; stroke-width:2; fill:none; marker-end:url(#.arrow);',
-                              'L': 'stroke:red; stroke-width:3; fill:none; marker-end:url(#.arrow);'})
-            self.m['tikz'] = ({'':('rectangle,draw=black!40,fill=gray!10',['p1','p2']),
-                               'T':('circle,drop shadow,draw=green!40,fill=gray!20',['in1','in2','out1','out2']), 
-                               'O':('rectangle,drop shadow,rounded corners=3pt,draw=red!40,fill=blue!25',[])
-                               },
-                              {'':'->,>=latex',
-                               'I':'->,>=open diamond',
-                               'L':'->,>=triangle 60'
-                               })
-            self.m['c'] = ({'':[]},{'':[]})
+        self.m['svg'] = ({'':('fill:black;','filter:url(#.shadow);fill-opacity:.1;',4,4,('p1','p2')),
+                          'T':('fill:red;','fill:blue;fill-opacity:.6;',8,18,('p1','p2','p3','p4')),
+                          'R':('fill:red;font-family:helvetica,arial,sans-serif;}','fill:none;stroke:black;stroke-width:1;',0,0,()),
+                          'O':('fill:blue;','filter:url(#.shadow);fill-opacity:.1;',30,30,('in1','in2','out1','out2')),
+                          'C':('fill:blue;','filter:url(#.shadow);fill-opacity:.1;',
+                               30,60,('pin1','pin2','pin3','pin4','pin5','pin6','pin7','pin8',
+                                      'pin9','pin10','pin11','pin12','pin13','pin14','pin15','pin16')),
+                          'D':('fill:blue;','filter:url(#.shadow);fill-opacity:.1;',
+                               20,40,('pin1','pin2','pin3','pin4','pin5','pin6'))},
+                         {'' : 'stroke:black; stroke-width:1; fill:none; marker-end:url(#.arrow);',
+                          'I': 'stroke:green; stroke-width:2; fill:none; marker-end:url(#.arrow);',
+                          'L': 'stroke:red; stroke-width:3; fill:none; marker-end:url(#.arrow);'})
+        self.m['tikz'] = ({'':('rectangle,draw=black!40,fill=gray!10',['p1','p2']),
+                           'T':('circle,drop shadow,draw=green!40,fill=gray!20',['in1','in2','out1','out2']), 
+                           'O':('rectangle,drop shadow,rounded corners=3pt,draw=red!40,fill=blue!25',[])
+                           },
+                          {'':'->,>=latex',
+                           'I':'->,>=open diamond',
+                           'L':'->,>=triangle 60'
+                           })
+        self.m['c'] = ({'C':['class',],
+                        'c':['class',]}
+                       ,{'':[]})
             
+    def setType(self,lang,t,tab,isnode=True):
+        ""
+        if isnode:
+            self.m[lang][0][t] = tab
+        else:
+            self.m[lang][1][t] = tab
+
     def merge(self,a,b):
         ""
-        return (1,2)
+        r = list(b)
+        for i in range(len(b)):
+            if b[i] == (None or []) and len(a)>i and a[i] != (None or []):
+                r[i] = a[i]
+        if len(a) > len(b):
+            r += a[len(b)-len(a):]
+        return tuple(r)
 
     def parse1(self,x):
         r""" test of doctest !
@@ -276,8 +313,15 @@ class u:
                 moid = mnid
                 if oid and Nodes.has_key(oid):
                     t = list(Nodes[oid])
-                    t.append(k.keys())
+                    if t:
+                        if t[0]:
+                            t[0] += k.keys()
+                        else:
+                            t[0] = k.keys()
+                    else:
+                        t.append(k.keys())                        
                     Nodes[oid] = tuple(t)
+                    #print oid, Nodes[oid]
                 oid = nid = None
                 Nodes.update(n)
                 Edges += e
@@ -288,12 +332,18 @@ class u:
                     if a[5] and a[9]: # this is an edge
                         c = a[5:10]
                     else: # this is a node
-                        nid,npo = find_id(a[:5]),'.%s'%a[2] if a[2] else ''
+                        #if a[1] != None:
+                        #    l = a[1] 
+                        #a[1] = [re.sub(r'\\','',l[1:-1] if not l[:3] in ('"""',"'''") else l[3:-3])]
+                        #a[1] = l[1:-1] 
+                        nid,npo = find_id(a[:5]),'.%s'%a[2] if a[2] else ''                        
+                        attr = strip4(tuple([[]] + a[1:2] + a[3:5]))
+                        if Nodes.has_key(nid):
+                            nodes[nid] = self.merge(Nodes[nid],attr)
                         if nodes.has_key(nid):
-                            pass
-                            #print 'double'
+                            nodes[nid] = self.merge(nodes[nid],attr)
                         else:
-                            nodes[nid] = strip3(tuple(a[1:2]+a[3:5]))
+                            nodes[nid] = attr
                         if c and oid and nid:
                             Edges.append(strip3((oid+opo,c[0]+c[4],nid+npo,c[1],c[2],c[3])))
                             oid,opo,c = None,'',[]
@@ -325,29 +375,33 @@ class u:
             o += '%s ** GNU General Public License  (v3) ** %s\n'%(sc,ec)
             dast = '%s %s'%ast
             if re.search(r'\-{2}',dast):
-                o += '\n%s ! Doubledash replaced by double underscore %s\n'%(sc,ec)        
+                o += '\n%s Doubledash replaced by double underscore !%s\n'%(sc,ec)        
                 dast = re.sub(r'\-\-','__','%s'%dast)
             o += '\n%s AST = %s %s\n'%(sc,dast,ec)
-            o += '\n%s Types parameters: %s %s\n'%(sc,self.m[lang],ec)
-            o += appli(ast)
-            o += '\n%s %s Nodes %s Edges %s'%(sc,len(Nodes),len(Edges),ec)
-            return o + '\n%s The end of file %s\n'%(sc,ec)
+            a = appli(ast)
+            o += '\n%s Types parameters: %s %s\n'%(sc,self.m[lang],ec) + a
+            return o + '\n%s %s Nodes %s Edges %s Lines | The end of file %s'%(sc,len(Nodes),len(Edges),len(a.split('\n'))+13,ec)
         return app
 
     def gen_c(self,ast):
         "/* C */\n"
-        m = self.m['c']
+        m,classT,mainT = self.m['c'],[],[]
+        for t in m[0]:
+            if len(m[0][t])>0:
+                if m[0][t][0] == 'class':
+                    classT.append(t)
         o = '\n'
+        o += '/* %s */'%classT
         Nodes,Edges = ast
         for x in Nodes:
             if Nodes[x]:
                 if len(Nodes[x]) == 2:
-                    if Nodes[x][1] == 'class':
+                    if Nodes[x][1] in classT:
                         o += '\n/* Class: %s */\n'%Nodes[x][0]
                         o += 'typedef struct %s {\n'%x
                         o += '  int a;\n'
                         o += '} %s;\n'%x
-                    elif Nodes[x][1] == 'main':
+                    elif Nodes[x][1] in mainT:
                         o += '\nint main(void) {\n'
                         o += '  return(0); \n}\n'
         return self.gen_c.__doc__ + o
@@ -369,7 +423,9 @@ class u:
         return self.gen_python.__doc__ + o 
 
     def gen_ada(self,ast):
-        "-- ADA 95\n"
+        """-- ADA 95 with Ravenscar profile
+pragma Profile (Ravenscar);
+"""
         m = self.m['ada']
         o = 'with Ada.Text_IO;\n\n'
         o += 'procedure Hello is\nbegin\n\tAda.Text_IO.Put_Line("Hi!");\nend Hello;\n\n'
@@ -393,6 +449,11 @@ class u:
     def gen_ocaml(self,ast):
         "(* Objective Caml *)\n"
         o,m = '',self.m['ocaml']
+        return self.gen_ocaml.__doc__ + o 
+    
+    def gen_haskell(self,ast):
+        "{- Haskell -}\n"
+        o,m = '',self.m['haskell']
         return self.gen_ocaml.__doc__ + o 
 
     def gen_lua(self,ast):
@@ -440,9 +501,9 @@ class u:
         pos,ratio = layout(ast[0],ast[1],'LR'),4
         Nodes,Edges = ast
         o = '<svg %s>\n'%_SVGNS
-        o += '<title id=".title">⊔: %s</title>\n'%__title__
+        o += '<title id=".title">%s</title>\n'%__title__
         o += get_favicon()
-        o += '<g id="logo"><path stroke-width="5" fill="none" stroke="blue"  title="⊔ [http://github.com/pelinquin/u]" opacity=".02" d="M10,10L10,35L30,35L30,10"/><path d="M33,18 L27,21 L33,24Z" fill="white"/></g>\n'
+        o += '<path id="logo" stroke-width="5" fill="none" stroke="Dodgerblue" onclick="window.open(\'http://github.com/pelinquin/u\');" title="⊔ [http://github.com/pelinquin/u]" opacity=".02" d="M10,10L10,35L30,35L30,10"/>\n'
         o += gen_svg_header(m,gettypes(ast))
         if with_js:
             o += include_js()
@@ -490,7 +551,12 @@ class u:
             #    o += '<rect style="stroke:red;stroke-width:1;fill:none;" x="%s" y="%s" width="%s" height="%s"/>'%Nodebox[n]
             o += '</g>\n'
         o += '</g>\n<g id=".connectors" >\n'
+        ne = 0
         for e in Edges:
+            ne += 1
+            if e and type(e[-1]).__name__ ==  'list':
+                print 'pb!'
+            edge_label = e[3] if len(e)>3 else ''
             typ = 'edge_' if len(e)<5 else 'edge_%s'%e[4]
             n1,n2,p1,p2 = e[0],e[2],'',''
             ep1,ep2 = '',''
@@ -522,8 +588,15 @@ class u:
                 d = nodes_path1(Nodebox[n1],Nodeports[n2][ep2],True)
             else:
                 d = nodes_path(Nodebox[n1],Nodebox[n2])
-            o += '<g class="%s" n1="%s" n2="%s"%s%s><path d="%s"/></g>\n'%(typ,n1,n2,p1,p2,d)
+            mx,my = (Nodebox[n1][0] + Nodebox[n2][0])/2,(Nodebox[n1][1] + Nodebox[n2][1])/2
+            
+            o += '<g class="%s" n1="%s" n2="%s"%s%s><path id="e_%s" d="%s"/>'%(typ,n1,n2,p1,p2,ne,d)
+            if edge_label:
+                o += '<text><textPath %s xlink:href="#e_%s" startOffset="50%%">%s</textPath></text>'%(_XLINKNS,ne,edge_label)
+            o += '</g>\n'
         o += '</g>\n'
+        
+
         return self.gen_svg.__doc__ + o + '\n</svg>'
 
     def gen_aadl(self,ast):
@@ -534,12 +607,24 @@ class u:
     def gen_sdl(self,ast):
         "# SDL\n"
         o,m = '',self.m['sdl']
-        return self.gen_sdl.__doc__ + o 
+        if m[0].has_key('I'):
+            o += '%s'%m[0]['I']
+        return self.gen_sdl.__doc__ 
 
     def gen_lustre(self,ast):
         "-- Lustre\n"
         o,m = '',self.m['lustre']
         return self.gen_lustre.__doc__ + o 
+
+    def gen_vhdl(self,ast):
+        "-- VHDL\n"
+        o,m = '',self.m['vhdl']
+        return self.gen_vhdl.__doc__ + o 
+
+    def gen_systemc(self,ast):
+        "/* SystemC */\n"
+        o,m = '',self.m['systemc']
+        return self.gen_systemc.__doc__ + o 
 
 def gen_readme():
     """Welcome to the ⊔ [SquareCup] Language Project !\n==========================================\n
@@ -586,7 +671,6 @@ def tex_header():
     \usepackage{listings}
     \usepackage{lmodern}
     \usepackage{color}
-    \usepackage{lettrine}
     \usepackage{embedfile}
     \usepackage{graphicx}
     \usepackage{tikz}
@@ -594,7 +678,6 @@ def tex_header():
     \usepackage{array}
     \newcommand{\pyt}{\emph{Python}}
     \newcommand{\pdf}{\textsc{pdf}}
-    \newcommand{\usgl}{\textsc{usgl}}
     \begin{document}
     \lstset{language=Python,breaklines=true}
     """
@@ -717,14 +800,15 @@ def reg(value):
 
 def get_favicon():
     d = '%s'%datetime.datetime.now() # this is ack to change favicon in the cache
-    code = '<svg xmlns="http://www.w3.org/2000/svg" n="%s"><path stroke-width="2.5" fill="none" stroke="blue" d="M3,1 L3,14 L13,14 L13,1"/><path d="M33,18 L27,21 L33,24Z" fill="white"/></svg>'%d
+    code = '<svg xmlns="http://www.w3.org/2000/svg" n="%s"><path stroke-width="2.5" fill="none" stroke="Dodgerblue" d="M3,1 L3,14 L13,14 L13,1"/><path d="M33,18 L27,21 L33,24Z" fill="white"/></svg>'%d
     data = code.encode('base64').replace('\n','')
     return '<link %s rel="shortcut icon" type="image/svg+xml" href="data:image/svg+xml;base64,%s"/>\n'%(_XHTMLNS,data)
 
 def application(environ,start_response):
     """<title>⊔</title><style>h1,p,li,b{font-family:helvetica neue,helvetica,arial,sans-serif;} a{text-decoration:none;}</style>
 <h1><a href="https://github.com/pelinquin/u" style="font-size:64pt;color:DodgerBlue;" title="SquareCup">⊔</a> Web service</h1>
-<p>Any URL argument (after '?') is interpreted as a valid ⊔ string and the default output is the AST (a Python data structure).
+<p>The Web service root name (after domain and server name in the URL) is: ⊔ [<a href="u?about">/u...</a>] or [<a href="⊔?about">/⊔...</a>] (U+2294).</p>
+<p>Any URL argument (after '?') shall be a valid ⊔ string and the default output is the AST (a Python data structure).
 Example: [<a href="u?A->B">/u?A->B</a>]</p>
 <p>If a language name is given first, then the output is the generated code for this language. Example: [<a href="u?ada&A->B">/u?ada&A->B</a>]</p>
 <p>With no other argument than a language name (no '&'), a local file browser is provided to select an input ⊔ file for upload.
@@ -737,7 +821,7 @@ Example: [<a href="u?tikz">/u?tikz</a>]</p>
    <li><i>update</i> [<a href="u?update">/u?update</a>] is used to update the web application with the last release from 
 [<a href="https://github.com/pelinquin/u">https://github.com/pelinquin/u</a>]</li>
    <li><i>help</i>,<i>about</i> or <i>usage</i> displays this page.</li>
-<p>If no argument is given, the output [<a href="u">/u</a>] is the Python source code for reading or downloading.
+<p>If no argument is given, the output [<a href="u">/u</a>] is the Python source code for reading or for <a href="u"><b>download</b></a>.
 </p><p>Supported output languages are:</p><b>"""
     s,mime,o,uobj = urllib.unquote(environ['QUERY_STRING']),'text/plain;charset=UTF-8','Error!',u()
     if reg(re.match(r'\s*(update$|about$|help$|usage$|pdf$|paper$|)(?:(_?)(%s|raw|ast)(?:&(.*)|)|(.*))\s*$'%'|'.join(__OUT_LANG__),s,re.I)):
@@ -747,7 +831,7 @@ Example: [<a href="u?tikz">/u?tikz</a>]</p>
             start_response('200 OK',[('Content-type',mime),('Content-Disposition','filename=u.py')])
             return [(open(environ['SCRIPT_FILENAME']).read())] 
         elif action and action.lower() in ('about','help','usage'):
-            mime,o = 'text/html;charset=UTF-8','<html><title>⊔ v%s</title>%s'%(__version__,get_favicon())
+            mime,o = 'text/html;charset=UTF-8','<html><title>v%s</title>%s'%(__version__,get_favicon())
             o += application.__doc__ + ', '.join(__OUT_LANG__) + '</b>\n'
             o += '<p>Supported Input Modeling Formalism are:</p><b>' + ', '.join(__IN_MODEL__) + '</b></html>\n'
         elif action and action.lower() in ('paper','pdf'):
@@ -1167,6 +1251,7 @@ def gen_svg_header(m,(ln,le)):
     o += 'text.tiny { font-family:helvetica neue,helvetica,arial,sans-serif;font-size: 4pt; fill:DarkSlateGray; }\n'
     o += 'text.node { font-size: 1em; } text:hover { font-weight:bold;} rect.port { stroke-width:0; fill:lightblue; }\n'
     o += 'path:hover, rect:hover { opacity:0.5; cursor:crosshair;}\n'
+    o += 'path#logo:hover { opacity:1;}\n'
     for n in m[0]:
         if ln.has_key(n):
             o += 'g.node_%s > text { %s } g.node_%s > rect { %s }\n'%(n,m[0][n][0],n,m[0][n][1]) 
@@ -1216,12 +1301,12 @@ def code_gen_test(ref=False):
 
 def ast_test(ref=False):
     ""
-    n,h,uobj = 0,' {\n',u()
-    for i in __AST_SET__:
+    n,h,uobj = 0,'{\n',u()
+    for j,i in __AST_SET__:
         n +=1
         i = re.sub(r'\n','\\\\n',i)
-        h += '\t# %02d\n\t\'%s\':\n\t\t%s,\n'%(n,i,uobj.parse(i))
-    h += '\n}'
+        h += '\t# %03d: %s\n\t\'%s\':\n\t%s,\n\n'%(n,j,i,uobj.parse(i))
+    h += '}\n'
     try:
         eval(h)
     except:
@@ -1234,36 +1319,327 @@ def ast_test(ref=False):
             content = open(reff).read()
             assert content == h
 
+class beamer:
+    r"""% This is generated, do not edit by hands!
+\documentclass{beamer}
+\usepackage{beamerthemeshadow}
+\usepackage{draftwatermark}
+\usepackage{listings}
+\usepackage{embedfile}
+\usepackage{graphicx}
+\usepackage{tikz}
+"""
+    def __init__(self,title,author,email,dat,logo=None):
+        r"""\begin{document} 
+\frame{\titlepage} \section{$\sqcup$} 
+"""
+        self.src = os.path.basename(sys.argv[0])
+        self.tex = beamer.__doc__ + '\n'
+        self.tex += r'\embedfile[filespec=%s]{%s}'%(self.src,os.path.abspath(self.src))
+        self.tex += r'\title{%s}'%title + '\n'
+        self.tex += r'\author{%s\inst{*}}\institute{*%s}'%(author,email) + '\n' + r'\date{%s}'%dat + '\n'
+        if os.path.isfile(os.path.abspath(logo)):
+            self.tex += r'\pgfdeclareimage[height=.8cm]{logo}{%s}'%os.path.abspath(logo) + '\n' + r'\logo{\pgfuseimage{logo}}' + '\n\n'
+        self.tex += beamer.__init__.__doc__ + '\n'
+
+    def gen_tex(self):
+        r"""\end{document}"""
+        self.tex += beamer.gen_tex.__doc__ + '\n'
+        open('beamer_%stex'%self.src[:-2],'w').write(self.tex)
+
+    def frame(self,title,content):
+        ""
+        self.tex += r'\frame{\frametitle{%s}'%title + '\n'
+        self.tex += content + '\n'
+        self.tex += '}\n'
+
+    def gen_pdf(self):
+        ""
+        self.gen_tex()
+        tex = 'beamer_%stex'%self.src[:-2]
+        pdf = 'beamer_%spdf'%self.src[:-2]
+        if subprocess.Popen(('which','pdflatex'),stdout=subprocess.PIPE).communicate()[0]:
+            subprocess.Popen(('cd /tmp; pdflatex -interaction=batchmode %s 1>/dev/null'%os.path.abspath(tex)), shell=True).communicate()
+            shutil.move('/tmp/%s'%pdf,pdf) 
+        else:
+            sys.stderr.write('pdflatex not installed!\n')
+
+def gen_beamer():
+    ""
+    slides = beamer(r'The $\sqcup$ Language',__author__,__email__,'December $7^{th}$ 2011','rcf.png')
+    slides.frame(r'What $\sqcup$ is?', r""" 
+The $\sqcup$ language is a {\bf Universal Graph Language};\\
+\begin{itemize}
+\item Symbol: $\bigsqcup$ \\
+\end{itemize} 
+\begin{itemize}
+\item Name: ``square cup''
+\item Universality (close to ``u'')
+\item Unicode character $\sqcup$: (U+2494)
+\end{itemize} 
+\begin{itemize}
+\item License: \textsc{gpl} v3
+\end{itemize} 
+""")
+    slides.frame('Graph', r""" 
+A graph: $G = (V,E) $ \\
+where: \\
+$V=\{v_i\}$ is a set of nodes (vertices) \\
+$E=\{e_{k}\} = \{ v_{i_p},v_{j_q} \}$ is a set of edges between nodes.\\
+$e_{k} = (\{ v_{i_p}\},\{v_{j_q} \})$ an edge links an origin nodes set to some destination nodes set.\\
+$p$ and $q$ are ports references.\\
+$|i|>1$ or $|j|>1$ for multi-links.\\ 
+Each node $v_i$ or edge $e_k $ is a key attached to some attributes list.
+""")
+    slides.frame('What $\sqcup$ is?', r""" 
+Main $\sqcup$ features:\\
+\begin{itemize}
+\item Typed 
+\item Hierachical 
+\item Short
+\item Unicode 
+\item Online
+\end{itemize} 
+""")
+    slides.frame('$\sqcup$ at a glance',r"""
+\begin{tabular}{ll}
+\texttt{Hello -> World} & Hello World! \\
+\texttt{A B C}  & Nodes \\
+\texttt{A->B C<-D} & Links \\
+\texttt{A\{B C\}} & Composition \\
+\texttt{A->\{B C\}} & Mulilinks \\
+\texttt{X"A Node label"} & Labels \\
+\texttt{A:T B:Class} & Typed nodes \\
+\texttt{A(2 4) B(f 6 8)} & Arguments \\
+\texttt{A <Y> B} & Typed arc \\
+\texttt{A"name":T(arg) A->B A<-C} & Id reuse \\
+\texttt{A.pin2 -> B.5} & Ports \\
+\end{tabular} 
+""")
+    slides.frame('Syntax building blocks',r""" 
+\begin{itemize}
+\item for Nodes:
+\begin{itemize}
+  \item \texttt{\textbackslash w+}: an unicode word to identify the node
+  \item \texttt{\textbackslash .(\textbackslash w+|\textbackslash d+)}: a named or indexed port (interpreted iff the node is connected)
+  \item \texttt{"[\^"]+"}: a label on possibly several lines separator is simple quote, double quote or triple quotes 
+  \item \texttt{:\textbackslash w+}: Type 
+  \item \texttt{(.+)}: arguments list
+\end{itemize} 
+\item for Edges:
+\begin{itemize}
+  \item \texttt{(<>-=)}: Arrow head
+  \item \texttt{"[\^"]+"}: Label on possibly several lines separator is simple quote, double quote or triple quotes 
+  \item \texttt{:\textbackslash w+}: Type 
+  \item \texttt{([\^)]+)}: Arguments
+  \item \texttt{(<>-=)}: Arrow tail
+\end{itemize} 
+\end{itemize} 
+""")
+    slides.frame('From the Dot (Graphviz) Language',r"""
+\begin{itemize}
+\item Dot\footnote{AT\&T Bell Laboratories} is not typed
+\item Dot composition (cluster) is not generic
+\item Dot ports are not (well) implemented
+\item Dot is not minimal (\texttt{A->B} raises syntax error)
+\item Dot mixes structure and layout
+\item Limited Dot layout algorithms (nodes place + arc path)
+\end{itemize} 
+""")
+    slides.frame(r'From the XML format',r"""
+\begin{itemize}
+\item XML is for XHTML what $\sqcup$ is for (UML,Simulink,...)
+\item XML is basically suited for trees not graphs
+\item XML has a lot of glue characters
+\item XML does not enforce id on each elements
+\item XML use Xlink,Xpath for referencing
+\item XML raises attribute versus elements dilemma. 
+\item XML is unreadable in practice
+\item Transformations are complex (XSLT)
+\item Type checking using DTD,XSL,RelaxNG
+\end{itemize} 
+""")
+    slides.frame('$\sqcup$ Types',r"""
+\begin{itemize}
+\item User defines is own types library for:
+  \begin{itemize}
+  \item Used Nodes 
+  \item Used Edges
+  \end{itemize}
+\end{itemize} 
+The types library:
+\begin{itemize}
+\item defines the semantics of the input formalism (UML,Scade,...)\\
+\item maps to output patterns (Ada,SVG,...)\\
+\item defines a {\bf Domain Specific Language}
+\item customize graphic output
+\end{itemize} 
+Two different nodes types may rendered with different shapes/decorations in SVG but may maps to the same class construction for Python generation.
+""")
+    slides.frame('Semi-Formal and Formal',r"""
+A semi-formal node is a typed node with informal (english) sentence in its label.\\
+A formal node is a types node with all attributes valid stream from formal languages.\\
+The label may be used to embedd procedure, function, class definition on several lines. \\
+The arguments may be used call, customize or instantiate. \\
+The type definition may include default code.
+""")
+    slides.frame('Overload nodes rules',r"""
+Node Definition and Node Usage are identical!\\
+Node accumulates:
+\begin{tabular}{lcl}
+\texttt{A"hello" A:T}        &$\equiv$&  \texttt{A"hello":T}\\
+\texttt{A"hello" A->B}       &$\equiv$&  \texttt{A"hello"->B}\\
+\texttt{A->B A"hello"}       &$\equiv$&  \texttt{A"hello" A->B}\\
+\texttt{A B C A}             &$\equiv$&  \texttt{C A B}\\
+\texttt{A"label1" A"label2"} &$\equiv$&  \texttt{A"label2"}\\
+\texttt{A(arg1) A(arg2)}     &$\equiv$&  \texttt{A(arg2)}\\
+\texttt{A:T1 A:T2}           &$\equiv$&  \texttt{A:T2}\\
+\texttt{A\{A\}}              &$\equiv$& \texttt{A}  \\
+\end{tabular} 
+""")
+    slides.frame('Edge rules',r"""
+Edges have no ids!
+\begin{tabular}{lcl}
+\texttt{A->B A->B}           &$\neq$&  \texttt{A->B}\\
+\texttt{A -x> B A -y> B}     &$\neq$&  \texttt{A -y> B A -y> B}\\
+\texttt{A -(1)> B A -(2)> B} &$\equiv$&  \texttt{A -(2)> B A -(1)> B}\\
+\texttt{A -(1)> B A -(2)> B} &$\neq$&  \texttt{A -(2)> B A -(2)> B}\\
+\end{tabular} 
+""")
+    slides.frame('Expected code generation',r"""
+\begin{itemize}
+\item AADL,SDL (textual)
+\item Lustre
+\item C,C++
+\item Ada
+\item Java, Scala
+\item Ocaml, Haskell
+\item Python, Ruby, Lua
+\item VHDL, Verilog, SystemC
+\end{itemize} 
+""")
+    slides.frame('Graphic generation',r"""
+\begin{itemize}
+\item SVG for Web publishing
+\item Tikz for \TeX{} and \textsc{pdf} exporting
+\end{itemize}
+The layout (nodes placement and edge path) does not carry semantics\\
+Do not let User define it, let advanced algorithms do the layout with goals:
+\begin{itemize}
+\item Equilibrate the nodes in the canvas
+\item Minimize edge crossing
+\item Find best path for edges
+\item Follow graphic design rules 
+\item Follow Typographic rules
+\end{itemize}
+The same graph may have several styles (Themes)
+...beautiful graphic output is a requirement !
+(\TeX principle)
+""")
+    slides.frame('Candidate formalisms',r"""
+\begin{enumerate}
+\item KAOS
+\item UML
+\item SysML 
+\item AADL graph
+\item Marte-UML
+\item Entity-Relation Graph
+\item State-Machine Diagram
+\item Scade
+\item Markov-Chain
+\item Simulink
+\item Xcos
+\item SDL graph
+\end{enumerate}
+""")
+    slides.frame(r'Needs',r"""
+\begin{enumerate}
+\item A theoritical support
+\item A Constraint Definition Language (Real,OCL,...)
+\item A better types definition (currently dictionnary of properties)
+\item Design for Web Services
+\item Support for many code generators
+\item Embedded test set
+\item Plugins for formal model checker and theorem prover.
+\end{enumerate}
+""")
+    slides.frame('Edge shape type',r"""
+\begin{tabular}{|c|c|c|c|}
+\hline \texttt{-X>} & \texttt{=X>} & \texttt{>X>} & \texttt{<X>}  \\
+\hline \texttt{-X<} & \texttt{=X<} & \texttt{>X<} & \texttt{<X<}  \\ 
+\hline \texttt{-X-} & \texttt{=X-} & \texttt{>X-} & \texttt{<X-}  \\ 
+\hline \texttt{-X=} & \texttt{=X=} & \texttt{>X=} & \texttt{<X=}  \\ 
+\hline
+\end{tabular}\\
+Where \\
+\texttt{X} is an edge type; none or one unicode character 
+""")
+    slides.frame('Next on \sqcup{}',r'\begin{block}{Forge:} \url{https://%s} \end{block}'%__url__)
+    slides.gen_pdf()
+
+
 if __name__ == '__main__':
     "Run the module or use it as WSGI application with an Apache server"
     try:
-        subprocess.Popen(['dot'], stdout=subprocess.PIPE,stdin=subprocess.PIPE).communicate(input='digraph G { A->B }')
+        subprocess.Popen(['dot'], stdout=subprocess.PIPE,stdin=subprocess.PIPE).communicate(input='digraph G {A->B}')
     except:
         print '...Error: please install \'graphviz\' package'
         sys.exit()
 
     import doctest
     doctest.testmod()
-    code_gen_test(True)
+    #code_gen_test(True)
     ast_test(True)
     gen_apache_conf()
     gen_doc()
+    gen_beamer()
     gen_readme()
+
+    import getopt
+
+    opts, args = getopt.getopt(sys.argv[1:],'h',['help'])
+
+    for r in opts:
+        if r[0] in ('-h','--help'):
+            print 'help'
+        elif r[0] in ('-h','--help'):
+            pass
 
     # debug zone!
     uobj = u()
-    #import antigravity
-
     #s = u' AA ⊔A A⊔ C您'
     #for m in re.compile(r'\s*(\w+)\s*',re.U).finditer(s):
     #    print m.groups()
     
-    ast = uobj.parse('A.1->B.0')
-    uobj.gen_svg(ast)
-    #print uobj.header(uobj.gen_c)(ast)
+    print 'test'
+    print uobj.parse('A{a} A"label"')
+    print uobj.parse('A"label" A{a}')
+    print uobj.parse('A{a} A{b}')
+
+    #print uobj.hf(uobj.gen_c)(ast)
     
-    #a = (1,None,'toto','hh')
-    #b = (2,6,'toto')
-    #print uobj.merge(a,b)
+
+    s = '\'A \\\'B\\\'C\' "D\\"E\\"F" """ foo """ bar """ zzz """ \'\'\' foo \'\'\' bar \'\'\' zzz \'\'\'  '
+
+    for m in re.compile(r"""(
+"{3}.*?"{3}|            # triple double quote
+'{3}.*?'{3}|            # triple simple quote
+"(?:(?:[^"\\]|\\.)*)"|      # double quote
+'(?:(?:[^'\\]|\\.)*)'       # simple quote
+)""",re.U|re.X).finditer(s): 
+        a = m.group(1) 
+        b = a[1:-1] if not  a[:3] in ('"""',"'''") else a[3:-3]
+        tab = [re.sub(r'\\','',b)]
+        pass
+        #print tab
+
+    for m in re.compile(r"""
+"{3}(.*?)"{3}|            # triple double quote
+'{3}(.*?)'{3}|            # triple simple quote
+"((?:[^"\\]|\\.)*)"|      # double quote
+'((?:[^'\\]|\\.)*)'       # simple quote
+""",re.U|re.X).finditer(s): 
+        pass
+        #print m.groups()
 
 # the end
