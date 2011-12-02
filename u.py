@@ -21,7 +21,7 @@
 #-----------------------------------------------------------------------------
 
 # The following code pass pychecker 
-# Warning ! There is a small bug in Emacs editor default font: switch ⊔ 'squarecup' (2293) and ⊓ 'squarecap' (2294) char !   
+# Warning ! There is a small bug in Emacs editor default font: switch ⊔ 'squarecap' (U+2293) and ⊓ 'squarecup' (U+2294) char !   
 
 r""" Model Based Engineering widelly use two dimensions graph-based diagrams. Because these diagrams represent viewpoints of a system, including dataflow, workflow and software architecture, they are the building blocks artifacts for specification, modeling and simulation activities. In particular code generation from this high level representation is mandatory.
 The data format for these diagrams may be graphical; bitmap or vectorial, unfortunatelly mixing rendering/layout data with semantics.
@@ -39,20 +39,15 @@ __license__ = 'GPLv3'
 __url__     = 'github/pelinquin/u'
 
 import os,sys,re,hashlib,shutil,subprocess,urllib,datetime
-#import unicodedata
 
-__RE_LABEL__ = r'''
-   (
-    "{3}.*?"{3}|             # triple double quote
-    '{3}.*?'{3}|             # triple simple quote
-    "(?:(?:[^"\\]|\\.)*)"|   # double quote with escape
-    '(?:(?:[^'\\]|\\.)*)'    # simple quote with escape
-   )
-'''
-
-__RE_LABEL__ = r'''
-   ("{3}.*?"{3}|'{3}.*?'{3}|"(?:(?:[^"\\]|\\.)*)"|'(?:(?:[^'\\]|\\.)*)')
-'''
+#__RE_LABEL__ = r'''
+#   (
+#    "{3}.*?"{3}|             # triple double quote
+#    '{3}.*?'{3}|             # triple simple quote
+#    "(?:(?:[^"\\]|\\.)*)"|   # double quote with escape
+#    '(?:(?:[^'\\]|\\.)*)'    # simple quote with escape
+#   )'''
+#__RE_LABEL__ = r'''("{3}.*?"{3}|'{3}.*?'{3}|"(?:(?:[^"\\]|\\.)*)"|'(?:(?:[^'\\]|\\.)*)')'''
 
 __RE_U__ = r'''                # RegExp with 10 groups
    (?:                                # Token is NODE:
@@ -65,7 +60,8 @@ __RE_U__ = r'''                # RegExp with 10 groups
    )|(?:                              # Or EDGE:
     ([\-=<>])                         #  Head      G6
     (?:\"([^\"]*)\")?                 #  Label     G7
-    (?:([^\W\d_]\w*)|)                #  Type      G8
+    (?:(\w)|)                         #  Type      G8
+    #(?:([^\W\d_]\w*)|)                #  Type      G8
     #([^\W\d_a-zA-Z])?                 #  Type      G8
     (?:\(([^\)]*)\))?                 #  Arguments G9
     ([\-=<>])                         #  Tail      G10
@@ -150,10 +146,10 @@ __AST_SET__ = [
     #(''                       ,' """This is "a" \'very\' \nlong label""" '),
     #(''                       ,' \'Simple quote\' '),
     (''                       ,'A:Type1 B:Type2'),
-    (''                       ,'A B'),
-    (''                       ,'A B C'),
-    (''                       ,'A B C D'),
-    (''                       ,'A"label1" A"label2"'),
+    ('2 nodes'                ,'A B'),
+    ('3 nodes'                ,'A B C'),
+    ('4 nodes'                ,'A B C D'),
+    ('overload label'         ,'A"label1" A"label2"'),
     (''                       ,'A A"label"'),
     (''                       ,'A"label" A'),
     (''                       ,'A:T A"label"'),
@@ -222,10 +218,7 @@ __AST_SET__ = [
     (''                       ,'A:T1 B:T2 A.1->B.2'),
     (' '                      ,'A.1->B.2 A:T1 B:T2'),
     ('Double definition'      ,'A{a} A{b}'),
-    ('Double definition'      ,'A{a} A{b}'),
-    
 ]
-
 
 def find_id(x):
     "find Node id "
@@ -283,7 +276,7 @@ class u:
         ""
         r = list(b)
         for i in range(len(b)):
-            if b[i] == (None or []) and len(a)>i and a[i] != (None or []):
+            if (b[i] in (None,[])) and len(a)>i and (a[i] not in (None,[])):
                 r[i] = a[i]
         if len(a) > len(b):
             r += a[len(b)-len(a):]
@@ -512,12 +505,12 @@ pragma Profile (Ravenscar);
         for n in pos:
             #label = n.encode('utf-8')
             label = n
-            if ast[0][n]:
-                if ast[0][n][0]:
-                    #label = ast[0][n][0].encode('utf-8')
-                    label = ast[0][n][0]
-            style = 'node_' if (len(Nodes[n])<2 or not Nodes.has_key(n)) else 'node_%s'%Nodes[n][1]
-            t = '' if not (Nodes.has_key(n) and (len(Nodes[n])>1) and m and m[0].has_key(Nodes[n][1])) else Nodes[n][1]
+            if Nodes[n]:
+                if Nodes[n][1]:
+                    #label = ast[0][n][1].encode('utf-8')
+                    label = Nodes[n][1]
+            style = 'node_' if (len(Nodes[n])<3 or not Nodes.has_key(n)) else 'node_%s'%Nodes[n][2]
+            t = '' if not (Nodes.has_key(n) and (len(Nodes[n])>2) and m and m[0].has_key(Nodes[n][2])) else Nodes[n][2]
             mx,my = m[0][t][2],m[0][t][3]
             o += '<g id="%s" class="%s" mx="%s" my="%s">'%(n,style,mx,my)
             #label = '<tspan>%s</tspan><tspan x="%s" dy="1em">%s</tspan><tspan x="%s" dy="1em">%s</tspan>'%(n,pos[n][0]*ratio,n,pos[n][0]*ratio,n)
@@ -682,7 +675,7 @@ def tex_header():
     \lstset{language=Python,breaklines=true}
     """
     o = tex_header.__doc__
-    o += r'\title{\bf $\sqcup:$ %s} \author{%s -- \url{%s} \\ \tiny{version: %s}} \maketitle'%(__title__,__author__,__email__,__version__)
+    o += r'\title{\bf $\sqcup$: %s} \author{%s -- \url{%s} \\ \tiny{version: %s}} \maketitle'%(__title__,__author__,__email__,__version__)
     o += r'\embedfile[filespec=%s]{%s}'%(os.path.basename(sys.argv[0]),os.path.abspath(sys.argv[0]))
     return o + '\n'
 
@@ -818,13 +811,14 @@ Example: [<a href="u?tikz">/u?tikz</a>]</p>
    <li>For <b>tikz</b>, the pdf reader is called for rendering the graphics. Example: [<a href="u?_tikz&A->B">/u?_tikz&A->B</a>]</li>
 <p>Special keywords:</p>
    <li><i>pdf</i> or <i>paper</i> returns the generated paper on ⊔ in pdf format: [<a href="u?pdf">/u?pdf</a>]</li>
+   <li><i>beamer</i> returns the generated beamer slides on ⊔ in pdf format: [<a href="u?pdf">/u?pdf</a>]</li>
    <li><i>update</i> [<a href="u?update">/u?update</a>] is used to update the web application with the last release from 
 [<a href="https://github.com/pelinquin/u">https://github.com/pelinquin/u</a>]</li>
    <li><i>help</i>,<i>about</i> or <i>usage</i> displays this page.</li>
 <p>If no argument is given, the output [<a href="u">/u</a>] is the Python source code for reading or for <a href="u"><b>download</b></a>.
 </p><p>Supported output languages are:</p><b>"""
     s,mime,o,uobj = urllib.unquote(environ['QUERY_STRING']),'text/plain;charset=UTF-8','Error!',u()
-    if reg(re.match(r'\s*(update$|about$|help$|usage$|pdf$|paper$|)(?:(_?)(%s|raw|ast)(?:&(.*)|)|(.*))\s*$'%'|'.join(__OUT_LANG__),s,re.I)):
+    if reg(re.match(r'\s*(update$|about$|help$|usage$|pdf$|paper|beamer$|)(?:(_?)(%s|raw|ast)(?:&(.*)|)|(.*))\s*$'%'|'.join(__OUT_LANG__),s,re.I)):
         form,action,under,lang,args = False,reg.v.group(1),reg.v.group(2),reg.v.group(3),reg.v.group(5) if reg.v.group(5) else reg.v.group(4)
         if lang: lang = lang.lower()
         if (action,under,lang,args) == ('',None,None,None):
@@ -835,8 +829,9 @@ Example: [<a href="u?tikz">/u?tikz</a>]</p>
             o += application.__doc__ + ', '.join(__OUT_LANG__) + '</b>\n'
             o += '<p>Supported Input Modeling Formalism are:</p><b>' + ', '.join(__IN_MODEL__) + '</b></html>\n'
         elif action and action.lower() in ('paper','pdf'):
-            o = open('%s/u.pdf'%os.path.dirname(environ['SCRIPT_FILENAME'])).read()
-            mime = 'application/pdf'
+            o,mime = open('%s/u.pdf'%os.path.dirname(environ['SCRIPT_FILENAME'])).read(),'application/pdf'
+        elif action and action.lower() == 'beamer':
+            o,mime = open('%s/beamer_u.pdf'%os.path.dirname(environ['SCRIPT_FILENAME'])).read(),'application/pdf'
         elif action and action.lower() == 'update':
             if environ['SERVER_NAME'] != 'pelinquin': # update not possible from RCF network
                 cmd = 'cd %s/..; rm -rf u; git clone git://github.com/pelinquin/u.git; cd u'%os.path.dirname(environ['SCRIPT_FILENAME'])
@@ -1265,8 +1260,8 @@ def gettypes(ast):
     nl,el = {'':True},{'':True}
     Nodes,Edges = ast
     for n in Nodes:
-        if len(Nodes[n]) > 1:
-            nl[Nodes[n][1]] = True 
+        if len(Nodes[n]) > 2:
+            nl[Nodes[n][2]] = True 
     for e in Edges:
         if len(e) > 4:
             el[e[4]] = True 
@@ -1310,9 +1305,11 @@ def ast_test(ref=False):
     try:
         eval(h)
     except:
-        print 'error in ast!'
+        print 'error in parsing !'
     reff = 'ref.txt'
     if ref:
+        if os.path.isfile(reff):
+            shutil.move(reff,'old_'+reff)
         open(reff,'w').write(h)   
     else:
         if os.path.isfile(reff):
@@ -1320,7 +1317,7 @@ def ast_test(ref=False):
             assert content == h
 
 class beamer:
-    r"""% This is generated, do not edit by hands!
+    r"""%% This is generated, do not edit by hands!
 \documentclass{beamer}
 \usepackage{beamerthemeshadow}
 \usepackage{draftwatermark}
@@ -1339,7 +1336,7 @@ class beamer:
         self.tex += r'\title{%s}'%title + '\n'
         self.tex += r'\author{%s\inst{*}}\institute{*%s}'%(author,email) + '\n' + r'\date{%s}'%dat + '\n'
         if os.path.isfile(os.path.abspath(logo)):
-            self.tex += r'\pgfdeclareimage[height=.8cm]{logo}{%s}'%os.path.abspath(logo) + '\n' + r'\logo{\pgfuseimage{logo}}' + '\n\n'
+            self.tex += r'\pgfdeclareimage[height=.6cm]{logo}{%s}'%os.path.abspath(logo) + '\n' + r'\logo{\pgfuseimage{logo}}' + '\n\n'
         self.tex += beamer.__init__.__doc__ + '\n'
 
     def gen_tex(self):
@@ -1375,7 +1372,7 @@ The $\sqcup$ language is a {\bf Universal Graph Language};\\
 \begin{itemize}
 \item Name: ``square cup''
 \item Universality (close to ``u'')
-\item Unicode character $\sqcup$: (U+2494)
+\item Unicode character $\sqcup$: (U+2294)
 \end{itemize} 
 \begin{itemize}
 \item License: \textsc{gpl} v3
@@ -1401,8 +1398,7 @@ Main $\sqcup$ features:\\
 \item Online
 \end{itemize} 
 """)
-    slides.frame('$\sqcup$ at a glance',r"""
-\begin{tabular}{ll}
+    slides.frame('$\sqcup$ at a glance',r"""\begin{tabular}{ll}
 \texttt{Hello -> World} & Hello World! \\
 \texttt{A B C}  & Nodes \\
 \texttt{A->B C<-D} & Links \\
@@ -1416,8 +1412,19 @@ Main $\sqcup$ features:\\
 \texttt{A.pin2 -> B.5} & Ports \\
 \end{tabular} 
 """)
-    slides.frame('Syntax building blocks',r""" 
-\begin{itemize}
+    slides.frame('The main principles', r"""\begin{block}{Structure}
+$\sqcup$ only manage the structure of the graph, not the semantics of Nodes and Edges.
+The $\sqcup$ parser builds an Abstract Syntax Tree (a Python data Structure)
+Type libraries are doing the real job.
+\end{block}
+\begin{block}{Rendering}
+Graphics rendering is a matter of code generation. Customize the generator to style graphs.
+\end{block} 
+\begin{block}{Pipes}
+To generate code, $\sqcup$ provides and uses UNIX like piped small tools from the graph Abstract Syntax Tree.
+\end{block} 
+""")
+    slides.frame('Syntax building blocks',r"""\begin{itemize}
 \item for Nodes:
 \begin{itemize}
   \item \texttt{\textbackslash w+}: an unicode word to identify the node
@@ -1436,8 +1443,7 @@ Main $\sqcup$ features:\\
 \end{itemize} 
 \end{itemize} 
 """)
-    slides.frame('From the Dot (Graphviz) Language',r"""
-\begin{itemize}
+    slides.frame('From the Dot (Graphviz) Language',r"""\begin{itemize}
 \item Dot\footnote{AT\&T Bell Laboratories} is not typed
 \item Dot composition (cluster) is not generic
 \item Dot ports are not (well) implemented
@@ -1446,8 +1452,7 @@ Main $\sqcup$ features:\\
 \item Limited Dot layout algorithms (nodes place + arc path)
 \end{itemize} 
 """)
-    slides.frame(r'From the XML format',r"""
-\begin{itemize}
+    slides.frame(r'From the XML format',r"""\begin{itemize}
 \item XML is for XHTML what $\sqcup$ is for (UML,Simulink,...)
 \item XML is basically suited for trees not graphs
 \item XML has a lot of glue characters
@@ -1459,12 +1464,10 @@ Main $\sqcup$ features:\\
 \item Type checking using DTD,XSL,RelaxNG
 \end{itemize} 
 """)
-    slides.frame('$\sqcup$ Types',r"""
-\begin{itemize}
+    slides.frame('$\sqcup$ Types',r"""\begin{itemize}
 \item User defines is own types library for:
   \begin{itemize}
-  \item Used Nodes 
-  \item Used Edges
+  \item Used Nodes \item Used Edges
   \end{itemize}
 \end{itemize} 
 The types library:
@@ -1484,8 +1487,7 @@ The arguments may be used call, customize or instantiate. \\
 The type definition may include default code.
 """)
     slides.frame('Overload nodes rules',r"""
-Node Definition and Node Usage are identical!\\
-Node accumulates:
+Node Definition and Node Usage are identical!\\ Node accumulates:
 \begin{tabular}{lcl}
 \texttt{A"hello" A:T}        &$\equiv$&  \texttt{A"hello":T}\\
 \texttt{A"hello" A->B}       &$\equiv$&  \texttt{A"hello"->B}\\
@@ -1506,18 +1508,7 @@ Edges have no ids!
 \texttt{A -(1)> B A -(2)> B} &$\neq$&  \texttt{A -(2)> B A -(2)> B}\\
 \end{tabular} 
 """)
-    slides.frame('Expected code generation',r"""
-\begin{itemize}
-\item AADL,SDL (textual)
-\item Lustre
-\item C,C++
-\item Ada
-\item Java, Scala
-\item Ocaml, Haskell
-\item Python, Ruby, Lua
-\item VHDL, Verilog, SystemC
-\end{itemize} 
-""")
+    slides.frame('Expected code generation',reduce(lambda y,k: y+r'\item %s'%k+ '\n',__OUT_LANG__,r'\begin{itemize}') + r'\end{itemize}')
     slides.frame('Graphic generation',r"""
 \begin{itemize}
 \item SVG for Web publishing
@@ -1536,34 +1527,9 @@ The same graph may have several styles (Themes)
 ...beautiful graphic output is a requirement !
 (\TeX principle)
 """)
-    slides.frame('Candidate formalisms',r"""
-\begin{enumerate}
-\item KAOS
-\item UML
-\item SysML 
-\item AADL graph
-\item Marte-UML
-\item Entity-Relation Graph
-\item State-Machine Diagram
-\item Scade
-\item Markov-Chain
-\item Simulink
-\item Xcos
-\item SDL graph
-\end{enumerate}
-""")
-    slides.frame(r'Needs',r"""
-\begin{enumerate}
-\item A theoritical support
-\item A Constraint Definition Language (Real,OCL,...)
-\item A better types definition (currently dictionnary of properties)
-\item Design for Web Services
-\item Support for many code generators
-\item Embedded test set
-\item Plugins for formal model checker and theorem prover.
-\end{enumerate}
-""")
+    slides.frame('Candidate model formalisms',reduce(lambda y,k: y+r'\item %s'%k+ '\n',__IN_MODEL__,r'\begin{itemize}') + r'\end{itemize}')
     slides.frame('Edge shape type',r"""
+There is 16 possible arrow types for each edge type:
 \begin{tabular}{|c|c|c|c|}
 \hline \texttt{-X>} & \texttt{=X>} & \texttt{>X>} & \texttt{<X>}  \\
 \hline \texttt{-X<} & \texttt{=X<} & \texttt{>X<} & \texttt{<X<}  \\ 
@@ -1571,12 +1537,20 @@ The same graph may have several styles (Themes)
 \hline \texttt{-X=} & \texttt{=X=} & \texttt{>X=} & \texttt{<X=}  \\ 
 \hline
 \end{tabular}\\
-Where \\
-\texttt{X} is an edge type; none or one unicode character 
+Where \\ \texttt{X} is an edge type; none or only one unicode character. 
 """)
-    slides.frame('Next on \sqcup{}',r'\begin{block}{Forge:} \url{https://%s} \end{block}'%__url__)
+    slides.frame(r'Needs',r"""\begin{enumerate}
+\item A theoritical support
+\item A Constraint Definition Language (Real,OCL,...)
+\item A better types definition (currently dictionnary of properties)
+\item Support for many code generators
+\item Embedded and enlarge the test set
+\item Plugins for formal model checker and theorem prover.
+\end{enumerate}
+""")
+    slides.frame('Next about $\sqcup{}$!',r"""\begin{block}{Forge:} \url{https://%s} \end{block} 
+\begin{block}{Source code:} See PDF attached file:u.py \end{block}"""%__url__)
     slides.gen_pdf()
-
 
 if __name__ == '__main__':
     "Run the module or use it as WSGI application with an Apache server"
@@ -1610,11 +1584,6 @@ if __name__ == '__main__':
     #s = u' AA ⊔A A⊔ C您'
     #for m in re.compile(r'\s*(\w+)\s*',re.U).finditer(s):
     #    print m.groups()
-    
-    print 'test'
-    print uobj.parse('A{a} A"label"')
-    print uobj.parse('A"label" A{a}')
-    print uobj.parse('A{a} A{b}')
 
     #print uobj.hf(uobj.gen_c)(ast)
     
