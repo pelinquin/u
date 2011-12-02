@@ -34,7 +34,7 @@ Actually, we are introducing the concept of \emph{differential dual editing}; wh
 __author__  = 'Laurent Fournier'
 __email__   = 'lfournie@rockwellcollins.com'
 __title__   = 'The Universal Short Graph Language'
-__version__ = '0.1c'
+__version__ = '0.1a'
 __license__ = 'GPLv3'
 __url__     = 'github/pelinquin/u'
 
@@ -186,16 +186,23 @@ __AST_SET__ = [
     (''                       ,' #comment1\nA\n #comment2'),
     (''                       ,'A->B'),
     (''                       ,'A->B->C'),
-    (''                       ,'A--B'), 
-    (''                       ,'C->D'),
-    (''                       ,'E>-F'),
-    (''                       ,'G>>H'),
-    (''                       ,'I<>J'),
-    (''                       ,'K<-L'),
-    (''                       ,'M-<N'),
-    (''                       ,'O<<P'), 
-    (''                       ,'Q><R'),
-    (''                       ,'A ->B'),
+    ('1'                      ,'A>>B'), 
+    ('2'                      ,'A><B'),
+    ('3'                      ,'A>-B'),
+    ('4'                      ,'A>=B'),
+    ('5'                      ,'A<>B'),
+    ('6'                      ,'A<<B'),
+    ('7'                      ,'A<-B'),
+    ('8'                      ,'A<=B'),
+    ('9'                      ,'A->B'),
+    ('10'                     ,'A-<B'),
+    ('11'                     ,'A--B'), 
+    ('12'                     ,'A-=B'),
+    ('13'                     ,'A=>B'), 
+    ('14'                     ,'A=<B'),
+    ('15'                     ,'A=-B'),
+    ('16'                     ,'A==B'),
+    ('spaceBeforeEdge'        ,'A ->B'),
     (''                       ,'A-> B'),
     (''                       ,'A -> B'),
     (''                       ,'A->A'),
@@ -496,7 +503,7 @@ pragma Profile (Ravenscar);
         o = '<svg %s>\n'%_SVGNS
         o += '<title id=".title">%s</title>\n'%__title__
         o += get_favicon()
-        o += '<path id="logo" stroke-width="5" fill="none" stroke="Dodgerblue" onclick="window.open(\'http://github.com/pelinquin/u\');" title="⊔ [http://github.com/pelinquin/u]" opacity=".02" d="M10,10L10,35L30,35L30,10"/>\n'
+        o += '<path id="logo" stroke-width="5" fill="none" stroke="Dodgerblue" onclick="window.open(\'http://%s\');" title="⊔ [http://%s]" opacity=".02" d="M10,10L10,35L30,35L30,10"/>\n'%(__url__,__url__)
         o += gen_svg_header(m,gettypes(ast))
         if with_js:
             o += include_js()
@@ -673,9 +680,12 @@ def tex_header():
     \newcommand{\pdf}{\textsc{pdf}}
     \begin{document}
     \lstset{language=Python,breaklines=true}
-    """
+    """ 
+    digest = hashlib.sha1(open(__file__).read()).hexdigest()
     o = tex_header.__doc__
-    o += r'\title{\bf $\sqcup$: %s} \author{%s -- \url{%s} \\ \tiny{version: %s}} \maketitle'%(__title__,__author__,__email__,__version__)
+    o += r'\title{\bf $\sqcup$: %s} \author{%s -- \url{%s} \\ '%(__title__,__author__,__email__) + '\n'
+    o += r'\tiny{version: %s [\texttt{%s}]\footnote{the first five hexadecimal bytes of the \textsc{sha1} digest of \texttt{u.py} source file. Please compare it with the one published \url{https://%s} to get the last release.}}}'%(__version__,digest[:5],__url__) + '\n'
+    o += r'\maketitle' + '\n'
     o += r'\embedfile[filespec=%s]{%s}'%(os.path.basename(sys.argv[0]),os.path.abspath(sys.argv[0]))
     return o + '\n'
 
@@ -811,7 +821,7 @@ Example: [<a href="u?tikz">/u?tikz</a>]</p>
    <li>For <b>tikz</b>, the pdf reader is called for rendering the graphics. Example: [<a href="u?_tikz&A->B">/u?_tikz&A->B</a>]</li>
 <p>Special keywords:</p>
    <li><i>pdf</i> or <i>paper</i> returns the generated paper on ⊔ in pdf format: [<a href="u?pdf">/u?pdf</a>]</li>
-   <li><i>beamer</i> returns the generated beamer slides on ⊔ in pdf format: [<a href="u?pdf">/u?pdf</a>]</li>
+   <li><i>beamer</i> returns the generated beamer slides on ⊔ in pdf format: [<a href="u?beamer">/u?beamer</a>]</li>
    <li><i>update</i> [<a href="u?update">/u?update</a>] is used to update the web application with the last release from 
 [<a href="https://github.com/pelinquin/u">https://github.com/pelinquin/u</a>]</li>
    <li><i>help</i>,<i>about</i> or <i>usage</i> displays this page.</li>
@@ -846,9 +856,11 @@ Example: [<a href="u?tikz">/u?tikz</a>]</p>
                 if lang in ('ast','raw'):
                     o = '%s %s'%ast
                 else: 
-                    o = eval('uobj.hf(uobj.gen_%s)(ast)'%lang) #o = eval('uobj.gen_%s(ast)'%lang).encode('utf-8')
+                    o = eval('uobj.hf(uobj.gen_%s)(ast)'%lang) #o = ....encode('utf-8')
             else:
-                mime,form,o = 'text/html',True, '<form method=post enctype=multipart/form-data><input type=file name=a onchange="submit();"/></form>'
+                mime,form,o = 'text/html',True, '<form method=post enctype=multipart/form-data><input type=file name=a onchange="submit();"/>'
+                #o += '<input type=button value=test onclick="submit();"/>'
+                o += '</form>'
         elif lang in (None, 'ast','raw'):
             o = '# Python ⊔ AST\n\n%s %s'%uobj.parse(args)
         else:
@@ -1328,7 +1340,7 @@ class beamer:
 """
     def __init__(self,title,author,email,dat,logo=None):
         r"""\begin{document} 
-\frame{\titlepage} \section{$\sqcup$} 
+\frame{\titlepage} \section{\textsc{draft}} 
 """
         self.src = os.path.basename(sys.argv[0])
         self.tex = beamer.__doc__ + '\n'
@@ -1349,6 +1361,11 @@ class beamer:
         self.tex += r'\frame{\frametitle{%s}'%title + '\n'
         self.tex += content + '\n'
         self.tex += '}\n'
+
+    def itemize(self,title,tab):
+        ""
+        self.tex += r'\frame{\frametitle{%s}'%title + '\n'
+        self.tex += reduce(lambda y,k: y+r'\item %s'%k+ '\n',tab,r'\begin{itemize}') + r'\end{itemize}' + '}\n'
 
     def gen_pdf(self):
         ""
@@ -1381,23 +1398,13 @@ The $\sqcup$ language is a {\bf Universal Graph Language};\\
     slides.frame('Graph', r""" 
 A graph: $G = (V,E) $ \\
 where: \\
-$V=\{v_i\}$ is a set of nodes (vertices) \\
-$E=\{e_{k}\} = \{ v_{i_p},v_{j_q} \}$ is a set of edges between nodes.\\
-$e_{k} = (\{ v_{i_p}\},\{v_{j_q} \})$ an edge links an origin nodes set to some destination nodes set.\\
+$$V=\{v_i\} \text{and} E=\{e_{k}\}$$ a set of nodes (vertices) and a set of edges between nodes.\\
+$$e_{k} = (\{ v_{i_p}\},\{v_{j_q} \})$$ an edge links an origin nodes set to some destination nodes set.\\
 $p$ and $q$ are ports references.\\
 $|i|>1$ or $|j|>1$ for multi-links.\\ 
 Each node $v_i$ or edge $e_k $ is a key attached to some attributes list.
 """)
-    slides.frame('What $\sqcup$ is?', r""" 
-Main $\sqcup$ features:\\
-\begin{itemize}
-\item Typed 
-\item Hierachical 
-\item Short
-\item Unicode 
-\item Online
-\end{itemize} 
-""")
+    slides.itemize('$\sqcup$ features \textsc{thous}', ('Typed','Hierachical','Online','Unicode','Short'))
     slides.frame('$\sqcup$ at a glance',r"""\begin{tabular}{ll}
 \texttt{Hello -> World} & Hello World! \\
 \texttt{A B C}  & Nodes \\
@@ -1443,27 +1450,21 @@ To generate code, $\sqcup$ provides and uses UNIX like piped small tools from th
 \end{itemize} 
 \end{itemize} 
 """)
-    slides.frame('From the Dot (Graphviz) Language',r"""\begin{itemize}
-\item Dot\footnote{AT\&T Bell Laboratories} is not typed
-\item Dot composition (cluster) is not generic
-\item Dot ports are not (well) implemented
-\item Dot is not minimal (\texttt{A->B} raises syntax error)
-\item Dot mixes structure and layout
-\item Limited Dot layout algorithms (nodes place + arc path)
-\end{itemize} 
-""")
-    slides.frame(r'From the XML format',r"""\begin{itemize}
-\item XML is for XHTML what $\sqcup$ is for (UML,Simulink,...)
-\item XML is basically suited for trees not graphs
-\item XML has a lot of glue characters
-\item XML does not enforce id on each elements
-\item XML use Xlink,Xpath for referencing
-\item XML raises attribute versus elements dilemma. 
-\item XML is unreadable in practice
-\item Transformations are complex (XSLT)
-\item Type checking using DTD,XSL,RelaxNG
-\end{itemize} 
-""")
+    slides.itemize('From the Dot (Graphviz) Language',(r'Dot\footnote{AT\&T Bell Laboratories} is not typed'
+                                                       ,'Dot composition (cluster) is not generic'
+                                                       ,'Dot ports are not (well) implemented'
+                                                       ,r'Dot is not minimal (\texttt{A->B} raises syntax error)'
+                                                       ,'Dot mixes structure and layout'
+                                                       ,'Limited Dot layout algorithms (nodes place + arc path)'))
+    slides.itemize(r'From the XML format',(r'XML is for XHTML what $\sqcup$ is for (UML,Simulink,...)'
+                                           ,'XML is basically suited for trees not graphs'
+                                           ,'XML has a lot of glue characters'
+                                           ,'XML does not enforce id on each elements'
+                                           ,'XML use Xlink,Xpath for referencing'
+                                           ,'XML raises attribute versus elements dilemma' 
+                                           ,'XML is unreadable in practice'
+                                           ,'Transformations are complex (XSLT)'
+                                           ,'Type checking using DTD,XSL,RelaxNG'))
     slides.frame('$\sqcup$ Types',r"""\begin{itemize}
 \item User defines is own types library for:
   \begin{itemize}
@@ -1508,7 +1509,7 @@ Edges have no ids!
 \texttt{A -(1)> B A -(2)> B} &$\neq$&  \texttt{A -(2)> B A -(2)> B}\\
 \end{tabular} 
 """)
-    slides.frame('Expected code generation',reduce(lambda y,k: y+r'\item %s'%k+ '\n',__OUT_LANG__,r'\begin{itemize}') + r'\end{itemize}')
+    slides.itemize('Expected code generation',__OUT_LANG__)
     slides.frame('Graphic generation',r"""
 \begin{itemize}
 \item SVG for Web publishing
@@ -1527,26 +1528,25 @@ The same graph may have several styles (Themes)
 ...beautiful graphic output is a requirement !
 (\TeX principle)
 """)
-    slides.frame('Candidate model formalisms',reduce(lambda y,k: y+r'\item %s'%k+ '\n',__IN_MODEL__,r'\begin{itemize}') + r'\end{itemize}')
+    slides.itemize('Candidate model formalisms',__IN_MODEL__)
     slides.frame('Edge shape type',r"""
 There is 16 possible arrow types for each edge type:
 \begin{tabular}{|c|c|c|c|}
 \hline \texttt{-X>} & \texttt{=X>} & \texttt{>X>} & \texttt{<X>}  \\
 \hline \texttt{-X<} & \texttt{=X<} & \texttt{>X<} & \texttt{<X<}  \\ 
 \hline \texttt{-X-} & \texttt{=X-} & \texttt{>X-} & \texttt{<X-}  \\ 
-\hline \texttt{-X=} & \texttt{=X=} & \texttt{>X=} & \texttt{<X=}  \\ 
-\hline
+\hline \texttt{-X=} & \texttt{=X=} & \texttt{>X=} & \texttt{<X=}  \\ \hline
 \end{tabular}\\
 Where \\ \texttt{X} is an edge type; none or only one unicode character. 
 """)
-    slides.frame(r'Needs',r"""\begin{enumerate}
+    slides.frame(r'Needs',r"""\begin{itemize}
 \item A theoritical support
 \item A Constraint Definition Language (Real,OCL,...)
 \item A better types definition (currently dictionnary of properties)
-\item Support for many code generators
-\item Embedded and enlarge the test set
-\item Plugins for formal model checker and theorem prover.
-\end{enumerate}
+\item A Support for many code generators
+\item An Embedded and large test set
+\item Plugins for formal model checkers and theorem provers.
+\end{itemize}
 """)
     slides.frame('Next about $\sqcup{}$!',r"""\begin{block}{Forge:} \url{https://%s} \end{block} 
 \begin{block}{Source code:} See PDF attached file:u.py \end{block}"""%__url__)
@@ -1580,7 +1580,6 @@ if __name__ == '__main__':
             pass
 
     # debug zone!
-    uobj = u()
     #s = u' AA ⊔A A⊔ C您'
     #for m in re.compile(r'\s*(\w+)\s*',re.U).finditer(s):
     #    print m.groups()
