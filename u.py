@@ -38,7 +38,7 @@ __version__ = '0.1a'
 __license__ = 'GPLv3'
 __url__     = 'github/pelinquin/u'
 
-import os,sys,re,hashlib,shutil,subprocess,urllib,datetime
+import os,sys,re,hashlib,shutil,subprocess,urllib,datetime,httplib
 
 #__RE_LABEL__ = r'''
 #   (
@@ -67,10 +67,11 @@ __RE_U__ = r'''                # RegExp with 10 groups
     ([\-=<>])                         #  Tail      G10
    )
 '''
-
+ 
 __RE_FILTER__ = [(r'(?m)\#.*$',''),            # remove comments
-                 (r'\s*$',''),                 # right strip 
-                 (r'^\s*',''),                 # left strip
+                 (r'(?m)\s*$',''),             # right strip 
+                 (r'(?m)^\s*',''),             # left strip
+                 (r'\n',' '),                  # on one line
                  (r'\s*[\}\]]\s*', '\'], \''), # add quote and open bracket
                  (r'\s*[\{\[]\s*', '\', [\''), # add quote and closing bracket
                  (r'^(.*)$', '[\'\\1\']'),     # add start and end line brackets
@@ -260,13 +261,17 @@ class u:
                          {'' : 'stroke:black; stroke-width:1; fill:none; marker-end:url(#.arrow);',
                           'I': 'stroke:green; stroke-width:2; fill:none; marker-end:url(#.arrow);',
                           'L': 'stroke:red; stroke-width:3; fill:none; marker-end:url(#.arrow);'})
-        self.m['tikz'] = ({'':('rectangle,draw=black!40,fill=gray!10',['p1','p2']),
-                           'T':('circle,drop shadow,draw=green!40,fill=gray!20',['in1','in2','out1','out2']), 
-                           'O':('rectangle,drop shadow,rounded corners=3pt,draw=red!40,fill=blue!25',[])
+        self.m['tikz'] = ({'':('circle,drop shadow,draw=green!40,fill=gray!20',()),
+                           'S':('rectangle,draw=black!40,fill=gray!10',('p1','p2')),
+                           'T':('circle,drop shadow,draw=green!40,fill=gray!20',('in1','in2','out1','out2')), 
+                           'O':('rectangle,drop shadow,rounded corners=3pt,draw=red!40,fill=blue!25',()),
                            },
-                          {'':'->,>=latex',
+                          {'':'--',
                            'I':'->,>=open diamond',
-                           'L':'->,>=triangle 60'
+                           'L':'->,>=triangle 60',
+                           'droit':'--',
+                           'simple':'->,>=latex',
+                           'S':'->,>=latex',
                            })
         self.m['c'] = ({'C':['class',],
                         'c':['class',]}
@@ -476,19 +481,20 @@ pragma Profile (Ravenscar);
             #name = n.encode('utf-8')
             name = n
             label = name 
-            shape = 'node_' if (len(Nodes[n])<2 or not Nodes.has_key(n)) else 'node_%s'%Nodes[n][1]
-            tt = m[0][''][1] if (len(Nodes[n])<2 or not Nodes.has_key(n) or not m[0].has_key(Nodes[n][1])) else m[0][Nodes[n][1]][1]
+            shape = 'node_' if (len(Nodes[n])<3 or not Nodes.has_key(n)) else 'node_%s'%Nodes[n][2]
             (x,y) = (pos[n][0]/25,pos[n][1]/25)
-            port_layout = [['west'],['west','east'],[192,12,-12],[168,192,12,-12],['cool']]
             o += r'\node[%s](%s) at (%0.3f,%0.3f) {%s};'%(shape,name,x,y,label) + '\n'
-            if tt and len(tt) < 5:
-                rep = port_layout[len(tt)-1]
-                for i in range(len(rep)):
-                    o += r'\draw (%s.%s) node{\tiny{%s}};'%(n,rep[i],tt[i]) + '\n'
+            # ports
+            tt = m[0][''][1] if (len(Nodes[n])<3 or not Nodes.has_key(n) or not m[0].has_key(Nodes[n][2])) else m[0][Nodes[n][2]][1]
+            if tt:
+                delta,p = 360/len(tt),-180
+            for i in tt:
+                o += r'\draw (%s.%s) node{\tiny{%s}};'%(n,p,i) + '\n'
+                p += delta
         for e in Edges:
             boucle = '[bend left]'
-            typ = 'edge_' if len(e)<5 else 'edge_%s'%e[4]
-            label = '' if len(e)<4 else 'node{%s}'%e[3] 
+            typ = 'edge_' if len(e)<5 or e[4] == None else 'edge_%s'%e[4]
+            label = '' if len(e)<4 or e[3] == None else 'node{%s}'%e[3] 
             o += r'\draw[%s](%s) to%s %s(%s);'%(typ,e[0],boucle,label,e[2]) + '\n'
         o += r'\end{tikzpicture}'+ '\n'
         if standalone:
@@ -862,7 +868,7 @@ Example: [<a href="u?tikz">/u?tikz</a>]</p>
                 #o += '<input type=button value=test onclick="submit();"/>'
                 o += '</form>'
         elif lang in (None, 'ast','raw'):
-            o = '# Python ⊔ AST\n\n%s %s'%uobj.parse(args)
+            o = '# ⊔ Python Abstract Syntax Structure:\n\n%s %s'%uobj.parse(args)
         else:
             ast = uobj.parse(args)
             o = eval('uobj.hf(uobj.gen_%s)(ast)'%lang) #o = eval('uobj.gen_%s(ast)'%lang).encode('utf-8')
@@ -903,10 +909,10 @@ def layout(nodes,edges,rankdir='TB'):
         d+= ' %s->%s'%(n1,n2) #d+= ' %s->%s'%(e[0].encode('utf-8'),e[2].encode('utf-8'))
     p = subprocess.Popen(['dot'], stdout=subprocess.PIPE, stdin=subprocess.PIPE)
     for l in p.communicate(input=d + '}')[0].split('\n'):
-        if reg(re.search('bb="0,0,(\d+),(\d+)"',l)):
+        if reg(re.search('bb="0,0,([\.\d]+),([\.\d]+)"',l)):
             bbx,bby = float(reg.v.group(1)),float(reg.v.group(2))
-        elif reg(re.search('^\s*(\w+)\s*\[label=[^,]*, pos="(\d+),(\d+)"',l)) and bbx and bby:
-            pos[reg.v.group(1)] = (int(reg.v.group(2))*100/bbx,int(reg.v.group(3))*100/bby)
+        elif reg(re.search('^\s*(\w+)\s*\[label=[^,]*, pos="([\.\d]+),([\.\d]+)"',l)) and bbx and bby:
+            pos[reg.v.group(1)] = (float(reg.v.group(2))*100/bbx,float(reg.v.group(3))*100/bby)
     return pos
 
 def gen_tikz_header(m=[],(ln,le)=({},{})):
@@ -1340,7 +1346,7 @@ class beamer:
 """
     def __init__(self,title,author,email,dat,logo=None):
         r"""\begin{document} 
-\frame{\titlepage} \section{\textsc{draft}} 
+\frame{\titlepage} \section{\textsc{Draft}} 
 """
         self.src = os.path.basename(sys.argv[0])
         self.tex = beamer.__doc__ + '\n'
@@ -1362,10 +1368,29 @@ class beamer:
         self.tex += content + '\n'
         self.tex += '}\n'
 
+    def frame2(self,title,c1,c2):
+        ""
+        self.tex += r'\frame{\frametitle{%s}'%title + '\n'
+        self.tex += r'\begin{columns}[c]' + '\n'
+        self.tex += r'\column{1.5in}' + '\n' + c1 + '\n'
+        self.tex += r'\column{1.5in}' + '\n' + c2 + '\n'
+        self.tex += r'\end{columns}' + '\n'
+        self.tex += '}\n'
+
     def itemize(self,title,tab):
         ""
         self.tex += r'\frame{\frametitle{%s}'%title + '\n'
         self.tex += reduce(lambda y,k: y+r'\item %s'%k+ '\n',tab,r'\begin{itemize}') + r'\end{itemize}' + '}\n'
+
+    def itemize_graph(self,title,tab,g):
+        ""
+        self.tex += r'\frame{\frametitle{%s}'%title + '\n'
+        self.tex += r'\begin{columns}[c]' + '\n'
+        self.tex += r'\column{1.5in}' + '\n'
+        self.tex += reduce(lambda y,k: y+r'\item %s'%k+ '\n',tab,r'\begin{itemize}') + r'\end{itemize}'
+        self.tex += r'\column{1.5in}' + '\n' + g + '\n'
+        self.tex += r'\end{columns}' + '\n'
+        self.tex += '}\n'
 
     def gen_pdf(self):
         ""
@@ -1380,6 +1405,7 @@ class beamer:
 
 def gen_beamer():
     ""
+    uobj = u()
     slides = beamer(r'The $\sqcup$ Language',__author__,__email__,'December $7^{th}$ 2011','rcf.png')
     slides.frame(r'What $\sqcup$ is?', r""" 
 The $\sqcup$ language is a {\bf Universal Graph Language};\\
@@ -1404,7 +1430,13 @@ $p$ and $q$ are ports references.\\
 $|i|>1$ or $|j|>1$ for multi-links.\\ 
 Each node $v_i$ or edge $e_k $ is a key attached to some attributes list.
 """)
-    slides.itemize('$\sqcup$ features \textsc{thous}', ('Typed','Hierachical','Online','Unicode','Short'))
+    slides.itemize_graph(r'$\sqcup$ \textsc{thous} features', (r'\textsc{T}-yped',
+                                                               r'\textsc{H}-ierachical',
+                                                               r'\textsc{O}-nline',
+                                                               r'\textsc{U}-nicode',
+                                                               r'\textsc{S}-hort'),
+                         uobj.gen_tikz(uobj.parse('T--H T--O T--U T--U T--S H--O H--U H--S O--U O--S U--S'),False)
+                         )    
     slides.frame('$\sqcup$ at a glance',r"""\begin{tabular}{ll}
 \texttt{Hello -> World} & Hello World! \\
 \texttt{A B C}  & Nodes \\
@@ -1552,12 +1584,24 @@ Where \\ \texttt{X} is an edge type; none or only one unicode character.
 \begin{block}{Source code:} See PDF attached file:u.py \end{block}"""%__url__)
     slides.gen_pdf()
 
+def post(server, service, content):
+    B,CRLF = '----------ThIs_Is_tHe_bouNdaRY_$','\r\n'
+    body = CRLF.join(['--%s'%B,'Content-Disposition: form-data; name=""; filename=""','Content-Type: text/html','',content,'--%s--'%B,''])
+    h = httplib.HTTP(server)
+    h.putrequest('POST', service)
+    h.putheader('content-type', 'multipart/form-data; boundary=%s'%B)
+    h.putheader('content-length', str(len(body)))
+    h.endheaders()
+    h.send(body)
+    h.getreply()
+    return h.file.read()
+
 if __name__ == '__main__':
     "Run the module or use it as WSGI application with an Apache server"
     try:
         subprocess.Popen(['dot'], stdout=subprocess.PIPE,stdin=subprocess.PIPE).communicate(input='digraph G {A->B}')
     except:
-        print '...Error: please install \'graphviz\' package'
+        print '...Error: please install \'graphviz\' package !'
         sys.exit()
 
     import doctest
@@ -1569,26 +1613,34 @@ if __name__ == '__main__':
     gen_beamer()
     gen_readme()
 
-    import getopt
+    ########## debug zone! ##############
+    # test multilinks
+    x = 'H->T->O->U->S->H->O->S'
+    uobj = u()
+    #print uobj.gen_svg(uobj.parse(x))
 
-    opts, args = getopt.getopt(sys.argv[1:],'h',['help'])
 
-    for r in opts:
-        if r[0] in ('-h','--help'):
-            print 'help'
-        elif r[0] in ('-h','--help'):
-            pass
-
-    # debug zone!
+    # 1 - test unicode
     #s = u' AA ⊔A A⊔ C您'
     #for m in re.compile(r'\s*(\w+)\s*',re.U).finditer(s):
     #    print m.groups()
-
-    #print uobj.hf(uobj.gen_c)(ast)
     
+    # 1 - test getopt 
+    import getopt
+    opts, args = getopt.getopt(sys.argv[1:],'hf:',['help','format'])
+    o = 'raw'
+    for r in opts:
+        if r[0] in ('-h','--help'):
+            print help('u')
+        elif r[0] in ('-f','--format'):
+            o = r[1]
+    for arg in args:
+        if os.path.isfile(arg):
+            server = '127.0.0.1' # use '193.84.73.209'
+            print post(server, '/u?%s'%o, open(arg).read())
 
+    # 4 - test quotes
     s = '\'A \\\'B\\\'C\' "D\\"E\\"F" """ foo """ bar """ zzz """ \'\'\' foo \'\'\' bar \'\'\' zzz \'\'\'  '
-
     for m in re.compile(r"""(
 "{3}.*?"{3}|            # triple double quote
 '{3}.*?'{3}|            # triple simple quote
@@ -1598,8 +1650,6 @@ if __name__ == '__main__':
         a = m.group(1) 
         b = a[1:-1] if not  a[:3] in ('"""',"'''") else a[3:-3]
         tab = [re.sub(r'\\','',b)]
-        pass
-        #print tab
 
     for m in re.compile(r"""
 "{3}(.*?)"{3}|            # triple double quote
@@ -1608,6 +1658,5 @@ if __name__ == '__main__':
 '((?:[^'\\]|\\.)*)'       # simple quote
 """,re.U|re.X).finditer(s): 
         pass
-        #print m.groups()
 
 # the end
