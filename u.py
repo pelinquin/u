@@ -99,7 +99,7 @@ __OUT_LANG__ = {'c'      :['c'   ,('/*'  ,'*/' ,'')],
                 'vhdl'   :['hdl' ,('--'  ,''   ,'')],
                 'systemc':['sc'  ,('//'  ,''   ,'')]}
 
-__IN_MODEL__ = ['UML','SysML','AADL-Graph','Marte','Xcos','Kaos','Entity-Relation-Graph','Tree-Diagram',
+__IN_MODEL__ = ['UML','SysML','AADL-Graph','Marte','PSL','Xcos','Kaos','Entity-Relation-Graph','Tree-Diagram',
                 'Network-Graph','Flowchart','Petri-net','State-Machine','Markov-Chain','Behavior-Tree'] 
 
 __CODE_GEN_SET__ = {
@@ -814,7 +814,7 @@ def get_favicon():
     return '<link %s rel="shortcut icon" type="image/svg+xml" href="data:image/svg+xml;base64,%s"/>\n'%(_XHTMLNS,data)
 
 def application(environ,start_response):
-    """<title>⊔</title><style>h1,p,li,b{font-family:helvetica neue,helvetica,arial,sans-serif;} a{text-decoration:none;}</style>
+    """<title>⊔</title><style>h1,h6,p,li,b{font-family:helvetica neue,helvetica,arial,sans-serif;} a{text-decoration:none;} h6{text-align:right;}</style>
 <h1><a href="https://github.com/pelinquin/u" style="font-size:64pt;color:DodgerBlue;" title="SquareCup">⊔</a> Web service</h1>
 <p>The Web service root name (after domain and server name in the URL) is: ⊔ [<a href="u?about">/u...</a>] or [<a href="⊔?about">/⊔...</a>] (U+2294).</p>
 <p>Any URL argument (after '?') shall be a valid ⊔ string and the default output is the AST (a Python data structure).
@@ -843,7 +843,9 @@ Example: [<a href="u?tikz">/u?tikz</a>]</p>
         elif action and action.lower() in ('about','help','usage'):
             mime,o = 'text/html;charset=UTF-8','<html><title>v%s</title>%s'%(__version__,get_favicon())
             o += application.__doc__ + ', '.join(__OUT_LANG__) + '</b>\n'
-            o += '<p>Supported Input Modeling Formalism are:</p><b>' + ', '.join(__IN_MODEL__) + '</b></html>\n'
+            o += '<p>Supported Input Modeling Formalism are:</p><b>' + ', '.join(__IN_MODEL__) + ',...</b>\n'
+            digest = hashlib.sha1(open(__file__).read()).hexdigest()
+            o += '<h6>Digest: %s</h6></html>'%digest[:5]
         elif action and action.lower() in ('paper','pdf'):
             o,mime = open('%s/u.pdf'%os.path.dirname(environ['SCRIPT_FILENAME'])).read(),'application/pdf'
         elif action and action.lower() == 'beamer':
@@ -854,7 +856,11 @@ Example: [<a href="u?tikz">/u?tikz</a>]</p>
             else:
                 cmd = 'ls %s'%__file__
             res = subprocess.Popen((cmd), shell=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE).communicate()
-            o = res[1] if res[1] else '%s server Updated!'%environ['SERVER_NAME']
+            o,mime = '<html><p>','text/html'
+            o += res[1] if res[1] else '%s server Updated!'%environ['SERVER_NAME']
+            o += '</p><a href="u?about">...go to main page</a>'
+            digest = hashlib.sha1(open(__file__).read()).hexdigest()
+            o += '<h6>Digest: %s</h6></html>'%digest[:5]
         elif args == None:
             if environ['REQUEST_METHOD'].lower() == 'post':
                 raw = environ['wsgi.input'].read(int(environ.get('CONTENT_LENGTH','0')))
@@ -916,8 +922,7 @@ def layout(nodes,edges,rankdir='TB'):
     return pos
 
 def gen_tikz_header(m=[],(ln,le)=({},{})):
-    r"""\usetikzlibrary{shapes,fit,arrows,shadows,backgrounds}
-"""
+    r"""\usetikzlibrary{shapes,fit,arrows,shadows,backgrounds}"""
     #\tikzset{node_O/.style = {draw,circle,inner sep=10pt,path pp={ \draw[black] (path pp bounding box.south) -- (path pp bounding box.north) (path pp bounding box.west) -- (path pp bounding box.east);}}} 
     o = gen_tikz_header.__doc__
     if m:
@@ -1421,64 +1426,101 @@ The $\sqcup$ language is a {\bf Universal Graph Language};\\
 \item License: \textsc{gpl} v3
 \end{itemize} 
 """)
-    slides.frame('Graph', r""" 
-A graph: $G = (V,E) $ \\
-where: \\
-$$V=\{v_i\} \text{and} E=\{e_{k}\}$$ a set of nodes (vertices) and a set of edges between nodes.\\
-$$e_{k} = (\{ v_{i_p}\},\{v_{j_q} \})$$ an edge links an origin nodes set to some destination nodes set.\\
+    slides.frame('Graph', r"""A {\bf graph}: $G = (V,E) $ \\
+where: \\ $$V=\{v_i\} \: \text{and} \: E=\{e_{k}\}$$ ...a set of nodes (vertices) and a set of arcs (edges) between nodes.\\
+$$e_{k} = (\{ v_{i_p}\},\{v_{j_q} \})$$ Edge links some origin nodes set to some destination nodes set.\\
 $p$ and $q$ are ports references.\\
-$|i|>1$ or $|j|>1$ for multi-links.\\ 
-Each node $v_i$ or edge $e_k $ is a key attached to some attributes list.
-""")
-    slides.itemize_graph(r'$\sqcup$ \textsc{thous} features', (r'\textsc{T}-yped',
-                                                               r'\textsc{H}-ierachical',
-                                                               r'\textsc{O}-nline',
-                                                               r'\textsc{U}-nicode',
-                                                               r'\textsc{S}-hort'),
-                         uobj.gen_tikz(uobj.parse('T--H T--O T--U T--U T--S H--O H--U H--S O--U O--S U--S'),False)
+Rmq: $|i|>1$ or $|j|>1$ for multi-links.\\ 
+Some attributes list is attached to each node $v_i$ and each edge $e_k $.""")
+    slides.itemize_graph(r'$\sqcup$ \textsc{thonus} features', (r'\textsc{T}-yped',
+                                                                r'\textsc{H}-ierachical',
+                                                                r'\textsc{O}-nline',
+                                                                r'\textsc{N}-eutral',
+                                                                r'\textsc{U}-nicode',
+                                                                r'\textsc{S}-hort'),
+                         uobj.gen_tikz(uobj.parse('T--H T--O T--N T--U T--U T--S H--O H--N H--U H--S O--N O--U O--S N--U N--S U--S'),False)
                          )    
     slides.frame('$\sqcup$ at a glance',r"""\begin{tabular}{ll}
-\texttt{Hello -> World} & Hello World! \\
-\texttt{A B C}  & Nodes \\
-\texttt{A->B C<-D} & Links \\
-\texttt{A\{B C\}} & Composition \\
+\texttt{Hello -> "World!"} & Hello World! \\
+\texttt{A B foo bar}  & Some Nodes \\
+\texttt{A->B C<-D -- E} & Nodes with links \\
+\texttt{A\{B C \{D\}\}} & Node Composition \\
 \texttt{A->\{B C\}} & Mulilinks \\
-\texttt{X"A Node label"} & Labels \\
+\texttt{A"This is a node label"} & Labels \\
 \texttt{A:T B:Class} & Typed nodes \\
-\texttt{A(2 4) B(f 6 8)} & Arguments \\
+\texttt{A(2,4) B(f 6 8)} & Arguments \\
 \texttt{A <Y> B} & Typed arc \\
 \texttt{A"name":T(arg) A->B A<-C} & Id reuse \\
-\texttt{A.pin2 -> B.5} & Ports \\
+\texttt{A.pin2 -> B.5} & Indexed and named ports \\
 \end{tabular} 
 """)
+    slides.frame('The big picture', r"""\usetikzlibrary{shapes.multipart} 
+\tikzstyle{node} = [rectangle,rounded corners=3pt,drop shadow,draw=gray!40,fill=gray!20]
+\tikzstyle{model} = [rectangle,rounded corners=2pt,drop shadow,draw=gray!40,fill=brown!30]
+\tikzstyle{tool} = [rectangle,rounded corners=5pt,drop shadow,draw=gray!40,fill=red!30]
+\tikzstyle{graph} = [ellipse,drop shadow,draw=gray!40,fill=green!20]
+\tikzstyle{lang} = [ellipse,drop shadow,draw=gray!40,fill=blue!20]
+\tikzstyle{edge} = [->,>=latex]
+\tikzstyle{dbl} = [->,>=latex,dashed]
+\tikzstyle{def} = [->>,dotted]
+%\begin{tikzpicture}[auto,node distance=15mm,semithick]
+\begin{tikzpicture}[every text node part/.style={align=left}]
+\node[node](A) at(1,4){$\sqcup$ concrete \\ syntax \\ string};
+\node[node](B) at(5,4){$\sqcup$ abstract \\ syntax \\ structure};
+\node[tool](J) at(5,1){$\sqcup$ type \\ checker};
+\node[graph](C) at(7.5,6){SVG};
+\node[graph](D) at(8.5,5){Tikz};
+\node[lang](E) at(9.5,3){Ada};
+\node[lang](F)at(10,2){Ocaml};
+\node[lang](G)at(9,1){AADL};
+\node[lang](H)at(8,0){XXXX};
+\node[model](I) at(1,1){UML \\ Simulink \\ KAOS \\...};
+\draw[edge](A)to node[auto]{$\sqcup$ parser}(B);
+\draw[edge](B)to node[sloped,above]{web. gen.}(C);
+\draw[edge](B)to node[sloped,above]{doc. gen.}(D);
+\draw[edge](B)to node[sloped,above]{code gen.}(E);
+\draw[edge](B)to (F);
+\draw[edge](B)to node[sloped,above]{model gen.}(G);
+\draw[edge](B)to node[sloped,above]{generator}(H);
+\draw[def](I)to node[auto]{use}(A);
+\draw[dbl](J)to (B);
+\end{tikzpicture}
+""")
+
+
+
+
     slides.frame('The main principles', r"""\begin{block}{Structure}
-$\sqcup$ only manage the structure of the graph, not the semantics of Nodes and Edges.
-The $\sqcup$ parser builds an Abstract Syntax Tree (a Python data Structure)
-Type libraries are doing the real job.
+$\sqcup$ only manage the structure of the graph, not the semantics.\\
+$\sqcup$ parser builds an Abstract Syntax Tree (a Python data Structure) \\ Types libraries are doing the real job.
 \end{block}
 \begin{block}{Rendering}
-Graphics rendering is a matter of code generation. Customize the generator to style graphs.
+Graphics rendering is just a matter of code generation. \\ Customize the generator to style your graphs.
 \end{block} 
 \begin{block}{Pipes}
-To generate code, $\sqcup$ provides and uses UNIX like piped small tools from the graph Abstract Syntax Tree.
+To generate code, $\sqcup$ uses UNIX like piped small tools on the graph Abstract Syntax Tree.
 \end{block} 
 """)
     slides.frame('Syntax building blocks',r"""\begin{itemize}
 \item for Nodes:
 \begin{itemize}
-  \item \texttt{\textbackslash w+}: an unicode word to identify the node
-  \item \texttt{\textbackslash .(\textbackslash w+|\textbackslash d+)}: a named or indexed port (interpreted iff the node is connected)
-  \item \texttt{"[\^"]+"}: a label on possibly several lines separator is simple quote, double quote or triple quotes 
-  \item \texttt{:\textbackslash w+}: Type 
-  \item \texttt{(.+)}: arguments list
+  \item \texttt{ID}: an unicode word to identify the node
+  \item \texttt{port}: a named or indexed port (type compatible)
+  \item \texttt{label}: a string on possibly several lines separator is simple quote, double quote or triple quotes 
+  \item \texttt{type}: Type name available in the node types library 
+  \item \texttt{args}: arguments list
 \end{itemize} 
 \item for Edges:
 \begin{itemize}
   \item \texttt{(<>-=)}: Arrow head
-  \item \texttt{"[\^"]+"}: Label on possibly several lines separator is simple quote, double quote or triple quotes 
-  \item \texttt{:\textbackslash w+}: Type 
-  \item \texttt{([\^)]+)}: Arguments
+  \item \texttt{label}: a string on possibly several lines separator is simple quote, double quote or triple quotes 
+  \item \texttt{type}: Type name available in the edge types library 
+  \item \texttt{args}: Edge Arguments
   \item \texttt{(<>-=)}: Arrow tail
+\end{itemize} 
+\item for blocks:
+\begin{itemize}
+  \item \texttt{\{...\}}: delimiters
 \end{itemize} 
 \end{itemize} 
 """)
@@ -1520,7 +1562,10 @@ The arguments may be used call, customize or instantiate. \\
 The type definition may include default code.
 """)
     slides.frame('Overload nodes rules',r"""
-Node Definition and Node Usage are identical!\\ Node accumulates:
+\begin{block}{rules:}
+Node Definition and Node Usage are identical!\\
+Node,Edges accumulates properties:
+\end{block}
 \begin{tabular}{lcl}
 \texttt{A"hello" A:T}        &$\equiv$&  \texttt{A"hello":T}\\
 \texttt{A"hello" A->B}       &$\equiv$&  \texttt{A"hello"->B}\\
@@ -1530,58 +1575,54 @@ Node Definition and Node Usage are identical!\\ Node accumulates:
 \texttt{A(arg1) A(arg2)}     &$\equiv$&  \texttt{A(arg2)}\\
 \texttt{A:T1 A:T2}           &$\equiv$&  \texttt{A:T2}\\
 \texttt{A\{A\}}              &$\equiv$& \texttt{A}  \\
-\end{tabular} 
-""")
+\end{tabular}""")
     slides.frame('Edge rules',r"""
+\begin{block}{rule:}
 Edges have no ids!
+\end{block}
 \begin{tabular}{lcl}
 \texttt{A->B A->B}           &$\neq$&  \texttt{A->B}\\
 \texttt{A -x> B A -y> B}     &$\neq$&  \texttt{A -y> B A -y> B}\\
 \texttt{A -(1)> B A -(2)> B} &$\equiv$&  \texttt{A -(2)> B A -(1)> B}\\
 \texttt{A -(1)> B A -(2)> B} &$\neq$&  \texttt{A -(2)> B A -(2)> B}\\
-\end{tabular} 
-""")
+\end{tabular}\\
+16 possible arrow types for each edge type \texttt{X}:
+\begin{tabular}{|c|c|c|c|}
+\hline \texttt{-X>} & \texttt{=X>} & \texttt{>X>} & \texttt{<X>}  \\
+\hline \texttt{-X<} & \texttt{=X<} & \texttt{>X<} & \texttt{<X<}  \\ 
+\hline \texttt{-X-} & \texttt{=X-} & \texttt{>X-} & \texttt{<X-}  \\ 
+\hline \texttt{-X=} & \texttt{=X=} & \texttt{>X=} & \texttt{<X=}  \\ \hline
+\end{tabular}""")
+    slides.itemize('Candidate model formalisms',__IN_MODEL__)
     slides.itemize('Expected code generation',__OUT_LANG__)
     slides.frame('Graphic generation',r"""
 \begin{itemize}
 \item SVG for Web publishing
 \item Tikz for \TeX{} and \textsc{pdf} exporting
 \end{itemize}
-The layout (nodes placement and edge path) does not carry semantics\\
-Do not let User define it, let advanced algorithms do the layout with goals:
+Layout (nodes placement and edge path) does not carry semantics\\
+Do not let end-user define it, let advanced algorithms do the layout with goals:
 \begin{itemize}
-\item Equilibrate the nodes in the canvas
+\item Balance nodes in the canvas
 \item Minimize edge crossing
 \item Find best path for edges
 \item Follow graphic design rules 
 \item Follow Typographic rules
 \end{itemize}
-The same graph may have several styles (Themes)
-...beautiful graphic output is a requirement !
-(\TeX principle)
-""")
-    slides.itemize('Candidate model formalisms',__IN_MODEL__)
-    slides.frame('Edge shape type',r"""
-There is 16 possible arrow types for each edge type:
-\begin{tabular}{|c|c|c|c|}
-\hline \texttt{-X>} & \texttt{=X>} & \texttt{>X>} & \texttt{<X>}  \\
-\hline \texttt{-X<} & \texttt{=X<} & \texttt{>X<} & \texttt{<X<}  \\ 
-\hline \texttt{-X-} & \texttt{=X-} & \texttt{>X-} & \texttt{<X-}  \\ 
-\hline \texttt{-X=} & \texttt{=X=} & \texttt{>X=} & \texttt{<X=}  \\ \hline
-\end{tabular}\\
-Where \\ \texttt{X} is an edge type; none or only one unicode character. 
+The same graph may have several styles (Themes) \\
+\TeX{}principle: nice graphic output is a requirement !
 """)
     slides.frame(r'Needs',r"""\begin{itemize}
-\item A theoritical support
-\item A Constraint Definition Language (Real,OCL,...)
+\item A theoretical support
+\item A constraint definition language (Real,OCL,...)
 \item A better types definition (currently dictionnary of properties)
-\item A Support for many code generators
-\item An Embedded and large test set
+\item A support for many code generators
+\item An embedded and large test set
 \item Plugins for formal model checkers and theorem provers.
 \end{itemize}
 """)
-    slides.frame('Next about $\sqcup{}$!',r"""\begin{block}{Forge:} \url{https://%s} \end{block} 
-\begin{block}{Source code:} See PDF attached file:u.py \end{block}"""%__url__)
+    slides.frame('Next about $\sqcup{}$!',r"""\begin{block}{All is on the forge:} \url{https://%s} \end{block} 
+\begin{block}{Source code:} See PDF attached file:u.py \\ and generate this beamer  \end{block}"""%__url__)
     slides.gen_pdf()
 
 def post(server, service, content):
