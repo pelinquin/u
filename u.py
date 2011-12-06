@@ -1350,9 +1350,7 @@ class beamer:
 \usepackage{tikz}
 """
     def __init__(self,title,author,email,dat,logo=None):
-        r"""\begin{document} 
-\frame{\titlepage} \section{\textsc{Draft}} 
-"""
+        r"""\begin{document} \frame{\titlepage}"""
         self.src = os.path.basename(sys.argv[0])
         self.tex = beamer.__doc__ + '\n'
         self.tex += r'\embedfile[filespec=%s]{%s}'%(self.src,os.path.abspath(self.src))
@@ -1360,7 +1358,8 @@ class beamer:
         self.tex += r'\author{%s\inst{*}}\institute{*%s}'%(author,email) + '\n' + r'\date{%s}'%dat + '\n'
         if os.path.isfile(os.path.abspath(logo)):
             self.tex += r'\pgfdeclareimage[height=.6cm]{logo}{%s}'%os.path.abspath(logo) + '\n' + r'\logo{\pgfuseimage{logo}}' + '\n\n'
-        self.tex += beamer.__init__.__doc__ + '\n'
+        digest = hashlib.sha1(open(__file__).read()).hexdigest()
+        self.tex += beamer.__init__.__doc__ + r'\section{Draft:\texttt{%s}}'%digest[:5] + '\n'
 
     def gen_tex(self):
         r"""\end{document}"""
