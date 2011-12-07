@@ -1395,6 +1395,17 @@ class beamer:
         self.tex += r'\column{1.5in}' + '\n' + g + '\n'
         self.tex += r'\end{columns}' + '\n'
         self.tex += '}\n'
+        
+    def itemize2(self,title,tab1,tab2):
+        ""
+        self.tex += r'\frame{\frametitle{%s}'%title + '\n'
+        self.tex += r'\begin{columns}[l]' + '\n'
+        self.tex += r'\column{1.5in}' + '\n'
+        self.tex += reduce(lambda y,k: y+r'\item %s'%k+ '\n',tab1,r'\begin{itemize}') + r'\end{itemize}'
+        self.tex += r'\column{1.5in}' + '\n' 
+        self.tex += reduce(lambda y,k: y+r'\item %s'%k+ '\n',tab2,r'\begin{itemize}') + r'\end{itemize}'
+        self.tex += r'\end{columns}' + '\n'
+        self.tex += '}\n'
 
     def gen_pdf(self):
         ""
@@ -1426,9 +1437,9 @@ The $\sqcup$ language is a {\bf Universal Graph Language};\\
 \end{itemize} 
 """)
     slides.frame('Graph', r"""A {\bf graph}: $G = (V,E) $ \\
-where: \\ $$V=\{v_i\} \: \text{and} \: E=\{e_{k}\}$$ ...a set of nodes (vertices) and a set of arcs (edges) between nodes.\\
+where: \\ $$V=\{v_i\} \; \text{and} \; E=\{e_{k}\}$$ ...a set of nodes (vertices) and a set of arcs (edges) between nodes.\\
 $$e_{k} = (\{ v_{i_p}\},\{v_{j_q} \})$$ Edge links some origin nodes set to some destination nodes set.\\
-$p$ and $q$ are ports references.\\
+[$p$ and $q$ are ports references]\\
 Rmq: $|i|>1$ or $|j|>1$ for multi-links.\\ 
 Some attributes list is attached to each node $v_i$ and each edge $e_k $.""")
     slides.itemize_graph(r'$\sqcup$ \textsc{thonus} features', (r'\textsc{T}-yped',
@@ -1465,15 +1476,16 @@ Some attributes list is attached to each node $v_i$ and each edge $e_k $.""")
 %\begin{tikzpicture}[auto,node distance=15mm,semithick]
 \begin{tikzpicture}[every text node part/.style={align=left}]
 \node[node](A) at(1,4){$\sqcup$ concrete \\ syntax \\ string};
-\node[node](B) at(5,4){$\sqcup$ abstract \\ syntax \\ structure};
-\node[tool](J) at(5,1){$\sqcup$ type \\ checker};
+\node[node](B) at(5,4){$\sqcup$ abstract \\ syntax \\ Python \\ structure};
+\node[tool](J) at(4.5,1){$\sqcup$ type \\ checker};
+\node[tool](K) at(2.5,1){$\sqcup$ optimizer};
 \node[graph](C) at(7.5,6){SVG};
 \node[graph](D) at(8.5,5){Tikz};
 \node[lang](E) at(9.5,3){Ada};
 \node[lang](F)at(10,2){Ocaml};
 \node[lang](G)at(9,1){AADL};
 \node[lang](H)at(8,0){XXXX};
-\node[model](I) at(1,1){UML \\ Simulink \\ KAOS \\...};
+\node[model](I) at(0,1){UML \\ Simulink \\ KAOS \\...};
 \draw[edge](A)to node[auto]{$\sqcup$ parser}(B);
 \draw[edge](B)to node[sloped,above]{web. gen.}(C);
 \draw[edge](B)to node[sloped,above]{doc. gen.}(D);
@@ -1483,25 +1495,22 @@ Some attributes list is attached to each node $v_i$ and each edge $e_k $.""")
 \draw[edge](B)to node[sloped,above]{generator}(H);
 \draw[def](I)to node[auto]{use}(A);
 \draw[dbl](J)to (B);
+\draw[dbl](K)to (A);
 \end{tikzpicture}
 """)
-
-
-
-
-    slides.frame('The main principles', r"""\begin{block}{Structure}
-$\sqcup$ only manage the structure of the graph, not the semantics.\\
-$\sqcup$ parser builds an Abstract Syntax Tree (a Python data Structure) \\ Types libraries are doing the real job.
+    slides.frame('$\sqcup$ facts', r"""\begin{block}{Structure}
+$\sqcup$ only manages the structure of the graph, not the semantics.\\
+$\sqcup$ parser builds an Abstract Syntax Tree (a Python data Structure) \\ The types libraries are doing the real job!
 \end{block}
 \begin{block}{Rendering}
-Graphics rendering is just a matter of code generation. \\ Customize the generator to style your graphs.
+Graphics rendering is almost a matter of code generation. \\ Just customize the generator to style your graphs.
 \end{block} 
 \begin{block}{Pipes}
 To generate code, $\sqcup$ uses UNIX like piped small tools on the graph Abstract Syntax Tree.
 \end{block} 
 """)
-    slides.frame('Syntax building blocks',r"""\begin{itemize}
-\item for Nodes:
+    slides.frame('Syntax building elements',r"""\begin{itemize}
+\item Nodes:
 \begin{itemize}
   \item \texttt{ID}: an unicode word to identify the node
   \item \texttt{port}: a named or indexed port (type compatible)
@@ -1509,7 +1518,7 @@ To generate code, $\sqcup$ uses UNIX like piped small tools on the graph Abstrac
   \item \texttt{type}: Type name available in the node types library 
   \item \texttt{args}: arguments list
 \end{itemize} 
-\item for Edges:
+\item Edges:
 \begin{itemize}
   \item \texttt{(<>-=)}: Arrow head
   \item \texttt{label}: a string on possibly several lines separator is simple quote, double quote or triple quotes 
@@ -1517,53 +1526,50 @@ To generate code, $\sqcup$ uses UNIX like piped small tools on the graph Abstrac
   \item \texttt{args}: Edge Arguments
   \item \texttt{(<>-=)}: Arrow tail
 \end{itemize} 
-\item for blocks:
+\item Blocks:
 \begin{itemize}
   \item \texttt{\{...\}}: delimiters
 \end{itemize} 
-\end{itemize} 
-""")
-    slides.itemize('From the Dot (Graphviz) Language',(r'Dot\footnote{AT\&T Bell Laboratories} is not typed'
-                                                       ,'Dot composition (cluster) is not generic'
-                                                       ,'Dot ports are not (well) implemented'
-                                                       ,r'Dot is not minimal (\texttt{A->B} raises syntax error)'
-                                                       ,'Dot mixes structure and layout'
-                                                       ,'Limited Dot layout algorithms (nodes place + arc path)'))
-    slides.itemize(r'From the XML format',(r'XML is for XHTML what $\sqcup$ is for (UML,Simulink,...)'
+\end{itemize}""")
+    slides.itemize('From the Dot (Graphviz) Language',(r'\textsc{Dot}\footnote{AT\&T Bell Laboratories} is not typed'
+                                                       ,r'\textsc{Dot} composition (cluster) is not generic'
+                                                       ,r'\textsc{Dot} ports are not (well) implemented'
+                                                       ,r'\textsc{Dot} is not minimal (\texttt{"A->B"} raises a syntax error)'
+                                                       ,r'\textsc{Dot} mixes structure and layout'
+                                                       ,r'Limited \textsc{Dot} layout algorithms (nodes place + arc path)'))
+    slides.itemize(r'From the XML format',(r'XML is for XHTML what $\sqcup$ is for Models (UML,Simulink,...)'
                                            ,'XML is basically suited for trees not graphs'
                                            ,'XML has a lot of glue characters'
                                            ,'XML does not enforce id on each elements'
                                            ,'XML use Xlink,Xpath for referencing'
-                                           ,'XML raises attribute versus elements dilemma' 
+                                           ,'XML raises {\it attributes} versus {\it elements} dilemma' 
                                            ,'XML is unreadable in practice'
                                            ,'Transformations are complex (XSLT)'
-                                           ,'Type checking using DTD,XSL,RelaxNG'))
+                                           ,'Type checking using DTD, XSL, RelaxNG'))
     slides.frame('$\sqcup$ Types',r"""\begin{itemize}
 \item User defines is own types library for:
   \begin{itemize}
   \item Used Nodes \item Used Edges
   \end{itemize}
 \end{itemize} 
-The types library:
+A types library:
 \begin{itemize}
-\item defines the semantics of the input formalism (UML,Scade,...)\\
-\item maps to output patterns (Ada,SVG,...)\\
+\item defines the semantics of the input formalism (UML, Scade,...)\\
+\item maps to output patterns (Ada, SVG,...)\\
 \item defines a {\bf Domain Specific Language}
-\item customize graphic output
+\item customize graphics output
 \end{itemize} 
-Two different nodes types may rendered with different shapes/decorations in SVG but may maps to the same class construction for Python generation.
-""")
+Two different nodes types may rendered with different shapes/decorations in SVG but may maps to the same class construction for Scala generation.""")
     slides.frame('Semi-Formal and Formal',r"""
-A semi-formal node is a typed node with informal (english) sentence in its label.\\
-A formal node is a types node with all attributes valid stream from formal languages.\\
-The label may be used to embedd procedure, function, class definition on several lines. \\
+A {\bf semi-formal node} is a typed node with informal (english) sentence in its label.\\
+A {\bf formal node} is a types node with all attributes valid stream from formal languages.\\
+The label may be used to embedd procedure, function, class definition,..., on several lines. \\
 The arguments may be used call, customize or instantiate. \\
-The type definition may include default code.
-""")
+The type definition may include default source code.""")
     slides.frame('Overload nodes rules',r"""
 \begin{block}{rules:}
-Node Definition and Node Usage are identical!\\
-Node,Edges accumulates properties:
+{\bf Node definition} and {\bf Node usage} are identical!\\
+Node, Edges accumulates properties:
 \end{block}
 \begin{tabular}{lcl}
 \texttt{A"hello" A:T}        &$\equiv$&  \texttt{A"hello":T}\\
@@ -1576,9 +1582,7 @@ Node,Edges accumulates properties:
 \texttt{A\{A\}}              &$\equiv$& \texttt{A}  \\
 \end{tabular}""")
     slides.frame('Edge rules',r"""
-\begin{block}{rule:}
-Edges have no ids!
-\end{block}
+\begin{block}{rule:} Edge has no id! \end{block}
 \begin{tabular}{lcl}
 \texttt{A->B A->B}           &$\neq$&  \texttt{A->B}\\
 \texttt{A -x> B A -y> B}     &$\neq$&  \texttt{A -y> B A -y> B}\\
@@ -1594,6 +1598,7 @@ Edges have no ids!
 \end{tabular}""")
     slides.itemize('Candidate model formalisms',__IN_MODEL__)
     slides.itemize('Expected code generation',__OUT_LANG__)
+    #slides.itemize2('Candidate model formalisms',__IN_MODEL__,__OUT_LANG__)
     slides.frame('Graphic generation',r"""
 \begin{itemize}
 \item SVG for Web publishing
@@ -1608,20 +1613,18 @@ Do not let end-user define it, let advanced algorithms do the layout with goals:
 \item Follow graphic design rules 
 \item Follow Typographic rules
 \end{itemize}
-The same graph may have several styles (Themes) \\
-\TeX{}principle: nice graphic output is a requirement !
-""")
+The same graph may have several styles; themes \\
+\TeX{} principle: nice graphic output is a requirement !""")
     slides.frame(r'Needs',r"""\begin{itemize}
-\item A theoretical support
-\item A constraint definition language (Real,OCL,...)
-\item A better types definition (currently dictionnary of properties)
-\item A support for many code generators
-\item An embedded and large test set
-\item Plugins for formal model checkers and theorem provers.
-\end{itemize}
-""")
+\item a theoretical support,
+\item a constraint definition language (Real,OCL,...),
+\item a better types definition (currently dictionnary of properties),
+\item templates for many code generators,
+\item an embedded and large test set,
+\item plugins for formal model checkers and theorem provers.
+\end{itemize}""")
     slides.frame('Next about $\sqcup{}$!',r"""\begin{block}{All is on the forge:} \url{https://%s} \end{block} 
-\begin{block}{Source code:} See PDF attached file:u.py \\ and generate this beamer  \end{block}"""%__url__)
+\begin{block}{Source code:} See PDF attached file:u.py \\ ...and generate this beamer. \end{block}"""%__url__)
     slides.gen_pdf()
 
 def post(server, service, content):
@@ -1658,7 +1661,6 @@ if __name__ == '__main__':
     x = 'H->T->O->U->S->H->O->S'
     uobj = u()
     #print uobj.gen_svg(uobj.parse(x))
-
 
     # 1 - test unicode
     #s = u' AA ⊔A A⊔ C您'
