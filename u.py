@@ -21,7 +21,7 @@
 #-----------------------------------------------------------------------------
 
 # The following code pass pychecker 
-# Warning ! There is a small bug in Emacs editor default font: switch ⊔ 'squarecap' (U+2293) and ⊓ 'squarecup' (U+2294) char !   
+# Warning ! There is a small bug in Emacs editor default font: swap ⊔ 'squarecap' (U+2293) and ⊓ 'squarecup' (U+2294) char!   
 
 r""" Model Based Engineering widelly use two dimensions graph-based diagrams. Because these diagrams represent viewpoints of a system, including dataflow, workflow and software architecture, they are the building blocks artifacts for specification, modeling and simulation activities. In particular code generation from this high level representation is mandatory.
 The data format for these diagrams may be graphical; bitmap or vectorial, unfortunatelly mixing rendering/layout data with semantics.
@@ -31,6 +31,7 @@ This language is a universal representation for input of multi-model code genera
 Graphic generation is also supported for Tikz to documents and \textsc{svg} for web viewer/editor. 
 Actually, we are introducing the concept of \emph{differential dual editing}; where textual and graphical editing are well supported by our language. All source code for a prototype parser and code generators, document generator in \pyt{} is attached to this \textsc{pdf} file.
 """
+
 __author__  = 'Laurent Fournier'
 __email__   = 'lfournie@rockwellcollins.com'
 __title__   = 'The Universal Short Graph Language'
@@ -240,8 +241,7 @@ def find_id(x):
 
 class u:
     """ This is the base class for ⊔ 
-    One can customize that class by adding/modifying the mapping structure (self.m)
-    or by overloading a gen_x() method
+    One can customize that class by adding/modifying the mapping structure (self.m) or by overloading a gen_x() method
     """
 
     def __init__(self):
@@ -265,6 +265,11 @@ class u:
                            'S':('rectangle,draw=black!40,fill=gray!10',('p1','p2')),
                            'T':('circle,drop shadow,draw=green!40,fill=gray!20',('in1','in2','out1','out2')), 
                            'O':('rectangle,drop shadow,rounded corners=3pt,draw=red!40,fill=blue!25',()),
+                           'tool':('rectangle,rounded corners=5pt,drop shadow,draw=gray!40,fill=red!30',()),
+                           'node':('rectangle,rounded corners=3pt,drop shadow,draw=gray!40,fill=gray!20',()),
+                           'model':('rectangle,rounded corners=2pt,drop shadow,draw=gray!40,fill=brown!30',()),
+                           'graph':('ellipse,drop shadow,draw=gray!40,fill=green!20',()),
+                           'lang':('ellipse,drop shadow,draw=gray!40,fill=blue!20',()),
                            },
                           {'':'--',
                            'I':'->,>=open diamond',
@@ -272,6 +277,9 @@ class u:
                            'droit':'--',
                            'simple':'->,>=latex',
                            'S':'->,>=latex',
+                           'e':'->,>=latex',
+                           'l':'->,>=latex,dashed',
+                           'd':'->>,dotted',
                            })
         self.m['c'] = ({'C':['class',],
                         'c':['class',]}
@@ -302,8 +310,9 @@ class u:
         ({'A': (), 'B': ()}, [('A', '->', 'B')])
         """
         Nodes,Edges,kids,nid,oid,npo,opo,nid,moid,c = {},[],{},None,None,'','',[],[],[]
-        if type(x).__name__ == 'str': 
-            x = eval(reduce(lambda y,k: re.sub(k[0],k[1],y),__RE_FILTER__,x))
+        if type(x).__name__ == 'str':
+            t = reduce(lambda y,k: re.sub(k[0],k[1],y),__RE_FILTER__,x)
+            x = eval(t)
         for s in x:
             if type(s).__name__ == 'list':
                 n,k,e = self.parse1(s)
@@ -466,24 +475,26 @@ pragma Profile (Ravenscar);
         o,m = '',self.m['lua']
         return self.gen_lua.__doc__ + o 
 
-    def gen_tikz(self,ast,standalone=True):
+    def gen_tikz(self,ast,standalone=True,rx=2,ry=2):
         "% Generated from ⊔ AST:\n"
         o,m = '',self.m['tikz']
         if standalone:
             o += r'\documentclass[a4paper]{article} \usepackage{tikz}' + '\n'
             o += r'\begin{document}' + '\n'
-        pos = layout(ast[0],ast[1])
-        o += '%% %s\n%% %s\n'%ast 
+        pos = layout(ast[0],ast[1],'LR')
         Nodes,Edges = ast 
         m = self.m['tikz']
-        o += gen_tikz_header(m,gettypes(ast)) + r'\begin{tikzpicture}[auto,node distance=15mm,semithick]'+ '\n'
+        #o += gen_tikz_header(m,gettypes(ast)) + r'\begin{tikzpicture}[auto,node distance=15mm,semithick]'+ '\n'
+        o += gen_tikz_header(m,gettypes(ast)) + r'\begin{tikzpicture}[every text node part/.style={align=left}]'+ '\n'
         for n in pos:
             #name = n.encode('utf-8')
             name = n
-            label = name 
+            label = name if (len(Nodes[n])<2 or not Nodes.has_key(n)) else Nodes[n][1]
             shape = 'node_' if (len(Nodes[n])<3 or not Nodes.has_key(n)) else 'node_%s'%Nodes[n][2]
-            (x,y) = (pos[n][0]/25,pos[n][1]/25)
-            o += r'\node[%s](%s) at (%0.3f,%0.3f) {%s};'%(shape,name,x,y,label) + '\n'
+            (x,y) = (pos[n][0]*rx/25,pos[n][1]*ry/25)
+            label = re.sub(r'\\',r'\\\\',label)
+            label = re.sub('@',r'\\',label)
+            o += '\\node[%s](%s) at (%0.3f,%0.3f) {%s};'%(shape,name,x,y,label) + '\n'
             # ports
             tt = m[0][''][1] if (len(Nodes[n])<3 or not Nodes.has_key(n) or not m[0].has_key(Nodes[n][2])) else m[0][Nodes[n][2]][1]
             if tt:
@@ -492,9 +503,11 @@ pragma Profile (Ravenscar);
                 o += r'\draw (%s.%s) node{\tiny{%s}};'%(n,p,i) + '\n'
                 p += delta
         for e in Edges:
-            boucle = '[bend left]'
+            #boucle = '[bend left]'
+            boucle = ''
             typ = 'edge_' if len(e)<5 or e[4] == None else 'edge_%s'%e[4]
-            label = '' if len(e)<4 or e[3] == None else 'node{%s}'%e[3] 
+            label = '' if len(e)<4 or e[3] == None else 'node[font=\\small,sloped,above]{%s}'%e[3] 
+            label = re.sub('@',r'\\',label)
             o += r'\draw[%s](%s) to%s %s(%s);'%(typ,e[0],boucle,label,e[2]) + '\n'
         o += r'\end{tikzpicture}'+ '\n'
         if standalone:
@@ -908,11 +921,16 @@ def layout(nodes,edges,rankdir='TB'):
     "computes layout for graphics (tikz and svg) generation"
     bbx,bby,pos,d = None,None,{},'digraph G { rankdir=%s '%rankdir
     for n in nodes:
-        label = n if not n[0] else n[0] #label = n.encode('utf-8') if not n[0] else n[0]
+        label = n if len(nodes[n])<2 else re.sub(r'\\','\\\\n',nodes[n][1]) 
+        label = re.sub(r'\$[^\$]+\$','_',label)
+        #label = n.encode('utf-8')
         d+= ' %s[label="%s"];'%(n,label) #d+= ' %s[label="%s"];'%(n.encode('utf-8'),label)
     for e in edges:
         n1,n2 = re.sub(r'\..+$','',e[0]),re.sub(r'\..+$','',e[2])
-        d+= ' %s->%s'%(n1,n2) #d+= ' %s->%s'%(e[0].encode('utf-8'),e[2].encode('utf-8'))
+        label = '' if len(e)<4 or e[3] == None else '[label="%s"];'%e[3]
+        label = re.sub(r'\$[^\$]+\$','_',label)
+        d+= ' %s->%s %s'%(n1,n2,label) #d+= ' %s->%s'%(e[0].encode('utf-8'),e[2].encode('utf-8'))
+    #print d + '}'
     p = subprocess.Popen(['dot'], stdout=subprocess.PIPE, stdin=subprocess.PIPE)
     for l in p.communicate(input=d + '}')[0].split('\n'):
         if reg(re.search('bb="0,0,([\.\d]+),([\.\d]+)"',l)):
@@ -1448,8 +1466,7 @@ Some attributes list is attached to each node $v_i$ and each edge $e_k $.""")
                                                                 r'\textsc{N}-eutral',
                                                                 r'\textsc{U}-nicode',
                                                                 r'\textsc{S}-hort'),
-                         uobj.gen_tikz(uobj.parse('T--H T--O T--N T--U T--U T--S H--O H--N H--U H--S O--N O--U O--S N--U N--S U--S'),False)
-                         )    
+                         uobj.gen_tikz(uobj.parse('T--H T--O T--N T--U T--U T--S H--O H--N H--U H--S O--N O--U O--S N--U N--S U--S'),False,1,1))    
     slides.frame('$\sqcup$ at a glance',r"""\begin{tabular}{ll}
 \texttt{Hello -> "World!"} & Hello World! \\
 \texttt{A B foo bar}  & Some Nodes \\
@@ -1464,40 +1481,14 @@ Some attributes list is attached to each node $v_i$ and each edge $e_k $.""")
 \texttt{A.pin2 -> B.5} & Indexed and named ports \\
 \end{tabular} 
 """)
-    slides.frame('The big picture', r"""\usetikzlibrary{shapes.multipart} 
-\tikzstyle{node} = [rectangle,rounded corners=3pt,drop shadow,draw=gray!40,fill=gray!20]
-\tikzstyle{model} = [rectangle,rounded corners=2pt,drop shadow,draw=gray!40,fill=brown!30]
-\tikzstyle{tool} = [rectangle,rounded corners=5pt,drop shadow,draw=gray!40,fill=red!30]
-\tikzstyle{graph} = [ellipse,drop shadow,draw=gray!40,fill=green!20]
-\tikzstyle{lang} = [ellipse,drop shadow,draw=gray!40,fill=blue!20]
-\tikzstyle{edge} = [->,>=latex]
-\tikzstyle{dbl} = [->,>=latex,dashed]
-\tikzstyle{def} = [->>,dotted]
-%\begin{tikzpicture}[auto,node distance=15mm,semithick]
-\begin{tikzpicture}[every text node part/.style={align=left}]
-\node[node](A) at(1,4){$\sqcup$ concrete \\ syntax \\ string};
-\node[node](B) at(5,4){$\sqcup$ abstract \\ syntax \\ Python \\ structure};
-\node[tool](J) at(4.5,1){$\sqcup$ type \\ checker};
-\node[tool](K) at(2.5,1){$\sqcup$ optimizer};
-\node[graph](C) at(7.5,6){SVG};
-\node[graph](D) at(8.5,5){Tikz};
-\node[lang](E) at(9.5,3){Ada};
-\node[lang](F)at(10,2){Ocaml};
-\node[lang](G)at(9,1){AADL};
-\node[lang](H)at(8,0){XXXX};
-\node[model](I) at(0,1){UML \\ Simulink \\ KAOS \\...};
-\draw[edge](A)to node[auto]{$\sqcup$ parser}(B);
-\draw[edge](B)to node[sloped,above]{web. gen.}(C);
-\draw[edge](B)to node[sloped,above]{doc. gen.}(D);
-\draw[edge](B)to node[sloped,above]{code gen.}(E);
-\draw[edge](B)to (F);
-\draw[edge](B)to node[sloped,above]{model gen.}(G);
-\draw[edge](B)to node[sloped,above]{generator}(H);
-\draw[def](I)to node[auto]{use}(A);
-\draw[dbl](J)to (B);
-\draw[dbl](K)to (A);
-\end{tikzpicture}
-""")
+    slides.frame('The big picture (with $\sqcup$!)', uobj.gen_tikz(uobj.parse(r"""
+A"$@sqcup$ concrete\\syntax\\string":node B"$@sqcup$ abstract\\syntax\\Python\\structure":node  
+A -"$@sqcup$ parser"e> B 
+B -"Web"e> "SVG":graph B -"doc.gen."e> "Tikz":graph B -"code gen."e> "Ada":lang B -e> "Ocaml":lang
+B -"model gen."e> "AADL":lang B -"generator"e> "XXXX":lang
+"UML\\Simulink\\KAOS\\...":model -"use"d> A 
+"$@sqcup$ type\\checker":tool -l> B 
+"$@sqcup$ optimizer":tool -l> A"""),False,2.8,1.5))
     slides.frame('$\sqcup$ facts', r"""\begin{block}{Structure}
 $\sqcup$ only manages the structure of the graph, not the semantics.\\
 $\sqcup$ parser builds an Abstract Syntax Tree (a Python data Structure) \\ The types libraries are doing the real job!
@@ -1545,7 +1536,7 @@ To generate code, $\sqcup$ uses UNIX like piped small tools on the graph Abstrac
                                            ,'XML raises {\it attributes} versus {\it elements} dilemma' 
                                            ,'XML is unreadable in practice'
                                            ,'Transformations are complex (XSLT)'
-                                           ,'Type checking using DTD, XSL, RelaxNG'))
+                                           ,'Type checking using DTD, XSD, RelaxNG'))
     slides.frame('$\sqcup$ Types',r"""\begin{itemize}
 \item User defines is own types library for:
   \begin{itemize}
@@ -1559,7 +1550,7 @@ A types library:
 \item defines a {\bf Domain Specific Language}
 \item customize graphics output
 \end{itemize} 
-Two different nodes types may rendered with different shapes/decorations in SVG but may maps to the same class construction for Scala generation.""")
+For instance, two different nodes types may be rendered with different shapes/decorations in SVG but may map to the same class construction for Scala generation.""")
     slides.frame('Semi-Formal and Formal',r"""
 A {\bf semi-formal node} is a typed node with informal (english) sentence in its label.\\
 A {\bf formal node} is a types node with all attributes valid stream from formal languages.\\
@@ -1615,7 +1606,7 @@ Do not let end-user define it, let advanced algorithms do the layout with goals:
 \end{itemize}
 The same graph may have several styles; themes \\
 \TeX{} principle: nice graphic output is a requirement !""")
-    slides.frame(r'Needs',r"""\begin{itemize}
+    slides.frame(r'Today needs',r"""\begin{itemize}
 \item a theoretical support,
 \item a constraint definition language (Real,OCL,...),
 \item a better types definition (currently dictionnary of properties),
@@ -1658,9 +1649,8 @@ if __name__ == '__main__':
 
     ########## debug zone! ##############
     # test multilinks
-    x = 'H->T->O->U->S->H->O->S'
+
     uobj = u()
-    #print uobj.gen_svg(uobj.parse(x))
 
     # 1 - test unicode
     #s = u' AA ⊔A A⊔ C您'
