@@ -372,7 +372,7 @@ class u:
         n,k,e = self.parse1(x)
         return n,e
 
-    def hf(self,appli):
+    def hf(self,appli,host='127.0.0.1'):
         "Add header and footer to generated code"
         lang = re.sub('gen_','',appli.__name__)
         com = __OUT_LANG__[lang][1]
@@ -381,7 +381,8 @@ class u:
             Nodes,Edges = ast
             d = '%s'%datetime.datetime.now()
             o = '%s%s ⊔ Generated Code [%s] %s\n'%(head,sc,d[:19],ec)
-            o += '%s CPU Times:  %s   %s\n'%(sc,os.times()[:-1],ec)            
+            o += '%s CPU Times: %27s %s\n'%(sc,os.times()[:-1],ec) 
+            o += '%s Host: %32s %s\n'%(sc,host,ec)            
             o += '%s ******** Do not edit by hand! ******** %s\n'%(sc,ec)
             digest = hashlib.sha1(open(__file__).read()).hexdigest()
             o += '%s SHA1: %s %s\n'%(sc,digest[:-8],ec)
@@ -495,7 +496,7 @@ pragma Profile (Ravenscar);
         for n in pos:
             #name = n.encode('utf-8')
             name = n
-            label = name if (len(Nodes[n])<2 or not Nodes.has_key(n)) else Nodes[n][1]
+            label = name if (len(Nodes[n])<2 or not Nodes.has_key(n) or (Nodes[n][1] == None)) else Nodes[n][1]
             shape = 'node_' if (len(Nodes[n])<3 or not Nodes.has_key(n)) else 'node_%s'%Nodes[n][2]
             (x,y) = (pos[n][0]*rx/25,pos[n][1]*ry/25)
             label = re.sub(r'\\',r'\\\\',label)
@@ -833,8 +834,9 @@ def get_favicon():
     return '<link %s rel="shortcut icon" type="image/svg+xml" href="data:image/svg+xml;base64,%s"/>\n'%(_XHTMLNS,data)
 
 def application(environ,start_response):
-    """<title>⊔</title><style>h1,h6,p,li,b{font-family:helvetica neue,helvetica,arial,sans-serif;} a{text-decoration:none;} h6{text-align:right;}</style>
+    """<title>⊔</title><style>h1,h2,h6,p,li,b{font-family:helvetica neue,helvetica,arial,sans-serif;} a{text-decoration:none;} h6{text-align:right;}</style>
 <h1><a href="https://github.com/pelinquin/u" style="font-size:64pt;color:DodgerBlue;" title="SquareCup">⊔</a> Web service</h1>
+<h2>Using a Web browser</h2>
 <p>The Web service root name (after domain and server name in the URL) is: ⊔ [<a href="u?about">/u...</a>] or [<a href="⊔?about">/⊔...</a>] (U+2294).</p>
 <p>Any URL argument (after '?') shall be a valid ⊔ string and the default output is the AST (a Python data structure).
 Example: [<a href="u?A->B">/u?A->B</a>]</p>
@@ -850,9 +852,11 @@ Example: [<a href="u?tikz">/u?tikz</a>]</p>
    <li><i>update</i> [<a href="u?update">/u?update</a>] is used to update the web application with the last release from 
 [<a href="https://github.com/pelinquin/u">https://github.com/pelinquin/u</a>]</li>
    <li><i>help</i>,<i>about</i> or <i>usage</i> displays this page.</li>
-<p>If no argument is given, the output [<a href="u">/u</a>] is the Python source code for reading or for <a href="u"><b>download</b></a>.
-</p><p>Supported output languages are:</p><b>"""
-    s,mime,o,uobj = urllib.unquote(environ['QUERY_STRING']),'text/plain;charset=UTF-8','Error!',u()
+<p>If no argument is given, the output [<a href="u">/u</a>] is the Python source code for reading or for <a href="u"><b>download</b></a>.</p>
+<h2>Using command line</h2>
+<p>Usage: "./u.py -h&lt;host server&gt; -f&lt;language name&gt; &lt;⊔ input file&gt;" (default serveur is localhost)</p>
+<h2>Supported output languages</h2><b>"""
+    s,mime,o,uobj,host = urllib.unquote(environ['QUERY_STRING']),'text/plain;charset=UTF-8','Error!',u(),environ['SERVER_NAME']
     if reg(re.match(r'\s*(update$|about$|help$|usage$|pdf$|paper|beamer$|)(?:(_?)(%s|raw|ast)(?:&(.*)|)|(.*))\s*$'%'|'.join(__OUT_LANG__),s,re.I)):
         form,action,under,lang,args = False,reg.v.group(1),reg.v.group(2),reg.v.group(3),reg.v.group(5) if reg.v.group(5) else reg.v.group(4)
         if lang: lang = lang.lower()
@@ -862,7 +866,7 @@ Example: [<a href="u?tikz">/u?tikz</a>]</p>
         elif action and action.lower() in ('about','help','usage'):
             mime,o = 'text/html;charset=UTF-8','<html><title>v%s</title>%s'%(__version__,get_favicon())
             o += application.__doc__ + ', '.join(__OUT_LANG__) + '</b>\n'
-            o += '<p>Supported Input Modeling Formalism are:</p><b>' + ', '.join(__IN_MODEL__) + ',...</b>\n'
+            o += '<h2>Supported Input Modeling Formalisms</h2><b>' + ', '.join(__IN_MODEL__) + ',...</b>\n'
             digest = hashlib.sha1(open(__file__).read()).hexdigest()
             o += '<h6>Digest: %s</h6></html>'%digest[:5]
         elif action and action.lower() in ('paper','pdf'):
@@ -887,7 +891,7 @@ Example: [<a href="u?tikz">/u?tikz</a>]</p>
                 if lang in ('ast','raw'):
                     o = '%s %s'%ast
                 else: 
-                    o = eval('uobj.hf(uobj.gen_%s)(ast)'%lang) #o = ....encode('utf-8')
+                    o = eval('uobj.hf(uobj.gen_%s,\'%s\')(ast)'%(lang,host)) #....encode('utf-8')
             else:
                 mime,form,o = 'text/html',True, '<form method=post enctype=multipart/form-data><input type=file name=a onchange="submit();"/>'
                 #o += '<input type=button value=test onclick="submit();"/>'
@@ -896,7 +900,7 @@ Example: [<a href="u?tikz">/u?tikz</a>]</p>
             o = '# ⊔ Python Abstract Syntax Structure:\n\n%s %s'%uobj.parse(args)
         else:
             ast = uobj.parse(args)
-            o = eval('uobj.hf(uobj.gen_%s)(ast)'%lang) #o = eval('uobj.gen_%s(ast)'%lang).encode('utf-8')
+            o = eval('uobj.hf(uobj.gen_%s,\'%s\')(ast)'%(lang,host)) #....encode('utf-8')
         if (under == '_') and not form:
             if (lang == 'tikz'):
                 o = tex2pdf(o)
@@ -1665,17 +1669,18 @@ if __name__ == '__main__':
     
     # 1 - test getopt 
     import getopt
-    opts, args = getopt.getopt(sys.argv[1:],'hf:',['help','format'])
-    o = 'raw'
+    opts, args = getopt.getopt(sys.argv[1:],'h:f:',['host=','format='])
+    o,host = 'raw','127.0.0.1' # use '193.84.73.209'
     for r in opts:
-        if r[0] in ('-h','--help'):
-            print help('u')
+        if r[0] in ('-h','--host'):
+            host = r[1] 
         elif r[0] in ('-f','--format'):
             o = r[1]
+        else:
+            print help('u') 
     for arg in args:
         if os.path.isfile(arg):
-            server = '127.0.0.1' # use '193.84.73.209'
-            print post(server, '/u?%s'%o, open(arg).read())
+            print post(host, '/u?%s'%o, open(arg).read())
 
     # 4 - test quotes
     s = '\'A \\\'B\\\'C\' "D\\"E\\"F" """ foo """ bar """ zzz """ \'\'\' foo \'\'\' bar \'\'\' zzz \'\'\'  '
