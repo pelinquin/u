@@ -83,22 +83,23 @@ _XHTMLNS  = 'xmlns="http://www.w3.org/1999/xhtml"'
 _SVGNS    = 'xmlns="http://www.w3.org/2000/svg"'
 _XLINKNS  = 'xmlns:xlink="http://www.w3.org/1999/xlink"'
 
-__OUT_LANG__ = {'c'      :['c'   ,('/*'  ,'*/' ,'')],
-                'python' :['py'  ,('#'   ,''   ,'#!/usr/bin/python\n# -*- coding: utf-8 -*-\n')],
-                'ada'    :['adb' ,('--'  ,''   ,'')],
-                'scala'  :['scl' ,('--'  ,''   ,'')],
-                'java'   :['java',('//'  ,''   ,'')],
-                'ruby'   :['rb'  ,('#'   ,''   ,'')],
-                'ocaml'  :['ml'  ,('(*'  ,'*)' ,'')],
-                'haskell':['hs'  ,('{-'  ,'-}' ,'')],
-                'lua'    :['lua' ,('--'  ,''   ,'')],
-                'tikz'   :['tex' ,('%'   ,''   ,'')],
-                'svg'    :['svg' ,('<!--','-->','<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n')],
-                'aadl'   :['adl' ,('--'  ,''   ,'')],
-                'sdl'    :['sdl' ,('--'  ,''   ,'')],
-                'lustre' :['lst' ,('--'  ,''   ,'')],
-                'vhdl'   :['hdl' ,('--'  ,''   ,'')],
-                'systemc':['sc'  ,('//'  ,''   ,'')]}
+__OUT_LANG__ = {'c'          :['c'   ,('/*'  ,'*/' ,'')],
+                'objectivec' :['m'   ,('/*'  ,'*/' ,'')],
+                'python'     :['py'  ,('#'   ,''   ,'#!/usr/bin/python\n# -*- coding: utf-8 -*-\n')],
+                'ada'        :['adb' ,('--'  ,''   ,'')],
+                'scala'      :['scl' ,('--'  ,''   ,'')],
+                'java'       :['java',('//'  ,''   ,'')],
+                'ruby'       :['rb'  ,('#'   ,''   ,'')],
+                'ocaml'      :['ml'  ,('(*'  ,'*)' ,'')],
+                'haskell'    :['hs'  ,('{-'  ,'-}' ,'')],
+                'lua'        :['lua' ,('--'  ,''   ,'')],
+                'tikz'       :['tex' ,('%'   ,''   ,'')],
+                'svg'        :['svg' ,('<!--','-->','<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n')],
+                'aadl'       :['adl' ,('--'  ,''   ,'')],
+                'sdl'        :['sdl' ,('--'  ,''   ,'')],
+                'lustre'     :['lst' ,('--'  ,''   ,'')],
+                'vhdl'       :['hdl' ,('--'  ,''   ,'')],
+                'systemc'    :['sc'  ,('//'  ,''   ,'')]}
 
 __IN_MODEL__ = ['UML','SysML','AADL-Graph','Marte','PSL','Xcos','Kaos','Entity-Relation-Graph','Tree-Diagram',
                 'Network-Graph','Flowchart','Petri-net','State-Machine','Markov-Chain','Behavior-Tree'] 
@@ -454,6 +455,11 @@ pragma Profile (Ravenscar);
         "// Java\n"
         o,m = '',self.m['java']
         return self.gen_java.__doc__ + o 
+
+    def gen_objectivec(self,ast):
+        "/* Objective-C*/\n"
+        o,m = '',self.m['objectivec']
+        return self.gen_objectivec.__doc__ + o 
 
     def gen_ruby(self,ast):
         "# Generated from ⊔ AST:\n"
@@ -921,7 +927,7 @@ def layout(nodes,edges,rankdir='TB'):
     "computes layout for graphics (tikz and svg) generation"
     bbx,bby,pos,d = None,None,{},'digraph G { rankdir=%s '%rankdir
     for n in nodes:
-        label = n if len(nodes[n])<2 else re.sub(r'\\','\\\\n',nodes[n][1]) 
+        label = n if (len(nodes[n])<2 or nodes[n][1] == None) else re.sub(r'\\','\\\\n',nodes[n][1]) 
         label = re.sub(r'\$[^\$]+\$','_',label)
         #label = n.encode('utf-8')
         d+= ' %s[label="%s"];'%(n,label) #d+= ' %s[label="%s"];'%(n.encode('utf-8'),label)
@@ -1503,7 +1509,7 @@ To generate code, $\sqcup$ uses UNIX like piped small tools on the graph Abstrac
     slides.frame('Syntax building elements',r"""\begin{itemize}
 \item Nodes:
 \begin{itemize}
-  \item \texttt{ID}: an unicode word to identify the node
+  \item \texttt{ID}: a unicode word to identify the node
   \item \texttt{port}: a named or indexed port (type compatible)
   \item \texttt{label}: a string on possibly several lines separator is simple quote, double quote or triple quotes 
   \item \texttt{type}: Type name available in the node types library 
