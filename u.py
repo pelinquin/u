@@ -261,7 +261,7 @@ class u:
                           'C':    ('fill:blue;','rect','filter:url(#.shadow);fill-opacity:.1;', 30, 60,
                                    ('pin1','pin2','pin3','pin4','pin5','pin6','pin7','pin8',
                                     'pin9','pin10','pin11','pin12','pin13','pin14','pin15','pin16')),
-                          'c':    ('fill:blue;','rect|0,5,5','fill-opacity:.1;stroke:gray;stroke-width:.5;', 2, 2, (), 'class'),
+                          'c':    ('fill:blue;','rect|0,4,4','fill-opacity:.1;stroke:gray;stroke-width:.5;', 2, 2, (), 'class'),
                           'class':('fill:blue;','rect','filter:url(#.shadow);fill-opacity:.1;', 10, 10, (), 'class'),
                           'D':    ('fill:blue;','rect','filter:url(#.shadow);fill-opacity:.1;', 10, 50, 
                                    ('pin1','pin2','pin3','pin4','pin5','pin6')),
@@ -571,17 +571,21 @@ pragma Profile (Ravenscar);
                     o += '<ellipse rx="%s" ry="%s"/>'%(a[2]/2,a[3]/2)
                 o += '</g>'
             text = n if (not Nodes.has_key(n) or len(Nodes[n])<2 or Nodes[n][1] == None) else Nodes[n][1]
+            args = [] if (not Nodes.has_key(n) or len(Nodes[n])<4 or Nodes[n][3] == None) else Nodes[n][3].split('|')
+            (na,nm) = (0,0) if len(args) == 0 else (len(args[0].split(',')),0) if len(args) == 1 else (len(args[0].split(',')),len(args[1].split(',')))
             disp,dy = '',0
             x,y = pos[n][0]*ratio,pos[n][1]*ratio
             if len(Nodes[n]) > 2 and Nodes[n][2] in classT:
                 disp += '<tspan class="tiny" dominant-baseline="text-after-edge" x="%s">Class</tspan>'%x
-                disp += '<tspan dx="10">%s</tspan>'%(text) 
-                disp += '<tspan class="tiny" x="%s" dy="1.5em">Attributes</tspan>'%x 
-                disp += '<tspan class="body" x="%s" dy="1em">+ int a</tspan>'%x 
-                disp += '<tspan class="body" x="%s" dy="1em">+ float b</tspan>'%x 
-                disp += '<tspan class="tiny" x="%s" dy="1.5em">Methods</tspan>'%x 
-                disp += '<tspan class="body" x="%s" dy="1em">+ get_a()</tspan>'%x 
-                disp += '<tspan class="body" x="%s" dy="1em">- set_b()</tspan>'%x 
+                disp += '<tspan dx="10">%s</tspan>'%text
+                if args:
+                    disp += '<tspan class="tiny" x="%s" dy="2em">Attributes %s</tspan>'%(x,na) 
+                    for l in args[0].split(','):
+                        disp += '<tspan class="body" x="%s %s" dy="1em">+%s</tspan>'%(x,x+10,l)  
+                    if len(args)>1:
+                        disp += '<tspan class="tiny" x="%s" dy="2em">Methods %s</tspan>'%(x,nm) 
+                        for l in args[1].split(','):
+                            disp += '<tspan class="body" x="%s %s" dy="1em">+%s()</tspan>'%(x,x+10,l)  
             else:
                 for l in text.split('\\'):
                     disp += '<tspan x="%s" dy="%sem">%s</tspan>'%(x,dy,l) 
@@ -607,8 +611,11 @@ pragma Profile (Ravenscar);
                         o += '<text class="tiny" x="%s" y="%s" dominant-baseline="middle" text-anchor="%s">%s</text>'%(x,y,anchor,p)
                         d += delta
                 elif len(Nodes[n]) > 2 and Nodes[n][2] in classT:
-                    o += '<path style="stroke:gray;stroke-width:.5;fill:none;" d="M%s,%sl%s,0"/>'%(boxes[n][0],boxes[n][1]+16,boxes[n][2])
-                    o += '<path style="stroke:gray;stroke-width:.5;fill:none;" d="M%s,%sl%s,0"/>'%(boxes[n][0],boxes[n][1]+40,boxes[n][2])
+                    h1 = 2*(boxes[n][3]-14)/(2+na+nm)
+                    h2 = 16 + (1+na/2)*h1
+                    H = (h1,h2) if na>0 and nm>0 else (h1) if na>0 else ()
+                    for h in H:
+                        o += '<path d="M%s,%sl%s,0"/>'%(boxes[n][0],boxes[n][1]+h,boxes[n][2])
                 o += '</g>\n' 
             o += '</g>' 
         o += '</g>\n'
@@ -1189,19 +1196,18 @@ def gen_svg_header(m,(ln,le)):
     o = '<style type="text/css">\n'
     o += '@font-face { font-family: Graublau; src: url(\'./fonts/GraublauWeb.otf\') format("opentype"); }\n'
     o += '@font-face { font-family: vag; src: url(\'./fonts/VAG-HandWritten.otf\') format("opentype"); }\n'
-    o += 'text {font-family:vag,helvetica neue,helvetica,arial,sans-serif;}\n'
+    o += 'text {font-family:helvetica neue,helvetica,arial,sans-serif;}\n'
     o += 'textPath {dominant-baseline:text-after-edge;}\n'
     o += 'text.tiny, tspan.tiny { font-family:helvetica neue,helvetica,arial,sans-serif;font-size: 4pt; fill:DarkSlateGray; }\n'
-    o += 'tspan.body { font-family:helvetica neue,helvetica,arial,sans-serif;font-size: 8pt; fill:DarkSlateGray; }\n'
+    o += 'tspan.body { font-family:helvetica neue,helvetica,arial,sans-serif;font-size: .5em; fill:DarkSlateGray; }\n'
     o += 'text.node { font-size: 1em; } text:hover { font-weight:bold;} rect.port { stroke-width:0; fill:lightblue; }\n'
-    o += 'tspan.body { font-size: .5em; }\n'
     o += 'path:hover, rect:hover { opacity:0.5; cursor:crosshair;}\n'
     o += 'path#logo:hover { opacity:1;}\n'
     for n in m[0]:
         if ln.has_key(n):
             o += 'g.node_%s > text { %s }\n'%(n,m[0][n][0]) 
             sty = m[0][n][1].split('|')[0]
-            o += 'g.node_%s > g > %s { %s }\n'%(n,sty,m[0][n][2]) 
+            o += 'g.node_%s > g > %s, path { %s }\n'%(n,sty,m[0][n][2]) 
     for e in m[1]:
         if le.has_key(e):
             o += 'g.edge_%s path { %s }\n'%(e,m[1][e]) 
