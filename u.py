@@ -510,7 +510,7 @@ pragma Profile (Ravenscar);
             #name = n.encode('utf-8')
             name = n
             label = name if (len(Nodes[n])<2 or not Nodes.has_key(n) or (Nodes[n][1] == None)) else Nodes[n][1]
-            shape = 'node_' if (len(Nodes[n])<3 or not Nodes.has_key(n)) else 'node_%s'%Nodes[n][2]
+            shape = 'node' if (len(Nodes[n])<3 or not Nodes.has_key(n)) else 'node%s'%Nodes[n][2]
             (x,y) = (pos[n][0]*rx/25,pos[n][1]*ry/25)
             label = re.sub(r'\\',r'\\\\',label)
             label = re.sub('@',r'\\',label)
@@ -525,7 +525,7 @@ pragma Profile (Ravenscar);
         for e in Edges:
             #boucle = '[bend left]'
             boucle = ''
-            typ = 'edge_' if len(e)<5 or e[4] == None else 'edge_%s'%e[4]
+            typ = 'edge' if len(e)<5 or e[4] == None else 'edge%s'%e[4]
             label = '' if len(e)<4 or e[3] == None else 'node[font=\\small,sloped,above]{%s}'%e[3] 
             label = re.sub('@',r'\\',label)
             o += r'\draw[%s](%s) to%s %s(%s);'%(typ,e[0],boucle,label,e[2]) + '\n'
@@ -543,20 +543,21 @@ pragma Profile (Ravenscar);
                     classT.append(t) 
         Nodes,Edges = ast
         pos,ratio = layout(Nodes,Edges,'LR'),4
-        o = '<svg %s>\n'%_SVGNS + gen_svg_header(m,gettypes(ast))
+        o = '<svg %s>\n'%_SVGNS + gen_svg_header(m,gettypes(ast),True if boxes else False)
         if boxes: 
             o += '<title id=".title">%s</title>\n'%__title__ + get_favicon() + get_logo() 
         else:
             o += include_js()
-        o += '<!-- %s -->\n'%classT 
+        #o += '<!-- %s -->\n'%classT 
         o += '<g id=".nodes">\n' 
         portsPos,ports = {},{}
         for n in pos:
             t = '' if not (Nodes.has_key(n) and (len(Nodes[n])>2) and m[0].has_key(Nodes[n][2])) else Nodes[n][2]
             mx,my = m[0][t][3],m[0][t][4]
-            style = 'node_' if (not Nodes.has_key(n) or len(Nodes[n])<3) else 'node_%s'%Nodes[n][2]
-            o += '<g id="%s" class="%s" mx="%s" my="%s">'%(n,style,mx,my)
+            style = 'node' if (not Nodes.has_key(n) or len(Nodes[n])<3) else 'node%s'%Nodes[n][2]
+            o += '<g id="%s" class="%s"'%(n,style)
             if boxes.has_key(n):
+                o += '>'
                 a,sty = boxes[n],m[0][t][1].split('|')
                 if len(sty)>1:
                     skewx,rx,ry = sty[1].split(',')
@@ -570,6 +571,8 @@ pragma Profile (Ravenscar);
                 elif m[0][t][1][0] == 'e':
                     o += '<ellipse rx="%s" ry="%s"/>'%(a[2]/2,a[3]/2)
                 o += '</g>'
+            else:
+                o += ' mx="%s" my="%s">'%(mx,my)
             text = n if (not Nodes.has_key(n) or len(Nodes[n])<2 or Nodes[n][1] == None) else Nodes[n][1]
             args = [] if (not Nodes.has_key(n) or len(Nodes[n])<4 or Nodes[n][3] == None) else Nodes[n][3].split('|')
             (na,nm) = (0,0) if len(args) == 0 else (len(args[0].split(',')),0) if len(args) == 1 else (len(args[0].split(',')),len(args[1].split(',')))
@@ -579,11 +582,11 @@ pragma Profile (Ravenscar);
                 disp += '<tspan class="tiny" dominant-baseline="text-after-edge" x="%s">Class</tspan>'%x
                 disp += '<tspan dx="10">%s</tspan>'%text
                 if args:
-                    disp += '<tspan class="tiny" x="%s" dy="2em">Attributes %s</tspan>'%(x,na) 
+                    disp += '<tspan class="tiny" x="%s" dy="2em">Attributes</tspan>'%(x) 
                     for l in args[0].split(','):
                         disp += '<tspan class="body" x="%s %s" dy="1em">+%s</tspan>'%(x,x+10,l)  
                     if len(args)>1:
-                        disp += '<tspan class="tiny" x="%s" dy="2em">Methods %s</tspan>'%(x,nm) 
+                        disp += '<tspan class="tiny" x="%s" dy="2em">Methods</tspan>'%(x) 
                         for l in args[1].split(','):
                             disp += '<tspan class="body" x="%s %s" dy="1em">+%s()</tspan>'%(x,x+10,l)  
             else:
@@ -611,13 +614,13 @@ pragma Profile (Ravenscar);
                         o += '<text class="tiny" x="%s" y="%s" dominant-baseline="middle" text-anchor="%s">%s</text>'%(x,y,anchor,p)
                         d += delta
                 elif len(Nodes[n]) > 2 and Nodes[n][2] in classT:
-                    h1 = 2*(boxes[n][3]-14)/(2+na+nm)
-                    h2 = 16 + (1+na/2)*h1
-                    H = (h1,h2) if na>0 and nm>0 else (h1) if na>0 else ()
+                    h1 = 2*(boxes[n][3]-11)/(2+na+nm)
+                    h2 = 10 + (1+na/2)*h1
+                    H = [h1,h2] if (na>0 and nm>0) else [h1,] if na>0 else []
                     for h in H:
                         o += '<path d="M%s,%sl%s,0"/>'%(boxes[n][0],boxes[n][1]+h,boxes[n][2])
                 o += '</g>\n' 
-            o += '</g>' 
+            o += '</g>\n' 
         o += '</g>\n'
         if boxes: 
             o += '<g id=".connectors" >\n'
@@ -626,7 +629,7 @@ pragma Profile (Ravenscar);
                 ne += 1
                 n1,n2,p1,p2,ep1,ep2 = e[0],e[2],'','','',''
                 edge_label = e[3] if len(e)>3 else None
-                typ = 'edge_' if len(e)<5 else 'edge_%s'%e[4]
+                typ = 'edge' if len(e)<5 else 'edge%s'%e[4]
                 if re.search(r'\.',e[0]):
                     [n1,p1] = e[0].split('.')
                     if re.match(r'^\d+$',p1):
@@ -998,10 +1001,10 @@ def gen_tikz_header(m=[],(ln,le)=({},{})):
     if m:
         for n in m[0]:
             if ln.has_key(n):
-                o += r'\tikzstyle{node_%s} = [%s]'%(n,m[0][n][0]) + '\n'
+                o += r'\tikzstyle{node%s} = [%s]'%(n,m[0][n][0]) + '\n'
         for e in m[1]:
             if le.has_key(e):
-                o += r'\tikzstyle{edge_%s} = [%s]'%(e,m[1][e]) + '\n'
+                o += r'\tikzstyle{edge%s} = [%s]'%(e,m[1][e]) + '\n'
     return o + '\n'
 
 def nodes_path2(p1,p2,nodes=[]):
@@ -1191,27 +1194,32 @@ def svg_defs():
     o += '<filter id=".shadow" filterUnits="userSpaceOnUse"><feGaussianBlur in="SourceAlpha" result="blur" stdDeviation="2"/><feOffset dy="3" dx="2" in="blur" result="offsetBlur"/><feMerge><feMergeNode in="offsetBlur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>'
     return o + '</defs>\n'
 
-def gen_svg_header(m,(ln,le)):
+def gen_svg_header(m,(ln,le),full=True):
     ""
     o = '<style type="text/css">\n'
-    o += '@font-face { font-family: Graublau; src: url(\'./fonts/GraublauWeb.otf\') format("opentype"); }\n'
-    o += '@font-face { font-family: vag; src: url(\'./fonts/VAG-HandWritten.otf\') format("opentype"); }\n'
+    o += '@font-face { font-family: Graublau; src: url(\'./fonts/GraublauWeb.otf\') format("opentype");}\n'
+    o += '@font-face { font-family: vag; src: url(\'./fonts/VAG-HandWritten.otf\') format("opentype");}\n'
     o += 'text {font-family:helvetica neue,helvetica,arial,sans-serif;}\n'
-    o += 'textPath {dominant-baseline:text-after-edge;}\n'
-    o += 'text.tiny, tspan.tiny { font-family:helvetica neue,helvetica,arial,sans-serif;font-size: 4pt; fill:DarkSlateGray; }\n'
-    o += 'tspan.body { font-family:helvetica neue,helvetica,arial,sans-serif;font-size: .5em; fill:DarkSlateGray; }\n'
-    o += 'text.node { font-size: 1em; } text:hover { font-weight:bold;} rect.port { stroke-width:0; fill:lightblue; }\n'
-    o += 'path:hover, rect:hover { opacity:0.5; cursor:crosshair;}\n'
-    o += 'path#logo:hover { opacity:1;}\n'
+    o += 'text.tiny, tspan.tiny { font-family:helvetica neue,helvetica,arial,sans-serif;font-size: 4pt; fill:DarkSlateGray;}\n'
+    o += 'tspan.body { font-family:helvetica neue,helvetica,arial,sans-serif;font-size: .5em; fill:DarkSlateGray;}\n'
+    o += 'text.node { font-size: 1em;}\n'
+    if full:
+        o += 'textPath {dominant-baseline:text-after-edge;}\n'
+        o += 'text:hover { font-weight:bold;} rect.port { stroke-width:0; fill:lightblue;}\n'
+        o += 'path:hover, rect:hover { opacity:0.5; cursor:crosshair;}\n'
+        o += 'path#logo:hover { opacity:1;}\n'
     for n in m[0]:
         if ln.has_key(n):
-            o += 'g.node_%s > text { %s }\n'%(n,m[0][n][0]) 
+            o += 'g.node%s > text { %s }\n'%(n,m[0][n][0]) 
             sty = m[0][n][1].split('|')[0]
-            o += 'g.node_%s > g > %s, path { %s }\n'%(n,sty,m[0][n][2]) 
+            o += 'g.node%s > g > %s, path { %s }\n'%(n,sty,m[0][n][2]) 
     for e in m[1]:
         if le.has_key(e):
-            o += 'g.edge_%s path { %s }\n'%(e,m[1][e]) 
-    return o + '</style>\n' + svg_defs() + '\n'
+            o += 'g.edge%s path { %s }\n'%(e,m[1][e]) 
+    o += '</style>\n'
+    if full:
+        o += svg_defs()
+    return o + '\n'
 
 def gettypes(ast):
     ""
