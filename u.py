@@ -407,7 +407,7 @@ class u:
         return app
 
     def gen_c(self,ast):
-        "/* C default code generator */\n"
+        "/* C default code generator */\n/* Begin of .h */\n"
         m,classT,mainT,o = self.m['c'],[],[],''
         for t in m[0]:
             if len(m[0][t])>0:
@@ -421,19 +421,23 @@ class u:
                     o += '\n/* Class: %s */\n'%label
                     o += 'typedef struct %s {\n'%x
                     if len(Nodes[x]) > 3:
-                        attr = True
-                        for t in Nodes[x][3].split('|'):
-                            for z in t.split(','):
-                                o += '  '
-                                o += z if attr else 'void %s(void)'%z
-                                o += ';\n'
-                            if attr:
-                                attr = False
+                        t = Nodes[x][3].split('|')
+                        if len(t) > 0:
+                            for z in t[0].split(','):
+                                o += '  int %s;\n'%z 
                     o += '} %s;\n'%x
+                    if len(Nodes[x]) > 3:
+                        t = Nodes[x][3].split('|')
+                        if len(t) > 1:
+                            o += 'void %s_init(%s *self);\n'%(x,x)
+                            o += 'void %s_delete(%s *self);\n'%(x,x)
+                            for z in t[1].split(','):
+                                o += 'void %s(%s *self);\n'%(z,x)
+
                 elif len(Nodes[x]) > 2 and Nodes[x][2] in mainT:
                     o += '\nint main(void) {\n'
                     o += '  return(0); \n}\n'
-        return self.gen_c.__doc__ + o
+        return self.gen_c.__doc__ + o + '/* End of .h */\n'
 
     def gen_python(self,ast):
         "## Python 2.7"
@@ -584,11 +588,11 @@ pragma Profile (Ravenscar);
                 if args:
                     disp += '<tspan class="tiny" x="%s" dy="2em">Attributes</tspan>'%(x) 
                     for l in args[0].split(','):
-                        disp += '<tspan class="body" x="%s %s" dy="1em">+%s</tspan>'%(x,x+10,l)  
+                        disp += '<tspan class="body" x="%s %s" dy="1em">+%s: Int</tspan>'%(x,x+10,l)  
                     if len(args)>1:
                         disp += '<tspan class="tiny" x="%s" dy="2em">Methods</tspan>'%(x) 
                         for l in args[1].split(','):
-                            disp += '<tspan class="body" x="%s %s" dy="1em">+%s()</tspan>'%(x,x+10,l)  
+                            disp += '<tspan class="body" x="%s %s" dy="1em">+%s(): Int</tspan>'%(x,x+10,l)  
             else:
                 for l in text.split('\\'):
                     disp += '<tspan x="%s" dy="%sem">%s</tspan>'%(x,dy,l) 
@@ -629,7 +633,7 @@ pragma Profile (Ravenscar);
                 ne += 1
                 n1,n2,p1,p2,ep1,ep2 = e[0],e[2],'','','',''
                 edge_label = e[3] if len(e)>3 else None
-                typ = 'edge' if len(e)<5 else 'edge%s'%e[4]
+                typ = 'edge' if (len(e)<5 or e[4] == None) else 'edge%s'%e[4]
                 if re.search(r'\.',e[0]):
                     [n1,p1] = e[0].split('.')
                     if re.match(r'^\d+$',p1):
@@ -657,6 +661,11 @@ pragma Profile (Ravenscar);
                 o += '<g class="%s" n1="%s" n2="%s"%s%s><path id="e_%s" d="%s"/>'%(typ,n1,n2,p1,p2,ne,d)
                 if edge_label:
                     o += '<text><textPath %s xlink:href="#e_%s" startOffset="50%%">%s</textPath></text>'%(_XLINKNS,ne,edge_label)
+                args = [] if (len(e)<6 or e[5] == None) else e[5].split('|')
+                if args:
+                    o += '<text class="tiny"><textPath %s xlink:href="#e_%s" startOffset="0%%">%s</textPath></text>'%(_XLINKNS,ne,args[0])
+                    if len(args) == 2:
+                        o += '<text class="tiny"><textPath %s xlink:href="#e_%s" text-anchor="end" startOffset="100%%">%s</textPath></text>'%(_XLINKNS,ne,args[1])
                 o += '</g>\n'
             o += '</g>\n'
         return o + '\n</svg>'
@@ -894,7 +903,7 @@ Example: [<a href="u?tikz">/u?tikz</a>]</p>
    <li><i>help</i>,<i>about</i> or <i>usage</i> displays this page.</li>
 <p>If no argument is given, the output [<a href="u">/u</a>] is the Python source code for reading or for <a href="u"><b>download</b></a>.</p>
 <h2>Using command line</h2>
-<p>Usage: "./u.py -h&lt;host server&gt; -f&lt;language name&gt; &lt;⊔ input file&gt;" (default serveur is localhost).</p>
+<p>Usage: "./u.py -h&lt;host server&gt; -f&lt;language name&gt; &lt;⊔ input file&gt;" (default server is localhost).</p>
 <p>Run such commands in local Makefile to manage independent module code generation/compilation/link.</p>
 <h2>Supported output languages</h2><b>"""
     s,mime,o,uobj,host = urllib.unquote(environ['QUERY_STRING']),'text/plain;charset=UTF-8','Error!',u(),environ['SERVER_NAME']
