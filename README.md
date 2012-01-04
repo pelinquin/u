@@ -1,4 +1,4 @@
-OLsd0: [u.py](https://github.com/pelinquin/u/blob/master/u.py) base64 encoded sha1 short digest
+xeCfa: [u.py](https://github.com/pelinquin/u/blob/master/u.py) base64 encoded sha1 short digest
 
 Welcome to the ⊔ [SquareCup] Language Project !
 ==========================================

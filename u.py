@@ -390,7 +390,7 @@ class u:
             Nodes,Edges = ast
             d = '%s'%datetime.datetime.now()
             o = '%s%s ⊔ Generated Code [%s] %s\n'%(head,sc,d[:19],ec)
-            o += '%s CPU Times: %27s %s\n'%(sc, map(lambda k:round(k,2),os.times()[:-1]),ec) 
+            o += '%s CPU Times: %27s %s\n'%(sc, map(lambda k:round(k,1),os.times()[:-1]),ec) 
             o += '%s Host: %32s %s\n'%(sc,host,ec)            
             o += '%s ******** Do not edit by hand! ******** %s\n'%(sc,ec)
             o += '%s Base64 short sha1 digest: %12s %s\n'%(sc,__digest__,ec)
