@@ -393,9 +393,7 @@ class u:
             o += '%s CPU Times: %27s %s\n'%(sc,os.times()[:-1],ec) 
             o += '%s Host: %32s %s\n'%(sc,host,ec)            
             o += '%s ******** Do not edit by hand! ******** %s\n'%(sc,ec)
-            digest = hashlib.sha1(open(__file__).read()).hexdigest()
-            digest = base64.urlsafe_b64encode(hashlib.sha1(open(__file__).read()).digest())[:5]
-            o += '%s SHA1: %s %s\n'%(sc,digest,ec)
+            o += '%s Base64 short sha1 digest: %12s %s\n'%(sc,__digest__,ec)
             o += '%s Forge:  https://github.com/pelinquin/u %s\n'%(sc,ec)
             o += '%s © Copyright 2011 Rockwell Collins, Inc %s\n'%(sc,ec)
             o += '%s ** GNU General Public License  (v3) ** %s\n'%(sc,ec)
@@ -710,9 +708,7 @@ You can use it as a Python module and overload functions.\n\n
 Or use it as a Web service...for [instance](https://193.84.73.209/u?about).  
 For your convenience, the [u.pdf](https://github.com/pelinquin/u/blob/master/u.pdf?raw=true) file is also commited.\n\nEnjoy!
 """
-    digest = hashlib.sha1(open(__file__).read()).hexdigest()
-    digest = base64.urlsafe_b64encode(hashlib.sha1(open(__file__).read()).digest())[:5]
-    o = '[u.py](https://github.com/pelinquin/u/blob/master/u.py) SHA1 digest start with %s...\n\n'%digest
+    o = '%s: [u.py](https://github.com/pelinquin/u/blob/master/u.py) base64 encoded sha1 short digest\n\n'%__digest__
     open('README.md','w').write(o + gen_readme.__doc__)
 
 def gen_apache_conf():
@@ -720,10 +716,8 @@ def gen_apache_conf():
 # This file is generated. Do not edit by hands!
 # Place this file in '/etc/apache2/conf.d' directory
 # and restart Apache: '/etc/init.d/apache2 restart'"""
-    digest = hashlib.sha1(open(__file__).read()).hexdigest()
-    digest = base64.urlsafe_b64encode(hashlib.sha1(open(__file__).read()).digest())[:5]
     prg,path = os.path.basename(sys.argv[0])[:-3],os.path.abspath(sys.argv[0]) 
-    o = '# SHA1:%s\n\n'%digest
+    o = '# Base64 encoded sha1 short digest:%s\n\n'%__digest__
     o += 'WSGIScriptAlias /%s %s\n'%(prg,path)
     o += 'WSGIScriptAlias /⊔ %s\n'%path
     o += 'AliasMatch /fonts/([^\.]*\.otf) %s/fonts/$1\n'%os.path.dirname(path)
@@ -756,12 +750,12 @@ def tex_header():
     \newcommand{\pdf}{\textsc{pdf}}
     \begin{document}
     \lstset{language=Python,breaklines=true}
+    \pagestyle{myheadings}
     """ 
-    digest = hashlib.sha1(open(__file__).read()).hexdigest()
-    digest = base64.urlsafe_b64encode(hashlib.sha1(open(__file__).read()).digest())[:5]
     o = tex_header.__doc__
+    o += r'\markright{\tiny{\texttt{%s}}\hfill}'%__digest__ + '\n'
     o += r'\title{\bf $\sqcup$: %s} \author{%s -- \url{%s} \\ '%(__title__,__author__,__email__) + '\n'
-    o += r'\tiny{version: %s [\texttt{%s}]\footnote{the first five hexadecimal bytes of the \textsc{sha1} digest of \texttt{u.py} source file. Please compare it with the one published \url{https://%s} to get the last release.}}}'%(__version__,digest,__url__) + '\n'
+    o += r'\tiny{version: %s [\texttt{%s}]\footnote{the first five characters of the base64 encoding of the \textsc{sha1} digest of \texttt{u.py} source file. Please compare it with the one published at \url{https://%s} to check or get the last release.}}}'%(__version__,__digest__,__url__) + '\n'
     o += r'\maketitle' + '\n'
     o += r'\embedfile[filespec=%s]{%s}'%(os.path.basename(sys.argv[0]),os.path.abspath(sys.argv[0]))
     return o + '\n'
@@ -920,12 +914,10 @@ Example: [<a href="u?tikz">/u?tikz</a>]</p>
             start_response('200 OK',[('Content-type',mime),('Content-Disposition','filename=u.py')])
             return [(open(environ['SCRIPT_FILENAME']).read())] 
         elif action and action.lower() in ('about','help','usage'):
-            mime,o = 'text/html;charset=UTF-8','<html><title>v%s</title>%s'%(__version__,get_favicon())
+            mime,o = 'text/html;charset=UTF-8','<html><title>Version:%s Digest:%s</title>%s'%(__version__,__digest__,get_favicon())
             o += application.__doc__ + ', '.join(__OUT_LANG__) + '</b>\n'
             o += '<h2>Supported Input Modeling Formalisms</h2><b>' + ', '.join(__IN_MODEL__) + ',...</b>\n'
-            digest = hashlib.sha1(open(__file__).read()).hexdigest()
-            digest = base64.urlsafe_b64encode(hashlib.sha1(open(__file__).read()).digest())[:5]
-            o += '<h6>Digest: %s</h6></html>'%digest
+            o += '<h6>Digest: %s</h6></html>'%__digest__
         elif action and action.lower() in ('paper','pdf'):
             o,mime = open('%s/u.pdf'%os.path.dirname(environ['SCRIPT_FILENAME'])).read(),'application/pdf'
         elif action and action.lower() == 'beamer':
@@ -939,9 +931,7 @@ Example: [<a href="u?tikz">/u?tikz</a>]</p>
             o,mime = '<html><p>','text/html'
             o += res[1] if res[1] else '%s server Updated!'%environ['SERVER_NAME']
             o += '</p><a href="u?about">...go to main page</a>'
-            digest = hashlib.sha1(open(__file__).read()).hexdigest()
-            digest = base64.urlsafe_b64encode(hashlib.sha1(open(__file__).read()).digest())[:5]
-            o += '<h6>Digest: %s</h6></html>'%digest
+            o += '<h6>Digest: %s</h6></html>'%__digest__
         elif args == None:
             if environ['REQUEST_METHOD'].lower() == 'post':
                 raw = environ['wsgi.input'].read(int(environ.get('CONTENT_LENGTH','0')))
@@ -976,6 +966,8 @@ Example: [<a href="u?tikz">/u?tikz</a>]</p>
         ext = 'u' if lang in (None, 'ast','raw') else __OUT_LANG__[lang][0]
         if under == '_' and lang in ('c','ada'):
             header.append(('Content-Disposition','attachment; filename=a.out'))
+        elif under == '_' and lang in ('tikz',):
+            header.append(('Content-Disposition','attachment; filename=out.pdf'))
         else:
             header.append( ('Content-Disposition','filename=file.%s'%ext))
     start_response('200 OK',header)
@@ -1318,9 +1310,7 @@ class beamer:
         self.tex += r'\author{%s\inst{*}}\institute{*%s}'%(author,email) + '\n' + r'\date{%s}'%dat + '\n'
         if os.path.isfile(os.path.abspath(logo)):
             self.tex += r'\pgfdeclareimage[height=.6cm]{logo}{%s}'%os.path.abspath(logo) + '\n' + r'\logo{\pgfuseimage{logo}}' + '\n\n'
-        digest = hashlib.sha1(open(__file__).read()).hexdigest()
-        digest = base64.urlsafe_b64encode(hashlib.sha1(open(__file__).read()).digest())[:5]
-        self.tex += beamer.__init__.__doc__ + r'\section{Draft:\texttt{%s}}'%digest + '\n'
+        self.tex += beamer.__init__.__doc__ + r'\section{Draft:\texttt{%s}}'%__digest__ + '\n'
 
     def gen_tex(self):
         r"""\end{document}"""
@@ -1634,6 +1624,6 @@ if __name__ == '__main__':
 '((?:[^'\\]|\\.)*)'       # simple quote
 """,re.U|re.X).finditer(s): 
         pass
-    print base64.urlsafe_b64encode(hashlib.sha1(open(__file__).read()).digest())[:5]
+    print __digest__
 
 # the end
