@@ -838,7 +838,9 @@ def gen_pdf(src):
     tex = src + 'tex'
     if subprocess.Popen(('which','pdflatex'),stdout=subprocess.PIPE).communicate()[0]:
         subprocess.Popen(('cd /tmp; pdflatex -interaction=batchmode %s 1>/dev/null'%os.path.abspath(tex)), shell=True).communicate()
-        shutil.move('/tmp/%spdf'%src,'%spdf'%src) 
+        #shutil.move('/tmp/%spdf'%src,'%spdf'%src) 
+        open('%spdf'%src,'w').write(re.sub('(\/ID \[[^\]]+\]|\/CreationDate \([^\)]+\)|\/ModDate \([^\)]+\))','',open('/tmp/%spdf'%src).read()))
+        # remove those to get a deterministic pdf! "/CreationDate (D:2...) /ModDate (D:20...) /ID [<1...> <1...>]"
     else:
         sys.stderr.write('pdflatex not installed!\n')
 
@@ -1365,7 +1367,8 @@ class beamer:
         pdf = 'beamer_%spdf'%self.src[:-2]
         if subprocess.Popen(('which','pdflatex'),stdout=subprocess.PIPE).communicate()[0]:
             subprocess.Popen(('cd /tmp; pdflatex -interaction=batchmode %s 1>/dev/null'%os.path.abspath(tex)), shell=True).communicate()
-            shutil.move('/tmp/%s'%pdf,pdf) 
+            #shutil.move('/tmp/%s'%pdf,pdf) 
+            open(pdf,'w').write(re.sub('(\/ID \[[^\]]+\]|\/CreationDate \([^\)]+\)|\/ModDate \([^\)]+\))','',open('/tmp/%s'%pdf).read()))
         else:
             sys.stderr.write('pdflatex not installed!\n')
 
