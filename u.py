@@ -150,7 +150,7 @@ __AST_SET__ = [
     (''                       ,'"Multi\nlines\nlabel" '),
     #(''                       ,' """This is "a" \'very\' \nlong label""" '),
     #(''                       ,' \'Simple quote\' '),
-    (''                       ,'A:Type1 B:Type2'),
+    (''                       ,'A:T B:U'),
     ('2 nodes'                ,'A B'),
     ('3 nodes'                ,'A B C'),
     ('4 nodes'                ,'A B C D'),
@@ -212,12 +212,12 @@ __AST_SET__ = [
     (''                       ,'A -> B'),
     (''                       ,'A->A'),
     (''                       ,'A -"label"- B'),
-    (''                       ,'A -Type- B'),
+    (''                       ,'A -T- B'),
     (''                       ,'A -(arg)- B'),
-    (''                       ,'A -"label"Type- B'),
-    (''                       ,'A -Type(arg)- B'),
+    (''                       ,'A -"label"T- B'),
+    (''                       ,'A -T(arg)- B'),
     (''                       ,'A -"label"(arg)- B'),
-    (''                       ,'A -"label"Type(arg)- B'),
+    (''                       ,'A -"label"T(arg)- B'),
     (''                       ,'A -(arg1,arg2,arg3)- B'),
     (''                       ,'A{a1 a2} -> B{b1 b2}'),
     (''                       ,'{a1 a2} -> B{b1 b2}'),
@@ -227,8 +227,8 @@ __AST_SET__ = [
     (''                       ,'A{a1 -> a2} -> B{b1 -> b2}'),
     (''                       ,'A.1 -> B.2'),
     (''                       ,'A.por1 -> B.por2'),
-    (''                       ,'A:T1 B:T2 A.1->B.2'),
-    (' '                      ,'A.1->B.2 A:T1 B:T2'),
+    (''                       ,'A:T B:U A.1->B.2'),
+    (' '                      ,'A.1->B.2 A:T B:U'),
     ('Double definition'      ,'A{a} A{b}'),
 ]
 
@@ -395,7 +395,7 @@ class u:
             o += '%s ******** Do not edit by hand! ******** %s\n'%(sc,ec)
             o += '%s Base64 short sha1 digest: %12s %s\n'%(sc,__digest__,ec)
             o += '%s Forge:  https://github.com/pelinquin/u %s\n'%(sc,ec)
-            o += '%s © Copyright 2011 Rockwell Collins, Inc %s\n'%(sc,ec)
+            o += '%s © Copyright 2012 Rockwell Collins, Inc %s\n'%(sc,ec)
             o += '%s ** GNU General Public License  (v3) ** %s\n'%(sc,ec)
             dast = '%s %s'%ast
             if re.search(r'\-{2}',dast):
@@ -905,7 +905,7 @@ Example: [<a href="u?tikz">/u?tikz</a>]</p>
 <h2>Using command line</h2>
 <p>Usage: "./u.py -h&lt;host server&gt; -f&lt;language name&gt; &lt;⊔ input file&gt;" (default server is localhost).</p>
 <p>Run such commands in local Makefile to manage independent module code generation/compilation/link.</p>
-<h2>Supported output languages</h2><b>"""
+<h2>[Planned] Supported output languages</h2><b>"""
     s,mime,o,uobj,host = urllib.unquote(environ['QUERY_STRING']),'text/plain;charset=UTF-8','Error!',u(),environ['SERVER_NAME']
     if reg(re.match(r'\s*(update$|about$|help$|usage$|pdf$|paper|beamer$|)(?:(_?)(%s|raw|ast)(?:&(.*)|)|(.*))\s*$'%'|'.join(__OUT_LANG__),s,re.I)):
         form,action,under,lang,args = False,reg.v.group(1),reg.v.group(2),reg.v.group(3),reg.v.group(5) if reg.v.group(5) else reg.v.group(4)
@@ -916,7 +916,7 @@ Example: [<a href="u?tikz">/u?tikz</a>]</p>
         elif action and action.lower() in ('about','help','usage'):
             mime,o = 'text/html;charset=UTF-8','<html><title>Version:%s Digest:%s</title>%s'%(__version__,__digest__,get_favicon())
             o += application.__doc__ + ', '.join(__OUT_LANG__) + '</b>\n'
-            o += '<h2>Supported Input Modeling Formalisms</h2><b>' + ', '.join(__IN_MODEL__) + ',...</b>\n'
+            o += '<h2>[Planned] Supported Input Modeling Formalisms</h2><b>' + ', '.join(__IN_MODEL__) + ',...</b>\n'
             o += '<h6>Digest: %s</h6></html>'%__digest__
         elif action and action.lower() in ('paper','pdf'):
             o,mime = open('%s/u.pdf'%os.path.dirname(environ['SCRIPT_FILENAME'])).read(),'application/pdf'
@@ -1580,17 +1580,6 @@ if __name__ == '__main__':
     gen_beamer()
     gen_readme()
 
-    ########## debug zone! ##############
-    # test multilinks
-
-    uobj = u()
-
-    # 1 - test unicode
-    #s = u' AA ⊔A A⊔ C您'
-    #for m in re.compile(r'\s*(\w+)\s*',re.U).finditer(s):
-    #    print m.groups()
-    
-    # 1 - test getopt 
     import getopt
     opts, args = getopt.getopt(sys.argv[1:],'h:f:',['host=','format='])
     o,host = 'raw','127.0.0.1' # use '193.84.73.209'
@@ -1604,7 +1593,19 @@ if __name__ == '__main__':
     for arg in args:
         if os.path.isfile(arg):
             print post(host, '/u?%s'%o, open(arg).read())
+    if not args:
+        print 'Digest:%s'%__digest__
 
+    ########## debug zone! ##############
+    # test multilinks
+
+    uobj = u()
+
+    # 1 - test unicode
+    #s = u' AA ⊔A A⊔ C您'
+    #for m in re.compile(r'\s*(\w+)\s*',re.U).finditer(s):
+    #    print m.groups()
+    
     # 4 - test quotes
     s = '\'A \\\'B\\\'C\' "D\\"E\\"F" """ foo """ bar """ zzz """ \'\'\' foo \'\'\' bar \'\'\' zzz \'\'\'  '
     for m in re.compile(r"""(
@@ -1624,6 +1625,5 @@ if __name__ == '__main__':
 '((?:[^'\\]|\\.)*)'       # simple quote
 """,re.U|re.X).finditer(s): 
         pass
-    print __digest__
 
 # the end
