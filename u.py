@@ -3,7 +3,7 @@
 
 # Welcome to ⊔ [SquareCup]! See https://github/pelinquin/u
 #-----------------------------------------------------------------------------
-#  © Copyright 2011 Rockwell Collins, Inc 
+#  © Copyright 2012 Rockwell Collins, Inc 
 #    This file is part of ⊔ [SquareCup].
 #
 #    ⊔ [SquareCup] is free software: you can redistribute it and/or modify
@@ -35,11 +35,13 @@ Actually, we are introducing the concept of \emph{differential dual editing}; wh
 __author__  = 'Laurent Fournier'
 __email__   = 'lfournie@rockwellcollins.com'
 __title__   = 'The Universal Short Graph Language'
-__version__ = '0.1a'
+__version__ = '0.2'
 __license__ = 'GPLv3'
 __url__     = 'github/pelinquin/u'
 
-import os,sys,re,hashlib,shutil,subprocess,urllib,datetime,httplib
+import os,sys,re,hashlib,shutil,subprocess,urllib,datetime,httplib,base64
+
+__digest__ = base64.urlsafe_b64encode(hashlib.sha1(open(__file__).read()).digest())[:5]
 
 #__RE_LABEL__ = r'''
 #   (
@@ -392,7 +394,8 @@ class u:
             o += '%s Host: %32s %s\n'%(sc,host,ec)            
             o += '%s ******** Do not edit by hand! ******** %s\n'%(sc,ec)
             digest = hashlib.sha1(open(__file__).read()).hexdigest()
-            o += '%s SHA1: %s %s\n'%(sc,digest[:-8],ec)
+            digest = base64.urlsafe_b64encode(hashlib.sha1(open(__file__).read()).digest())[:5]
+            o += '%s SHA1: %s %s\n'%(sc,digest,ec)
             o += '%s Forge:  https://github.com/pelinquin/u %s\n'%(sc,ec)
             o += '%s © Copyright 2011 Rockwell Collins, Inc %s\n'%(sc,ec)
             o += '%s ** GNU General Public License  (v3) ** %s\n'%(sc,ec)
@@ -708,7 +711,8 @@ Or use it as a Web service...for [instance](https://193.84.73.209/u?about).
 For your convenience, the [u.pdf](https://github.com/pelinquin/u/blob/master/u.pdf?raw=true) file is also commited.\n\nEnjoy!
 """
     digest = hashlib.sha1(open(__file__).read()).hexdigest()
-    o = '[u.py](https://github.com/pelinquin/u/blob/master/u.py) SHA1 digest start with %s...\n\n'%digest[:5]
+    digest = base64.urlsafe_b64encode(hashlib.sha1(open(__file__).read()).digest())[:5]
+    o = '[u.py](https://github.com/pelinquin/u/blob/master/u.py) SHA1 digest start with %s...\n\n'%digest
     open('README.md','w').write(o + gen_readme.__doc__)
 
 def gen_apache_conf():
@@ -717,6 +721,7 @@ def gen_apache_conf():
 # Place this file in '/etc/apache2/conf.d' directory
 # and restart Apache: '/etc/init.d/apache2 restart'"""
     digest = hashlib.sha1(open(__file__).read()).hexdigest()
+    digest = base64.urlsafe_b64encode(hashlib.sha1(open(__file__).read()).digest())[:5]
     prg,path = os.path.basename(sys.argv[0])[:-3],os.path.abspath(sys.argv[0]) 
     o = '# SHA1:%s\n\n'%digest
     o += 'WSGIScriptAlias /%s %s\n'%(prg,path)
@@ -753,9 +758,10 @@ def tex_header():
     \lstset{language=Python,breaklines=true}
     """ 
     digest = hashlib.sha1(open(__file__).read()).hexdigest()
+    digest = base64.urlsafe_b64encode(hashlib.sha1(open(__file__).read()).digest())[:5]
     o = tex_header.__doc__
     o += r'\title{\bf $\sqcup$: %s} \author{%s -- \url{%s} \\ '%(__title__,__author__,__email__) + '\n'
-    o += r'\tiny{version: %s [\texttt{%s}]\footnote{the first five hexadecimal bytes of the \textsc{sha1} digest of \texttt{u.py} source file. Please compare it with the one published \url{https://%s} to get the last release.}}}'%(__version__,digest[:5],__url__) + '\n'
+    o += r'\tiny{version: %s [\texttt{%s}]\footnote{the first five hexadecimal bytes of the \textsc{sha1} digest of \texttt{u.py} source file. Please compare it with the one published \url{https://%s} to get the last release.}}}'%(__version__,digest,__url__) + '\n'
     o += r'\maketitle' + '\n'
     o += r'\embedfile[filespec=%s]{%s}'%(os.path.basename(sys.argv[0]),os.path.abspath(sys.argv[0]))
     return o + '\n'
@@ -918,7 +924,8 @@ Example: [<a href="u?tikz">/u?tikz</a>]</p>
             o += application.__doc__ + ', '.join(__OUT_LANG__) + '</b>\n'
             o += '<h2>Supported Input Modeling Formalisms</h2><b>' + ', '.join(__IN_MODEL__) + ',...</b>\n'
             digest = hashlib.sha1(open(__file__).read()).hexdigest()
-            o += '<h6>Digest: %s</h6></html>'%digest[:5]
+            digest = base64.urlsafe_b64encode(hashlib.sha1(open(__file__).read()).digest())[:5]
+            o += '<h6>Digest: %s</h6></html>'%digest
         elif action and action.lower() in ('paper','pdf'):
             o,mime = open('%s/u.pdf'%os.path.dirname(environ['SCRIPT_FILENAME'])).read(),'application/pdf'
         elif action and action.lower() == 'beamer':
@@ -933,7 +940,8 @@ Example: [<a href="u?tikz">/u?tikz</a>]</p>
             o += res[1] if res[1] else '%s server Updated!'%environ['SERVER_NAME']
             o += '</p><a href="u?about">...go to main page</a>'
             digest = hashlib.sha1(open(__file__).read()).hexdigest()
-            o += '<h6>Digest: %s</h6></html>'%digest[:5]
+            digest = base64.urlsafe_b64encode(hashlib.sha1(open(__file__).read()).digest())[:5]
+            o += '<h6>Digest: %s</h6></html>'%digest
         elif args == None:
             if environ['REQUEST_METHOD'].lower() == 'post':
                 raw = environ['wsgi.input'].read(int(environ.get('CONTENT_LENGTH','0')))
@@ -1311,7 +1319,8 @@ class beamer:
         if os.path.isfile(os.path.abspath(logo)):
             self.tex += r'\pgfdeclareimage[height=.6cm]{logo}{%s}'%os.path.abspath(logo) + '\n' + r'\logo{\pgfuseimage{logo}}' + '\n\n'
         digest = hashlib.sha1(open(__file__).read()).hexdigest()
-        self.tex += beamer.__init__.__doc__ + r'\section{Draft:\texttt{%s}}'%digest[:5] + '\n'
+        digest = base64.urlsafe_b64encode(hashlib.sha1(open(__file__).read()).digest())[:5]
+        self.tex += beamer.__init__.__doc__ + r'\section{Draft:\texttt{%s}}'%digest + '\n'
 
     def gen_tex(self):
         r"""\end{document}"""
@@ -1625,5 +1634,6 @@ if __name__ == '__main__':
 '((?:[^'\\]|\\.)*)'       # simple quote
 """,re.U|re.X).finditer(s): 
         pass
+    print base64.urlsafe_b64encode(hashlib.sha1(open(__file__).read()).digest())[:5]
 
 # the end
