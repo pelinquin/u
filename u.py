@@ -886,8 +886,9 @@ def get_logo():
 
 
 def application(environ,start_response):
-    """<title>⊔</title><style>h1,h2,h6,p,li,b{font-family:helvetica neue,helvetica,arial,sans-serif;} a{text-decoration:none;} h6{text-align:right;}</style>
-<h1><a href="https://github.com/pelinquin/u" style="font-size:64pt;color:DodgerBlue;" title="SquareCup">⊔</a> Web service</h1>
+    """<title>⊔</title><style>h1,h2,h6,p,li,b,a{font-family:helvetica neue,helvetica,arial,sans-serif;} a{text-decoration:none;} 
+h6{position:absolute;top:0;right:10;} a.logo{font-size:100pt;color:DodgerBlue;line-height:80%}</style>
+<h1><a href="https://github.com/pelinquin/u" class="logo" title="SquareCup">⊔</a> Web service</h1>
 <h2>Using a Web browser</h2>
 <p>The Web service root name (after domain and server name in the URL) is: ⊔ [<a href="u?about">/u...</a>] or [<a href="⊔?about">/⊔...</a>] (U+2294).</p>
 <p>Any URL argument (after '?') shall be a valid ⊔ string and the default output is the AST (a Python data structure).
@@ -920,7 +921,7 @@ Example: [<a href="u?tikz">/u?tikz</a>]</p>
             mime,o = 'text/html;charset=UTF-8','<html><title>Version:%s Digest:%s</title>%s'%(__version__,__digest__,get_favicon())
             o += application.__doc__ + ', '.join(__OUT_LANG__) + '</b>\n'
             o += '<h2>[Planned] Supported Input Modeling Formalisms</h2><b>' + ', '.join(__IN_MODEL__) + ',...</b>\n'
-            o += '<h6>Digest: %s</h6></html>'%__digest__
+            o += '<h6 title="Base64 encoded short sha1 digest">%s</h6></html>'%__digest__
         elif action and action.lower() in ('paper','pdf'):
             o,mime = open('%s/u.pdf'%os.path.dirname(environ['SCRIPT_FILENAME'])).read(),'application/pdf'
         elif action and action.lower() == 'beamer':
@@ -933,8 +934,7 @@ Example: [<a href="u?tikz">/u?tikz</a>]</p>
             res = subprocess.Popen((cmd), shell=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE).communicate()
             o,mime = '<html><p>','text/html'
             o += res[1] if res[1] else '%s server Updated!'%environ['SERVER_NAME']
-            o += '</p><a href="u?about">...go to main page</a>'
-            o += '<h6>Digest: %s</h6></html>'%__digest__
+            o += '</p><a href="u?about">...go to main updated page</a></html>'
         elif args == None:
             if environ['REQUEST_METHOD'].lower() == 'post':
                 raw = environ['wsgi.input'].read(int(environ.get('CONTENT_LENGTH','0')))
