@@ -1,4 +1,4 @@
-n6duQ: [u.py](https://github.com/pelinquin/u/blob/master/u.py) base64 encoded sha1 short digest
+MQfky: [u.py](https://github.com/pelinquin/u/blob/master/u.py) base64 encoded sha1 short digest
 
 Welcome to the ⊔ [SquareCup] Language Project !
 ==========================================
@@ -19,6 +19,6 @@ You can use it as a Python module and overload functions.
 
 
 Or use it as a Web service...for [instance](https://193.84.73.209/u?about).  
-For your convenience, the [u.pdf](https://github.com/pelinquin/u/blob/master/u.pdf?raw=true) file is also commited.
+For your convenience, the [u.pdf](https://github.com/pelinquin/u/blob/master/u.pdf?raw=true) and [beamer_u.pdf](https://github.com/pelinquin/u/blob/master/beamer_u.pdf?raw=true) files are also commited.
 
 Enjoy!

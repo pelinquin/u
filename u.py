@@ -705,7 +705,7 @@ All is included or generated from the [u.py](https://github.com/pelinquin/u/blob
 Launch that Python file to pass tests and to generate formated documentation.\n\n
 You can use it as a Python module and overload functions.\n\n
 Or use it as a Web service...for [instance](https://193.84.73.209/u?about).  
-For your convenience, the [u.pdf](https://github.com/pelinquin/u/blob/master/u.pdf?raw=true) file is also commited.\n\nEnjoy!
+For your convenience, the [u.pdf](https://github.com/pelinquin/u/blob/master/u.pdf?raw=true) and [beamer_u.pdf](https://github.com/pelinquin/u/blob/master/beamer_u.pdf?raw=true) files are also commited.\n\nEnjoy!
 """
     o = '%s: [u.py](https://github.com/pelinquin/u/blob/master/u.py) base64 encoded sha1 short digest\n\n'%__digest__
     open('README.md','w').write(o + gen_readme.__doc__)
