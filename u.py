@@ -43,34 +43,37 @@ import os,sys,re,hashlib,shutil,subprocess,urllib,datetime,httplib,base64
 
 __digest__ = base64.urlsafe_b64encode(hashlib.sha1(open(__file__).read()).digest())[:5]
 
-#__RE_LABEL__ = r'''
-#   (
-#    "{3}.*?"{3}|             # triple double quote
-#    '{3}.*?'{3}|             # triple simple quote
-#    "(?:(?:[^"\\]|\\.)*)"|   # double quote with escape
-#    '(?:(?:[^'\\]|\\.)*)'    # simple quote with escape
-#   )'''
-#__RE_LABEL__ = r'''("{3}.*?"{3}|'{3}.*?'{3}|"(?:(?:[^"\\]|\\.)*)"|'(?:(?:[^'\\]|\\.)*)')'''
+__RE_U__new = r'''                # RegExp with 8 groups
+   (?:                                # Token is NODE:
+    (?=(?:[^\W\d_]|:[^\W\d_]|[\"\'])) #  check not empty 
+    (?:([^\W\d_]\w*)|)                #  Name      G1
+    (?::([^\W\d_]\w*)|)               #  Type      G2
+    (?:\(([^\)]*)\))?                 #  Content   G3
+    (?:\.(\w+))?                      #  Port      G4
+   )|(?:                              # Or EDGE:
+    ([\-=<>])                         #  Head      G5
+    (?:(\w)|)                         #  Type      G6
+    (?:\(([^\)]*)\))?                 #  Content   G7
+    ([\-=<>])                         #  Tail      G8
+   )
+'''
 
-__RE_U__ = r'''                # RegExp with 10 groups
+__RE_U__ = r'''                # RegExp with 9 groups
    (?:                                # Token is NODE:
     (?=(?:[^\W\d_]|:[^\W\d_]|[\"\'])) #  check not empty 
     (?:([^\W\d_]\w*)|)                #  Name      G1
     (?:[\"\']([^\"]*)[\"\'])?         #  Label     G2
-    (?:\.(\w+))?                      #  Port      G3
-    (?::([^\W\d_]\w*)|)               #  Type      G4
-    (?:\(([^\)]*)\))?                 #  Arguments G5
+    (?::([^\W\d_]\w*)|)               #  Type      G3
+    (?:\(([^\)]*)\))?                 #  Content   G4
+    (?:\.(\w+))?                      #  Port      G5
    )|(?:                              # Or EDGE:
     ([\-=<>])                         #  Head      G6
-    (?:\"([^\"]*)\")?                 #  Label     G7
-    (?:(\w)|)                         #  Type      G8
-    #(?:([^\W\d_]\w*)|)                #  Type      G8
-    #([^\W\d_a-zA-Z])?                 #  Type      G8
-    (?:\(([^\)]*)\))?                 #  Arguments G9
-    ([\-=<>])                         #  Tail      G10
+    (?:(\w)|)                         #  Type      G7
+    (?:\(([^\)]*)\))?                 #  Content   G8
+    ([\-=<>])                         #  Tail      G9
    )
 '''
- 
+
 __RE_FILTER__ = [(r'(?m)\#.*$',''),            # remove comments
                  (r'(?m)\s*$',''),             # right strip 
                  (r'(?m)^\s*',''),             # left strip
@@ -208,17 +211,12 @@ __AST_SET__ = [
     ('15'                     ,'A=-B'),
     ('16'                     ,'A==B'),
     ('spaceBeforeEdge'        ,'A ->B'),
-    (''                       ,'A-> B'),
-    (''                       ,'A -> B'),
+    ('spaceAfterEdge'         ,'A-> B'),
+    ('spaces'                 ,'A -> B'),
     (''                       ,'A->A'),
-    (''                       ,'A -"label"- B'),
+    (''                       ,'A -(content)- B'),
     (''                       ,'A -T- B'),
-    (''                       ,'A -(arg)- B'),
-    (''                       ,'A -"label"T- B'),
-    (''                       ,'A -T(arg)- B'),
-    (''                       ,'A -"label"(arg)- B'),
-    (''                       ,'A -"label"T(arg)- B'),
-    (''                       ,'A -(arg1,arg2,arg3)- B'),
+    (''                       ,'A -T(content)- B'),
     (''                       ,'A{a1 a2} -> B{b1 b2}'),
     (''                       ,'{a1 a2} -> B{b1 b2}'),
     (''                       ,'A{a1 a2} -> {b1 b2}'),
@@ -240,7 +238,7 @@ def find_id(x):
         if x[1]: # label
             return re.sub(r'\W','',x[1])
         else: # type
-            return '__%s'%x[3]
+            return '__%s'%x[2]
 
 class u:
     """ This is the base class for ⊔ 
@@ -332,7 +330,7 @@ class u:
                 if moid and c:
                     for i in moid:
                         for j in mnid:
-                            Edges.append(strip3((i,c[0]+c[4],j,c[1],c[2],c[3])))
+                            Edges.append(strip2((i,c[0]+c[3],j,c[1],c[2])))
                     c = []
                 moid = mnid
                 if oid and Nodes.has_key(oid):
@@ -352,16 +350,16 @@ class u:
             else:
                 nodes = {}
                 for m in re.compile(__RE_U__,re.U|re.X).finditer(s):
-                    a = map(lambda k:m.group(k),range(1,11))
-                    if a[5] and a[9]: # this is an edge
-                        c = a[5:10]
+                    a = map(lambda k:m.group(k),range(1,10))
+                    if a[5] and a[8]: # this is an edge
+                        c = a[5:9]
                     else: # this is a node
                         #if a[1] != None:
                         #    l = a[1] 
                         #a[1] = [re.sub(r'\\','',l[1:-1] if not l[:3] in ('"""',"'''") else l[3:-3])]
                         #a[1] = l[1:-1] 
-                        nid,npo = find_id(a[:5]),'.%s'%a[2] if a[2] else ''                        
-                        attr = strip4(tuple([[]] + a[1:2] + a[3:5]))
+                        nid,npo = find_id(a[:4]),'.%s'%a[4] if a[4] else ''                        
+                        attr = strip4(tuple([[]] + a[1:4]))
                         if Nodes.has_key(nid):
                             nodes[nid] = self.merge(Nodes[nid],attr)
                         if nodes.has_key(nid):
@@ -369,7 +367,7 @@ class u:
                         else:
                             nodes[nid] = attr
                         if c and oid and nid:
-                            Edges.append(strip3((oid+opo,c[0]+c[4],nid+npo,c[1],c[2],c[3])))
+                            Edges.append(strip2((oid+opo,c[0]+c[3],nid+npo,c[1],c[2])))
                             oid,opo,c = None,'',[]
                         oid,opo = nid,npo
                 Nodes.update(nodes)
@@ -531,8 +529,8 @@ pragma Profile (Ravenscar);
         for e in Edges:
             #boucle = '[bend left]'
             boucle = ''
-            typ = 'edge' if len(e)<5 or e[4] == None else 'edge%s'%e[4]
-            label = '' if len(e)<4 or e[3] == None else 'node[font=\\small,sloped,above]{%s}'%e[3] 
+            typ = 'edge' if len(e)<4 or e[3] == None else 'edge%s'%e[3]
+            label = '' if len(e)<5 or e[4] == None else 'node[font=\\small,sloped,above]{%s}'%e[4] 
             label = re.sub('@',r'\\',label)
             o += r'\draw[%s](%s) to%s %s(%s);'%(typ,e[0],boucle,label,e[2]) + '\n'
         o += r'\end{tikzpicture}'+ '\n'
@@ -634,8 +632,8 @@ pragma Profile (Ravenscar);
             for e in Edges:
                 ne += 1
                 n1,n2,p1,p2,ep1,ep2 = e[0],e[2],'','','',''
-                edge_label = e[3] if len(e)>3 else None
-                typ = 'edge' if (len(e)<5 or e[4] == None) else 'edge%s'%e[4]
+                edge_label = e[4] if len(e)>4 else None
+                typ = 'edge' if (len(e)<4 or e[3] == None) else 'edge%s'%e[3]
                 if re.search(r'\.',e[0]):
                     [n1,p1] = e[0].split('.')
                     if re.match(r'^\d+$',p1):
@@ -663,7 +661,7 @@ pragma Profile (Ravenscar);
                 o += '<g class="%s" n1="%s" n2="%s"%s%s><path id="e_%s" d="%s"/>'%(typ,n1,n2,p1,p2,ne,d)
                 if edge_label:
                     o += '<text><textPath %s xlink:href="#e_%s" startOffset="50%%">%s</textPath></text>'%(_XLINKNS,ne,edge_label)
-                args = [] if (len(e)<6 or e[5] == None) else e[5].split('|')
+                args = [] if (len(e)<5 or e[4] == None) else e[4].split('|')
                 if args:
                     o += '<text class="tiny"><textPath %s xlink:href="#e_%s" startOffset="0%%">%s</textPath></text>'%(_XLINKNS,ne,args[0])
                     if len(args) == 2:
@@ -711,6 +709,13 @@ For your convenience, the [u.pdf](https://github.com/pelinquin/u/blob/master/u.p
 """
     o = '%s: [u.py](https://github.com/pelinquin/u/blob/master/u.py) base64 encoded sha1 short digest\n\n'%__digest__
     open('README.md','w').write(o + gen_readme.__doc__)
+
+def gen_makefile():
+    # need main.c and test.u
+    """all: test\n\ntest: main.o test.o\n\tgcc main.o test.o -o test\n\nmain.o: main.c test.h\n\tgcc -c main.c\n\ntest.o: test.c test.h\n\tgcc -c test.c\n
+test.h: test.u\n\t./u.py -fc test.u > test.h\n\ntest.c: test.u\n\t./u.py -fc test.u > test.c\n\nclean:\n\trm -f *o test test.c test.h\n"""
+    o = '# Makefile example to show code generator remote call\n# Base64 encoded sha1 short digest: %s\n# see https://github.com/pelinquin/u\n\n'%__digest__
+    open('makefile','w').write(o + gen_makefile.__doc__)
 
 def gen_apache_conf():
     """# Apache config file in WSGI mod
@@ -975,6 +980,9 @@ Example: [<a href="u?tikz">/u?tikz</a>]</p>
             header.append( ('Content-Disposition','filename=file.%s'%ext))
     start_response('200 OK',header)
     return [(o)] 
+
+def strip2(z):
+    return z[:-2] if not (z[-1] or z[-2]) else z[:-1] if not z[-1] else z
 
 def strip3(z):
     return z[:-3] if not (z[-1] or z[-2] or z[-3]) else z[:-2] if not (z[-1] or z[-2]) else z[:-1] if not z[-1] else z
@@ -1241,8 +1249,8 @@ def gettypes(ast):
         if len(Nodes[n]) > 2:
             nl[Nodes[n][2]] = True 
     for e in Edges:
-        if len(e) > 4:
-            el[e[4]] = True 
+        if len(e) > 3:
+            el[e[3]] = True 
     return nl,el
 
 ################# MAIN ################
@@ -1577,12 +1585,13 @@ if __name__ == '__main__':
 
     import doctest
     doctest.testmod()
-    #code_gen_test(True)
+    code_gen_test(True)
     ast_test(True)
     gen_apache_conf()
     gen_doc()
     gen_beamer()
     gen_readme()
+    gen_makefile()
 
     import getopt
     opts, args = getopt.getopt(sys.argv[1:],'h:f:',['host=','format='])
@@ -1601,33 +1610,12 @@ if __name__ == '__main__':
         print 'Digest:%s'%__digest__
 
     ########## debug zone! ##############
-    # test multilinks
+    # test multilinks s = u' AA ⊔A A⊔ C您'
 
     uobj = u()
-
-    # 1 - test unicode
-    #s = u' AA ⊔A A⊔ C您'
-    #for m in re.compile(r'\s*(\w+)\s*',re.U).finditer(s):
-    #    print m.groups()
-    
-    # 4 - test quotes
-    s = '\'A \\\'B\\\'C\' "D\\"E\\"F" """ foo """ bar """ zzz """ \'\'\' foo \'\'\' bar \'\'\' zzz \'\'\'  '
-    for m in re.compile(r"""(
-"{3}.*?"{3}|            # triple double quote
-'{3}.*?'{3}|            # triple simple quote
-"(?:(?:[^"\\]|\\.)*)"|      # double quote
-'(?:(?:[^'\\]|\\.)*)'       # simple quote
-)""",re.U|re.X).finditer(s): 
-        a = m.group(1) 
-        b = a[1:-1] if not  a[:3] in ('"""',"'''") else a[3:-3]
-        tab = [re.sub(r'\\','',b)]
-
-    for m in re.compile(r"""
-"{3}(.*?)"{3}|            # triple double quote
-'{3}(.*?)'{3}|            # triple simple quote
-"((?:[^"\\]|\\.)*)"|      # double quote
-'((?:[^'\\]|\\.)*)'       # simple quote
-""",re.U|re.X).finditer(s): 
-        pass
+    s = u'A-I>B A-⊔>B A-您>B '
+    ast = uobj.parse(s)
+    #print '%s %s'%ast
+    #print uobj.gen_c(ast)
 
 # the end
