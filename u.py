@@ -1375,7 +1375,9 @@ class beamer:
         tex = 'beamer_%stex'%self.src[:-2]
         pdf = 'beamer_%spdf'%self.src[:-2]
         if subprocess.Popen(('which','pdflatex'),stdout=subprocess.PIPE).communicate()[0]:
-            subprocess.Popen(('cd /tmp; pdflatex -interaction=batchmode %s 1>/dev/null'%os.path.abspath(tex)), shell=True).communicate()
+            # don't understand why but needs to run twice pdflatex !
+            lt = os.path.abspath(tex)
+            subprocess.Popen(('cd /tmp; pdflatex -interaction=batchmode %s 1>/dev/null; pdflatex -interaction=batchmode %s 1>/dev/null'%(lt,lt)), shell=True).communicate()
             #shutil.move('/tmp/%s'%pdf,pdf) 
             open(pdf,'w').write(re.sub('(\/ID \[[^\]]+\]|\/CreationDate \([^\)]+\)|\/ModDate \([^\)]+\))','',open('/tmp/%s'%pdf).read()))
         else:
@@ -1428,10 +1430,10 @@ Some attributes list is attached to each node $v_i$ and each edge $e_k $.""")
 """)
     slides.frame('The big picture (with $\sqcup$!)', uobj.gen_tikz(uobj.parse(r"""
 A"$@sqcup$ concrete\\syntax\\string":node B"$@sqcup$ abstract\\syntax\\Python\\structure":node  
-A -"$@sqcup$ parser"e> B 
-B -"Web"e> "SVG":graph B -"doc.gen."e> "Tikz":graph B -"code gen."e> "Ada":lang B -e> "Ocaml":lang
-B -"model gen."e> "AADL":lang B -"generator"e> "XXXX":lang
-"UML\\Simulink\\KAOS\\...":model -"use"d> A 
+A -e($@sqcup$ parser)> B 
+B -e(Web)> "SVG":graph B -e(doc.gen.)> "Tikz":graph B -e(code gen.)> "Ada":lang B -e> "Ocaml":lang
+B -e(model gen.)> "AADL":lang B -e(generator)> "XXXX":lang
+e"UML\\Simulink\\KAOS\\...":model -d(use)> A 
 "$@sqcup$ type\\checker":tool -l> B 
 "$@sqcup$ optimizer":tool -l> A"""),False,2.8,1.5))
     slides.frame('$\sqcup$ facts', r"""\begin{block}{Structure}
