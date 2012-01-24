@@ -43,36 +43,25 @@ import os,sys,re,hashlib,shutil,subprocess,urllib,datetime,httplib,base64
 
 __digest__ = base64.urlsafe_b64encode(hashlib.sha1(open(__file__).read()).digest())[:5]
 
-__RE_U__new = r'''                # RegExp with 8 groups
-   (?:                                # Token is NODE:
-    (?=(?:[^\W\d_]|:[^\W\d_]|[\"\'])) #  check not empty 
-    (?:([^\W\d_]\w*)|)                #  Name      G1
-    (?::([^\W\d_]\w*)|)               #  Type      G2
-    (?:\(([^\)]*)\))?                 #  Content   G3
-    (?:\.(\w+))?                      #  Port      G4
-   )|(?:                              # Or EDGE:
-    ([\-=<>])                         #  Head      G5
-    (?:(\w)|)                         #  Type      G6
-    (?:\(([^\)]*)\))?                 #  Content   G7
-    ([\-=<>])                         #  Tail      G8
-   )
-'''
+# Rmq: Those following global data may be stored in a database (sql or berkeley)
+#      allowing to customize the code generators
 
-__RE_U__ = r'''                # RegExp with 9 groups
-   (?:                                # Token is NODE:
-    (?=(?:[^\W\d_]|:[^\W\d_]|[\"\'])) #  check not empty 
-    (?:([^\W\d_]\w*)|)                #  Name      G1
-    (?:[\"\']([^\"]*)[\"\'])?         #  Label     G2
-    (?::([^\W\d_]\w*)|)               #  Type      G3
-    (?:\(([^\)]*)\))?                 #  Content   G4
-    (?:\.(\w+))?                      #  Port      G5
-   )|(?:                              # Or EDGE:
-    ([\-=<>])                         #  Head      G6
-    (?:(\w)|)                         #  Type      G7
-    (?:\(([^\)]*)\))?                 #  Content   G8
-    ([\-=<>])                         #  Tail      G9
-   )
-'''
+__delimiter__ = r'[|\'`";,!~^@*+/$]+' # 14 chars
+__RE_U__ = r'''     # RegExp (nodes and edges)
+   (?:              # NODE:  
+    (?=[^\s<\-=>])  # Not empty token 
+    (?:(\w+)|)      # Name      
+    (?::(\w)|)      # Type pre  
+    ((%s)(.+?)\4|\(([^)]+)\)|) # Content
+    (\w|)           # Type post 
+    (?:\.(\w+)|)    # Port      
+   |                # or EDGE:  
+    ([<\-=>])       # Head      
+    (\w|)           # Type pre  
+    ((%s)(.+?)\12|\(([^)]+)\)|) # Content
+    (\w|)           # Type post
+    ([<\-=>])       # Tail
+)'''%(__delimiter__,__delimiter__)
 
 __RE_FILTER__ = [(r'(?m)\#.*$',''),            # remove comments
                  (r'(?m)\s*$',''),             # right strip 
@@ -83,6 +72,17 @@ __RE_FILTER__ = [(r'(?m)\#.*$',''),            # remove comments
                  (r'^(.*)$', '[\'\\1\']'),     # add start and end line brackets
                  (r'\'\',\s*',''),             # remove left empty elements
                  (r',\s*\'\'','')]             # remove right empty elements
+
+__RE_FILTERu__ = [(r'(?m)\#.*$',''),            # remove comments
+                 (r'(?m)\s*$',''),              # right strip 
+                 (r'(?m)^\s*',''),              # left strip
+                 (r'\n',' '),                   # on one line
+                 (r'\s*[\}\]]\s*', '\'], u\''), # add quote and open bracket
+                 (r'\s*[\{\[]\s*', '\', [u\''), # add quote and closing bracket
+                 (r'^(.*)$', '[u\'\\1\']'),     # add start and end line brackets
+                 (r'\'\',\s*',''),              # remove left empty elements
+                 (r',\s*\'\'','')]              # remove right empty elements
+# TBC: factorize Regexp for ascii and unicode
 
 _XHTMLNS  = 'xmlns="http://www.w3.org/1999/xhtml"'
 _SVGNS    = 'xmlns="http://www.w3.org/2000/svg"'
@@ -105,6 +105,76 @@ __OUT_LANG__ = {'c'          :['c'   ,('/*'  ,'*/' ,'')],
                 'lustre'     :['lst' ,('--'  ,''   ,'')],
                 'vhdl'       :['hdl' ,('--'  ,''   ,'')],
                 'systemc'    :['sc'  ,('//'  ,''   ,'')]}
+ 
+__DATA_svg__ = ({
+        '':  ('node','fill:black;','rect|-5,40,5','fill-opacity:.1;', 10, 10,()),
+        'Z': ('node','fill:black;','path|-4,0,0','stroke:green;stroke-width:1;fill:none;', 2, 2,()),
+        'E': ('node','fill:black;','ellipse','stroke:green;stroke-width:1;fill:gray;', 20, 20,()),
+        'F': ('node','fill:black;','rect','filter:url(#.shadow);stroke:green;stroke-width:1;fill:gray;fill-opacity:.1;', 5, 50,()),
+        'm': ('node','fill:black;','rect','filter:url(#.shadow);fill-opacity:.1;', 4, 4,()),
+        'T': ('node','fill:red;','rect','fill:blue;fill-opacity:.6;', 8, 18,('p1','p2','p3','p4')),
+        'R': ('node','fill:red;font-family:helvetica,arial,sans-serif;','rect','fill:none;stroke:black;stroke-width:1;',0,0,()),
+        'O': ('node','fill:blue;','rect','filter:url(#.shadow);fill-opacity:.1;', 30, 30,('in1','in2','out1','out2')),
+        'C': ('class','fill:blue;','rect','filter:url(#.shadow);fill-opacity:.1;', 30, 60, ('p1','p2','p3','p4','p5','p6','p7','p8','p9','p10','p11','p12','p13','p14','p15','p16')),
+        'c': ('class','fill:blue;','rect|0,4,4','fill-opacity:.1;stroke:gray;stroke-width:.5;', 2, 0, ()),
+        'D': ('node','fill:blue;','rect','filter:url(#.shadow);fill-opacity:.1;', 10, 50, ('pin1','pin2','pin3','pin4','pin5','pin6')),
+        'x': ('node','fill:blue;','rect','fill:blue;fill-opacity:.2;', 10, 50, ('pin1','pin2','pin3','pin4','pin5','pin6')),
+        'd': ('node','fill:blue;','rect','filter:url(#.shadow);fill-opacity:.1;', 10, 50, ()),
+        },{
+        '' : 'stroke:black; stroke-width:1; fill:none; marker-end:url(#.arrow);',
+        'I': 'stroke:green; stroke-width:2; fill:none; marker-end:url(#.arrow);',
+        'L': 'stroke:red; stroke-width:3; fill:none; marker-end:url(#.arrow);',
+        })
+
+__DATA_tikz__ = ({
+        '':  ('node','circle,drop shadow,draw=green!40,fill=gray!20',()),
+        'S': ('component','rectangle,draw=black!40,fill=gray!10',('p1','p2')),
+        'T': ('component','circle,drop shadow,draw=green!40,fill=gray!20',('in1','in2','out1','out2')), 
+        'O': ('node','rectangle,drop shadow,rounded corners=3pt,draw=red!40,fill=blue!25',()),
+        't': ('node','rectangle,rounded corners=5pt,drop shadow,draw=gray!40,fill=red!30',()),
+        'n': ('node','rectangle,rounded corners=3pt,drop shadow,draw=gray!40,fill=gray!20',()),
+        'm': ('node','rectangle,rounded corners=2pt,drop shadow,draw=gray!40,fill=brown!30',()),
+        'g': ('node','ellipse,drop shadow,draw=gray!40,fill=green!20',()),
+        'l': ('node','ellipse,drop shadow,draw=gray!40,fill=blue!20',()),
+        },{
+        '':  '--',
+        'I': '->,>=open diamond',
+        'L': '->,>=triangle 60',
+        'r': '--',
+        's': '->,>=latex',
+        'S': '->,>=latex',
+        'e': '->,>=latex',
+        'l': '->,>=latex,dashed',
+        'd': '->>,dotted',
+        })
+
+__DATA_c__ = ({
+        'C': ('class',),
+        'c': ('class',),
+        },{
+        '':(),
+        })
+
+__DATA_python__ = ({
+        'C': ('class',),
+        'c': ('class',),
+        },{
+        '':(),
+        })
+
+__DATA_objectivec__ = ({'': (),},{'':(),})
+__DATA_ada__        = ({'': (),},{'':(),})
+__DATA_scala__      = ({'': (),},{'':(),})
+__DATA_java__       = ({'': (),},{'':(),})
+__DATA_ruby__       = ({'': (),},{'':(),})
+__DATA_ocaml__      = ({'': (),},{'':(),})
+__DATA_haskell__    = ({'': (),},{'':(),})
+__DATA_lua__        = ({'': (),},{'':(),})
+__DATA_aadl__       = ({'': (),},{'':(),})
+__DATA_sdl__        = ({'': (),},{'':(),})
+__DATA_lustre__     = ({'': (),},{'':(),})
+__DATA_vhdl__       = ({'': (),},{'':(),})
+__DATA_systemc__    = ({'': (),},{'':(),})
 
 __IN_MODEL__ = ['UML','SysML','AADL-Graph','Marte','PSL','Xcos','Kaos','Entity-Relation-Graph','Tree-Diagram',
                 'Network-Graph','Flowchart','Petri-net','State-Machine','Markov-Chain','Behavior-Tree'] 
@@ -122,57 +192,67 @@ __CODE_GEN_SET__ = {
 
 __AST_SET__ = [
     ('OnlyId'                 ,'A'),
-    ('OnlyLabel'              ,'"L"'),
+    ('OnlyContent'            ,'"L"'),
     ('OnlyType'               ,':T'),
     ('OnlyChild'              ,'{a}'),
-    ('Id+Label'               ,'A"L"'),
+    ('Id+Content'             ,'A"L"'),
     ('Id+Type'                ,'A:T'),
     ('Id+Child'               ,'A{a}'),
-    ('Label+Type'             ,'"L":T'),
-    ('Label+Child'            ,'"L"{a}'),
+    ('Content+Type'           ,'"L"T'),
+    ('Type+Content'           ,':T"L"'),
+    ('Content+Child'          ,'"L"{a}'),
     ('Type+Child'             ,':T{a}'),
-    ('Id+Label+Type'          ,'A"L":T'),
-    ('Id+Label+Child'         ,'A"L"{a}'),
-    ('Label+Type+Child'       ,'"L":T{a}'),
+    ('Id+Content+Type'        ,'A"L"T'),
+    ('Id+Type+Content'        ,'A:T"L"'),
+    ('Id+Content+Child'       ,'A"L"{a}'),
+    ('Content+Type+Child'     ,'"L"T{a}'),
+    ('Type+Content+Child'     ,':T"L"{a}'),
     ('Id+Type+Child'          ,'A:T{a}'),
-    ('Id+Label+Type+Child'    ,'A"L":T{}'),
-    ('Id+Label+Type+Arg+Child','A"L":T(arg){}'),
-    ('Id with two args'       ,'A(arg1,arg2)'),
-    ('Label+argument'         ,'"L"(arg)'),
-    ('Type+argument'          ,':T(arg)'),
+    ('Id+Content+Type+Child'  ,'A"L"T{}'),
+    ('Id+Type+Content+Child'  ,'A:T"L"{}'),
+    #("Delimiter:'"            ,"Z'content'"),
+    ('Delimiter:"'            ,'B"content"'),
+    ('Delimiter:`'            ,'C`content`'),
+    ('Delimiter:;'            ,'D;content;'),
+    ('Delimiter:,'            ,'E,content,'),
+    ('Delimiter:!'            ,'F!content!'),
+    ('Delimiter:~'            ,'G~content~'),
+    ('Delimiter:^'            ,'H^content^'),
+    ('Delimiter:@'            ,'I@content@'),
+    ('Delimiter:*'            ,'J*content*'),
+    ('Delimiter:+'            ,'K+content+'),
+    ('Delimiter:/'            ,'L/content/'),
+    ('Delimiter:$'            ,'M$content$'),
+    ('Delimiter:()'           ,'N(content)'),
     ('Word Id'                ,'Aaa'),
     ('Not first digit'        ,'A1'),
+    ('First digit'            ,'1A'),
     ('white space'            ,' A'),
     ('end white space'        ,'A '),
     ('both white spaces'      ,' A '),
     ('several lines'          ,'\n\nA\n\n'),
     ('latin1 char'            ,'éàùç'),
-    ('unicode char'           ,'您您好'),
-    ('long label'             ,'"This is a long label" '),
-    ('label with quotes'      ,'"Label with \"escape\" substring" '),
-    (''                       ,'"Multi\nlines\nlabel" '),
-    #(''                       ,' """This is "a" \'very\' \nlong label""" '),
-    #(''                       ,' \'Simple quote\' '),
-    (''                       ,'A:T B:U'),
+    #('Unicode char'           ,u'A:您'),
+    #('Unicode char'           ,u'B:好'),
+    ('Long content'           ,'"This is a long content" '),
+    #(''                       ,'"Multi\nlines\ncontent" '),
+    ('Types'                  ,'A:T B:U'),
     ('2 nodes'                ,'A B'),
     ('3 nodes'                ,'A B C'),
     ('4 nodes'                ,'A B C D'),
-    ('overload label'         ,'A"label1" A"label2"'),
-    (''                       ,'A A"label"'),
-    (''                       ,'A"label" A'),
-    (''                       ,'A:T A"label"'),
-    (''                       ,'A"label" A:T'),
-    (''                       ,'A{a} A"label"'),
-    (''                       ,'A"label" A{a}'),
-    (''                       ,'A(x) A"label"'),
-    (''                       ,'A"label" A(x)'),
-    (''                       ,'A A"label1" A"label2"(x)'),
-    (''                       ,'A"label2"(x) A"label" A'),
-    (''                       ,'"label":T1 "label":T2'),
-    (''                       ,'A"label" B"label"'),
+    ('Overload content'       ,'A"content1" A"content2"'),
+    ('Accumulation1'          ,'A A"content"'),
+    ('Accumulation2'          ,'A"content" A'),
+    ('TypeContentAcc'         ,'A:T A"content"'),
+    ('ContentTypeAcc'         ,'A"content" A:T'),
+    ('ChildContentAcc'        ,'A{a} A"content"'),
+    ('ContentChildAcc'        ,'A"content" A{a}'),
+    (''                       ,'A A"content1" A"content2"(x)'),
+    (''                       ,'A"content2"(x) A"content" A'),
+    (''                       ,'"content"T1 "content"T2'),
+    (''                       ,'A"content" B"content"'),
     (''                       ,'A{a} B{b1 b2} C{c1 c2 c3}'),
     (''                       ,'A{a} B {b} {c}'),
-    (''                       ,'A{a} B[b]'),
     (''                       ,':T1{a b} :T2{c d}'),
     (''                       ,'A{ B{c b} C{e f} }'),
     (''                       ,'A{B{C{c}}}'),
@@ -192,31 +272,32 @@ __AST_SET__ = [
     (''                       ,'"x<y"'),
     (''                       ,'#comment\nA'),
     (''                       ,' #comment1\nA\n #comment2'),
-    (''                       ,'A->B'),
-    (''                       ,'A->B->C'),
-    ('1'                      ,'A>>B'), 
-    ('2'                      ,'A><B'),
-    ('3'                      ,'A>-B'),
-    ('4'                      ,'A>=B'),
-    ('5'                      ,'A<>B'),
-    ('6'                      ,'A<<B'),
-    ('7'                      ,'A<-B'),
-    ('8'                      ,'A<=B'),
-    ('9'                      ,'A->B'),
-    ('10'                     ,'A-<B'),
-    ('11'                     ,'A--B'), 
-    ('12'                     ,'A-=B'),
-    ('13'                     ,'A=>B'), 
-    ('14'                     ,'A=<B'),
-    ('15'                     ,'A=-B'),
-    ('16'                     ,'A==B'),
-    ('spaceBeforeEdge'        ,'A ->B'),
-    ('spaceAfterEdge'         ,'A-> B'),
-    ('spaces'                 ,'A -> B'),
-    (''                       ,'A->A'),
+    ('Chain2'                 ,'A->B'),
+    ('Chain3'                 ,'A->B->C'),
+    ('Link1'                  ,'A>>B'), 
+    ('Link2'                  ,'A><B'),
+    ('Link3'                  ,'A>-B'),
+    ('Link4'                  ,'A>=B'),
+    ('Link5'                  ,'A<>B'),
+    ('Link6'                  ,'A<<B'),
+    ('Link7'                  ,'A<-B'),
+    ('Link8'                  ,'A<=B'),
+    ('Link9'                  ,'A->B'),
+    ('Link10'                 ,'A-<B'),
+    ('Link11'                 ,'A--B'), 
+    ('Link12'                 ,'A-=B'),
+    ('Link13'                 ,'A=>B'), 
+    ('Link14'                 ,'A=<B'),
+    ('Link15'                 ,'A=-B'),
+    ('Link16'                 ,'A==B'),
+    ('SpaceBeforeEdge'        ,'A ->B'),
+    ('SpaceAfterEdge'         ,'A-> B'),
+    ('Spaces'                 ,'A -> B'),
+    ('Autoref'                ,'A->A'),
     (''                       ,'A -(content)- B'),
     (''                       ,'A -T- B'),
     (''                       ,'A -T(content)- B'),
+    (''                       ,'A -(content)T- B'),
     (''                       ,'A{a1 a2} -> B{b1 b2}'),
     (''                       ,'{a1 a2} -> B{b1 b2}'),
     (''                       ,'A{a1 a2} -> {b1 b2}'),
@@ -235,63 +316,21 @@ def find_id(x):
     if x[0]: # name
         return x[0]
     else:
-        if x[1]: # label
-            return re.sub(r'\W','',x[1])
+        if x[2]: # content
+            return re.sub(r'\W','',x[2])
         else: # type
-            return '__%s'%x[2]
+            return '__%s'%x[1]
 
 class u:
     """ This is the base class for ⊔ 
-    One can customize that class by adding/modifying the mapping structure (self.m) or by overloading a gen_xxxx() method
+    One can customize that class by adding/modifying __DADA_xxx__ structure or by overloading a gen_xxx() method
     """
 
     def __init__(self):
-        "Define types mapping"
+        "Load types mapping"
         self.m = {}
         for l in __OUT_LANG__:
-            self.m[l] = ({'':[]},{'':[]})
-        self.m['svg'] = ({'':     ('fill:black;','rect|-5,40,5','fill-opacity:.1;', 10, 10,()),
-                          'Z':    ('fill:black;','path|-4,0,0','stroke:green;stroke-width:1;fill:none;', 2, 2,()),
-                          'E':    ('fill:black;','ellipse','stroke:green;stroke-width:1;fill:gray;', 20, 20,()),
-                          'F':    ('fill:black;','rect','filter:url(#.shadow);stroke:green;stroke-width:1;fill:gray;fill-opacity:.1;', 5, 50,()),
-                          'min':  ('fill:black;','rect','filter:url(#.shadow);fill-opacity:.1;', 4, 4,()),
-                          'T':    ('fill:red;','rect','fill:blue;fill-opacity:.6;', 8, 18,('p1','p2','p3','p4')),
-                          'R':    ('fill:red;font-family:helvetica,arial,sans-serif;','rect','fill:none;stroke:black;stroke-width:1;',0,0,()),
-                          'O':    ('fill:blue;','rect','filter:url(#.shadow);fill-opacity:.1;', 30, 30,('in1','in2','out1','out2')),
-                          'C':    ('fill:blue;','rect','filter:url(#.shadow);fill-opacity:.1;', 30, 60,
-                                   ('pin1','pin2','pin3','pin4','pin5','pin6','pin7','pin8',
-                                    'pin9','pin10','pin11','pin12','pin13','pin14','pin15','pin16')),
-                          'c':    ('fill:blue;','rect|0,4,4','fill-opacity:.1;stroke:gray;stroke-width:.5;', 2, 2, (), 'class'),
-                          'class':('fill:blue;','rect','filter:url(#.shadow);fill-opacity:.1;', 10, 10, (), 'class'),
-                          'D':    ('fill:blue;','rect','filter:url(#.shadow);fill-opacity:.1;', 10, 50, 
-                                   ('pin1','pin2','pin3','pin4','pin5','pin6')),
-                          'd':    ('fill:blue;','rect','filter:url(#.shadow);fill-opacity:.1;', 10, 50, ())},
-                         {'' : 'stroke:black; stroke-width:1; fill:none; marker-end:url(#.arrow);',
-                          'I': 'stroke:green; stroke-width:2; fill:none; marker-end:url(#.arrow);',
-                          'L': 'stroke:red; stroke-width:3; fill:none; marker-end:url(#.arrow);'})
-        self.m['tikz'] = ({'':     ('circle,drop shadow,draw=green!40,fill=gray!20',()),
-                           'S':    ('rectangle,draw=black!40,fill=gray!10',('p1','p2')),
-                           'T':    ('circle,drop shadow,draw=green!40,fill=gray!20',('in1','in2','out1','out2')), 
-                           'O':    ('rectangle,drop shadow,rounded corners=3pt,draw=red!40,fill=blue!25',()),
-                           'tool': ('rectangle,rounded corners=5pt,drop shadow,draw=gray!40,fill=red!30',()),
-                           'node': ('rectangle,rounded corners=3pt,drop shadow,draw=gray!40,fill=gray!20',()),
-                           'model':('rectangle,rounded corners=2pt,drop shadow,draw=gray!40,fill=brown!30',()),
-                           'graph':('ellipse,drop shadow,draw=gray!40,fill=green!20',()),
-                           'lang': ('ellipse,drop shadow,draw=gray!40,fill=blue!20',()),
-                           },
-                          {'':      '--',
-                           'I':     '->,>=open diamond',
-                           'L':     '->,>=triangle 60',
-                           'droit': '--',
-                           'simple':'->,>=latex',
-                           'S':'->,>=latex',
-                           'e':'->,>=latex',
-                           'l':'->,>=latex,dashed',
-                           'd':'->>,dotted',
-                           })
-        self.m['c'] = ({'C':('class',),
-                        'c':('class',)}
-                       ,{'':()})
+            self.m[l] = eval('__DATA_%s__'%l)
             
     def setType(self,lang,t,tab,isnode=True):
         ""
@@ -310,74 +349,72 @@ class u:
             r += a[len(b)-len(a):]
         return tuple(r)
 
-    def parse1(self,x):
-        r""" test of doctest !
-        parse('A"my_classA":class -类> B"my_classB":class')    # does not support well unicode!
-        ({'A': ('my_classA', 'class'), 'B': ('my_classB', 'class')}, [('A', '->', 'B', None, '类')])
-        parse('A -> B')    
-        ({'A': (), 'B': ()}, [('A', '->', 'B')])
-        """
-        Nodes,Edges,kids,nid,oid,npo,opo,nid,moid,c = {},[],{},None,None,'','',[],[],[]
-        if type(x).__name__ == 'str':
-            t = reduce(lambda y,k: re.sub(k[0],k[1],y),__RE_FILTER__,x)
-            x = eval(t)
-        for s in x:
-            if type(s).__name__ == 'list':
-                n,k,e = self.parse1(s)
-                mnid = k.keys()
-                if nid:
-                    mnid = [nid]
-                if moid and c:
-                    for i in moid:
-                        for j in mnid:
-                            Edges.append(strip2((i,c[0]+c[3],j,c[1],c[2])))
-                    c = []
-                moid = mnid
-                if oid and Nodes.has_key(oid):
-                    t = list(Nodes[oid])
-                    if t:
-                        if t[0]:
-                            t[0] += k.keys()
-                        else:
-                            t[0] = k.keys()
-                    else:
-                        t.append(k.keys())                        
-                    Nodes[oid] = tuple(t)
-                    #print oid, Nodes[oid]
-                oid = nid = None
-                Nodes.update(n)
-                Edges += e
-            else:
-                nodes = {}
-                for m in re.compile(__RE_U__,re.U|re.X).finditer(s):
-                    a = map(lambda k:m.group(k),range(1,10))
-                    if a[5] and a[8]: # this is an edge
-                        c = a[5:9]
-                    else: # this is a node
-                        #if a[1] != None:
-                        #    l = a[1] 
-                        #a[1] = [re.sub(r'\\','',l[1:-1] if not l[:3] in ('"""',"'''") else l[3:-3])]
-                        #a[1] = l[1:-1] 
-                        nid,npo = find_id(a[:4]),'.%s'%a[4] if a[4] else ''                        
-                        attr = strip4(tuple([[]] + a[1:4]))
-                        if Nodes.has_key(nid):
-                            nodes[nid] = self.merge(Nodes[nid],attr)
-                        if nodes.has_key(nid):
-                            nodes[nid] = self.merge(nodes[nid],attr)
-                        else:
-                            nodes[nid] = attr
-                        if c and oid and nid:
-                            Edges.append(strip2((oid+opo,c[0]+c[3],nid+npo,c[1],c[2])))
-                            oid,opo,c = None,'',[]
-                        oid,opo = nid,npo
-                Nodes.update(nodes)
-                kids.update(nodes)
-        return (Nodes,kids,Edges)
+    def parse_raw(self,x):
+        "returns 10uple (Name,Type,Content,Port,Head+Tail,Type,Content)"
+        res = []
+        for m in re.compile(__RE_U__,re.U|re.X).finditer(x):
+            tn = m.group(7) if m.group(7) else m.group(2)
+            te = m.group(15) if m.group(15) else m.group(10) if m.group(10) else None
+            ln = m.group(5) if m.group(5) else m.group(6) if m.group(6) else None
+            le = m.group(13) if m.group(13) else m.group(14) 
+            arrow = m.group(9)+m.group(16) if m.group(9) and m.group(16) else None
+            res.append((m.group(1),tn,ln,m.group(8),arrow,te,le))
+        return res
+
+    def addedge(self,c,x,y,po):
+        """ """
+        edges = []
+        if c:
+            for i in x:
+                ti = map(lambda k:i+'.%s'%k,po[i]) if po.has_key(i) else [i] 
+                for j in y:
+                    tj = map(lambda k:j+'.%s'%k,po[j]) if po.has_key(j) else [j] 
+                    for p in ti:
+                        for q in tj:
+                            edges.append(strip2((p,c[0],q,c[1],c[2])))
+        return edges
 
     def parse(self,x):
-        "Use two functions for return type consistency"
-        n,k,e = self.parse1(x)
-        return n,e
+        return self.parse1(x,{})
+
+    def parse1(self,x,po):
+        """ """
+        nodes,edges,c,o,par = {},[],None,[],[]
+        if type(x).__name__ == 'str':
+            x = eval(reduce(lambda y,k: re.sub(k[0],k[1],y),__RE_FILTER__,x))
+        elif type(x).__name__ == 'unicode':
+            x = eval(reduce(lambda y,k: re.sub(k[0],k[1],y),__RE_FILTERu__,x))
+        for t in x:
+            if type(t).__name__ == 'list':
+                n,e = self.parse1(t,po)
+                for k in n:
+                    nodes[k] = self.merge(nodes[k],n[k]) if nodes.has_key(k) else n[k]
+                edges += e
+                m = n.keys()
+                if c == None and par:
+                    nodes[o[0]] = self.merge(nodes[o[0]],[m]) if nodes.has_key(o[0]) else (m)
+                else:
+                    edges += self.addedge(c,o,n,po)
+                    c,po = None,{}
+                if not par:
+                    o = m
+                par = []
+            else:
+                for a in self.parse_raw(t):
+                    if a[4]: c = a[4:]
+                    else:
+                        nid,attr = find_id(a[:3]),strip3(([],a[1],a[2]))
+                        nodes[nid] = self.merge(nodes[nid],attr) if nodes.has_key(nid) else attr
+                        if a[3]:
+                            if po.has_key(nid):
+                                po[nid].append(a[3])
+                            else:
+                                po[nid] = [a[3]]
+                        if c:
+                            edges += self.addedge(c,o,[nid],po)
+                            c,po = None,{}
+                        o,par = [nid],[nid]
+        return nodes,edges
 
     def hf(self,appli,host='127.0.0.1'):
         "Add header and footer to generated code"
@@ -410,49 +447,60 @@ class u:
         "/* C default code generator */\n/* Begin of .h */\n"
         m,classT,mainT,o = self.m['c'],[],[],''
         for t in m[0]:
-            if len(m[0][t])>0:
-                if m[0][t][0] == 'class':
-                    classT.append(t)
+            if len(m[0][t])>0 and m[0][t][0] == 'class':
+                classT.append(t)
         Nodes,Edges = ast
         for x in Nodes:
-            if Nodes[x]:
-                if len(Nodes[x]) > 2 and Nodes[x][2] in classT:
-                    label = x if Nodes[x][1] == None else Nodes[x][1]
-                    o += '\n/* Class: %s */\n'%label
-                    o += 'typedef struct %s {\n'%x
-                    if len(Nodes[x]) > 3:
-                        t = Nodes[x][3].split('|')
-                        if len(t) > 0:
-                            for z in t[0].split(','):
-                                o += '  int %s;\n'%z 
-                    o += '} %s;\n'%x
-                    if len(Nodes[x]) > 3:
-                        t = Nodes[x][3].split('|')
-                        if len(t) > 1:
-                            o += 'void %s_init(%s *self);\n'%(x,x)
-                            o += 'void %s_delete(%s *self);\n'%(x,x)
-                            for z in t[1].split(','):
-                                o += 'void %s(%s *self);\n'%(z,x)
-
-                elif len(Nodes[x]) > 2 and Nodes[x][2] in mainT:
-                    o += '\nint main(void) {\n'
-                    o += '  return(0); \n}\n'
+            if Nodes[x] and len(Nodes[x]) > 1 and Nodes[x][1] in classT:
+                content = '' if len(Nodes[x]) < 3 else Nodes[x][2]
+                t = content.split('|')
+                if len(t) > 0:
+                    for z in t[0].split(','):
+                        ti = z.split()
+                        if len(ti)>1:
+                            #o += 'typedef struct %s %s;\n'%(ti[0],ti[0])
+                            o += '#include"%s.h"\n'%ti[0] 
+        for x in Nodes:
+            if Nodes[x] and len(Nodes[x]) > 1 and Nodes[x][1] in classT:
+                content = '' if len(Nodes[x]) < 3 else Nodes[x][2]
+                t = content.split('|')
+                o += '\n/* Class: %s */\n'%x
+                o += 'typedef struct %s {\n'%x
+                if len(t) > 0:
+                    for z in t[0].split(','):
+                        ti = z.split()
+                        if len(ti)>1:
+                            o += '  %s;\n'%z 
+                        else:
+                            o += '  int %s;\n'%z 
+                o += '} %s;\n'%x
+                if len(t) > 1:
+                    o += '%s* %s_init(void);\n'%(x,x)
+                    o += 'void %s_delete(%s *self);\n'%(x,x)
+                    for z in t[1].split(','):
+                        o += 'void %s(%s *self);\n'%(z,x) 
+            elif len(Nodes[x]) > 1 and Nodes[x][1] in mainT:
+                o += '\nint main(void) {\n'
+                o += '  return(0); \n}\n'
         return self.gen_c.__doc__ + o + '/* End of .h */\n'
 
     def gen_python(self,ast):
         "## Python 2.7"
-        o = '\n\n'
+        m,classT,mainT,o = self.m['python'],[],[],'\n\n'
+        for t in m[0]:
+            if len(m[0][t])>0 and m[0][t][0] == 'class':
+                classT.append(t)
+        Nodes,Edges = ast
         Nodes,Edges = ast
         for x in Nodes:
             if Nodes[x]:
-                if len(Nodes[x]) == 2:
-                    if Nodes[x][1] == 'class':
-                        o += '\nclass %s:\n'%x
-                        o += '\t""" %s """\n'%Nodes[x][0]
-                        o += '\ta=0\n'
-                    elif Nodes[x][1] == 'main':
-                        o += '\nif __name__ == \'__main__\': \n'
-                        o += '\tprint \'yes\'\n'
+                if len(Nodes[x]) > 1 and Nodes[x][1] in classT:
+                    o += '\nclass %s:\n'%x
+                    o += '\t""" %s """\n'%Nodes[x][0]
+                    o += '\ta=0\n'
+                elif Nodes[x][1] == 'main':
+                    o += '\nif __name__ == \'__main__\': \n'
+                    o += '\tprint \'yes\'\n'
         return self.gen_python.__doc__ + o 
 
     def gen_ada(self,ast):
@@ -511,16 +559,15 @@ pragma Profile (Ravenscar);
         #o += gen_tikz_header(m,gettypes(ast)) + r'\begin{tikzpicture}[auto,node distance=15mm,semithick]'+ '\n'
         o += gen_tikz_header(m,gettypes(ast)) + r'\begin{tikzpicture}[every text node part/.style={align=left}]'+ '\n'
         for n in pos:
-            #name = n.encode('utf-8')
             name = n
-            label = name if (len(Nodes[n])<2 or not Nodes.has_key(n) or (Nodes[n][1] == None)) else Nodes[n][1]
-            shape = 'node' if (len(Nodes[n])<3 or not Nodes.has_key(n)) else 'node%s'%Nodes[n][2]
+            label = name if (len(Nodes[n])<3 or not Nodes.has_key(n) or (Nodes[n][2] == None)) else Nodes[n][2]
+            shape = 'node' if (len(Nodes[n])<2 or not Nodes.has_key(n)) else 'node%s'%Nodes[n][1]
             (x,y) = (pos[n][0]*rx/25,pos[n][1]*ry/25)
             label = re.sub(r'\\',r'\\\\',label)
             label = re.sub('@',r'\\',label)
             o += '\\node[%s](%s) at (%0.3f,%0.3f) {%s};'%(shape,name,x,y,label) + '\n'
             # ports
-            tt = m[0][''][1] if (len(Nodes[n])<3 or not Nodes.has_key(n) or not m[0].has_key(Nodes[n][2])) else m[0][Nodes[n][2]][1]
+            tt = m[0][''][2] if (len(Nodes[n])<2 or not Nodes.has_key(n) or not m[0].has_key(Nodes[n][1])) else m[0][Nodes[n][1]][2]
             if tt:
                 delta,p = 360/len(tt),-180
             for i in tt:
@@ -542,9 +589,8 @@ pragma Profile (Ravenscar);
         """ SVG with Javascript AJAX to get bounding boxes"""
         m,classT = self.m['svg'],[]
         for t in m[0]:
-            if len(m[0][t])>6:
-                if m[0][t][6] == 'class':
-                    classT.append(t) 
+            if len(m[0][t])>0 and m[0][t][0] == 'class':
+                classT.append(t) 
         Nodes,Edges = ast
         pos,ratio = layout(Nodes,Edges,'LR'),4
         o = '<svg %s>\n'%_SVGNS + gen_svg_header(m,gettypes(ast),True if boxes else False)
@@ -552,46 +598,46 @@ pragma Profile (Ravenscar);
             o += '<title id=".title">%s</title>\n'%__title__ + get_favicon() + get_logo() 
         else:
             o += include_js()
-        #o += '<!-- %s -->\n'%classT 
         o += '<g id=".nodes">\n' 
         portsPos,ports = {},{}
         for n in pos:
-            t = '' if not (Nodes.has_key(n) and (len(Nodes[n])>2) and m[0].has_key(Nodes[n][2])) else Nodes[n][2]
-            mx,my = m[0][t][3],m[0][t][4]
-            style = 'node' if (not Nodes.has_key(n) or len(Nodes[n])<3) else 'node%s'%Nodes[n][2]
+            t = '' if not (Nodes.has_key(n) and (len(Nodes[n])>1) and m[0].has_key(Nodes[n][1])) else Nodes[n][1]
+            mx,my = m[0][t][4],m[0][t][5]
+            style = 'node' if (not Nodes.has_key(n) or len(Nodes[n])<2) else 'node%s'%Nodes[n][1]
             o += '<g id="%s" class="%s"'%(n,style)
             if boxes.has_key(n):
                 o += '>'
-                a,sty = boxes[n],m[0][t][1].split('|')
+                a,sty = boxes[n],m[0][t][2].split('|')
                 if len(sty)>1:
                     skewx,rx,ry = sty[1].split(',')
                 else:
                     skewx,rx,ry = 0,0,0
                 o += '<g transform="translate(%s,%s) skewX(%s)">'%(a[0]+a[2]/2,a[1]+a[3]/2,skewx)
-                if m[0][t][1][0] == 'r':
+                if m[0][t][2][0] == 'r':
                     o += '<rect x="%s" y="%s" width="%s" height="%s" rx="%s" ry="%s"/>'%(-a[2]/2,-a[3]/2,a[2],a[3],rx,ry)
-                elif m[0][t][1][0] == 'p':
+                elif m[0][t][2][0] == 'p':
                     o += '<path d="M%s,%sL%s,%sL%s,%sL%s,%sZ"/>'%(-a[2]/2,-a[3]/2,a[2]/2,-a[3]/2,a[2]/2,a[3]/2,-a[2]/2,a[3]/2)
-                elif m[0][t][1][0] == 'e':
+                elif m[0][t][2][0] == 'e':
                     o += '<ellipse rx="%s" ry="%s"/>'%(a[2]/2,a[3]/2)
                 o += '</g>'
             else:
                 o += ' mx="%s" my="%s">'%(mx,my)
-            text = n if (not Nodes.has_key(n) or len(Nodes[n])<2 or Nodes[n][1] == None) else Nodes[n][1]
-            args = [] if (not Nodes.has_key(n) or len(Nodes[n])<4 or Nodes[n][3] == None) else Nodes[n][3].split('|')
-            (na,nm) = (0,0) if len(args) == 0 else (len(args[0].split(',')),0) if len(args) == 1 else (len(args[0].split(',')),len(args[1].split(',')))
+            args = [] if (not Nodes.has_key(n) or len(Nodes[n])<3 or Nodes[n][2] == None) else Nodes[n][2].split('|')
+            text = args[0] if len(args)>0 else n
+            (na,nm) = (0,0) if len(args) < 2 else (len(args[1].split(',')),0) if len(args) == 2 else (len(args[1].split(',')),len(args[2].split(',')))
             disp,dy = '',0
             x,y = pos[n][0]*ratio,pos[n][1]*ratio
-            if len(Nodes[n]) > 2 and Nodes[n][2] in classT:
+            #o += '<circle r="2" cx="%s" cy="%s"/>'%(x,y)
+            if len(Nodes[n]) > 1 and Nodes[n][1] in classT:
                 disp += '<tspan class="tiny" dominant-baseline="text-after-edge" x="%s">Class</tspan>'%x
                 disp += '<tspan dx="10">%s</tspan>'%text
-                if args:
-                    disp += '<tspan class="tiny" x="%s" dy="2em">Attributes</tspan>'%(x) 
-                    for l in args[0].split(','):
+                if len(args)>1:
+                    disp += '<tspan class="tiny" x="%s" dy="2em">Attributes</tspan>'%(x)
+                    for l in args[1].split(','):
                         disp += '<tspan class="body" x="%s %s" dy="1em">+%s: Int</tspan>'%(x,x+10,l)  
-                    if len(args)>1:
+                    if len(args)>2:
                         disp += '<tspan class="tiny" x="%s" dy="2em">Methods</tspan>'%(x) 
-                        for l in args[1].split(','):
+                        for l in args[2].split(','):
                             disp += '<tspan class="body" x="%s %s" dy="1em">+%s(): Int</tspan>'%(x,x+10,l)  
             else:
                 for l in text.split('\\'):
@@ -600,7 +646,7 @@ pragma Profile (Ravenscar);
             o += '<text class="node" x="%s" y="%s">%s</text>'%(x,y,disp)
             if boxes.has_key(n):
                 o += '<g>' 
-                portsPos[n],ports[n] = [],m[0][t][5]
+                portsPos[n],ports[n] = [],m[0][t][6]
                 if ports[n]:
                     delta = 200.0/len(ports[n])
                     d = delta/2.0 - 100
@@ -617,12 +663,15 @@ pragma Profile (Ravenscar);
                         o += '<rect class="port" x="%s" y="%s" width="6" height="6" pos="%s"/>'%(rx,y-3,d)
                         o += '<text class="tiny" x="%s" y="%s" dominant-baseline="middle" text-anchor="%s">%s</text>'%(x,y,anchor,p)
                         d += delta
-                elif len(Nodes[n]) > 2 and Nodes[n][2] in classT:
-                    h1 = 2*(boxes[n][3]-11)/(2+na+nm)
-                    h2 = 10 + (1+na/2)*h1
-                    H = [h1,h2] if (na>0 and nm>0) else [h1,] if na>0 else []
+                elif len(Nodes[n]) > 1 and Nodes[n][1] in classT:
+                    H=[]
+                    if na>0 and nm>0:
+                        H.append(2*(boxes[n][3]-2*(8+my))/(2+na+nm))
+                        H.append(8 + (1+.5*na)*H[0])
+                    elif na>0:
+                        H.append((boxes[n][3]-8-2*my)/(1+.5*na))
                     for h in H:
-                        o += '<path d="M%s,%sl%s,0"/>'%(boxes[n][0],boxes[n][1]+h,boxes[n][2])
+                        o += '<path d="M%s,%sl%s,0"/>'%(boxes[n][0],boxes[n][1]+h+my+1,boxes[n][2])
                 o += '</g>\n' 
             o += '</g>\n' 
         o += '</g>\n'
@@ -637,19 +686,17 @@ pragma Profile (Ravenscar);
                 if re.search(r'\.',e[0]):
                     [n1,p1] = e[0].split('.')
                     if re.match(r'^\d+$',p1):
-                        ep1 = int(p1)
-                        p1 = ' p1="%s"'%int(p1)
+                        ep1,p1 = int(p1),' p1="%s"'%int(p1)
                     elif p1 in ports[n1]:
-                        ep1 = ports[n1].index(p1)
-                        p1 = ' p1="%s"'%ports[n1].index(p1)
+                        ep1,p1 = ports[n1].index(p1),' p1="%s"'%ports[n1].index(p1)
                 if re.search(r'\.',e[2]):
-                    [n2,p2] = e[2].split('.') 
+                    [n2,p2] = e[2].split('.')
                     if re.match(r'^\d+$',p2):
-                        ep2 = int(p2)
-                        p2 = ' p2="%s"'%int(p2)
+                        ep2,p2 = int(p2),' p2="%s"'%int(p2)
                     elif p2 in ports[n2]:
-                        ep2 = ports[n2].index(p2)
-                        p2 = ' p2="%s"'%ports[n2].index(p2)
+                        ep2,p2 = ports[n2].index(p2),' p2="%s"'%ports[n2].index(p2)
+                    else:
+                        ep2,p2='',''
                 if ep1 != '' and ep2 != '' and ep1<len(portsPos[n1]) and ep2<len(portsPos[n2]):
                     d = nodes_path2(portsPos[n1][ep1],portsPos[n2][ep2],boxes.values())
                 elif ep1 != '' and ep1<len(portsPos[n1]):
@@ -673,6 +720,11 @@ pragma Profile (Ravenscar);
     def gen_aadl(self,ast):
         "-- AADL\n"
         o,m = '',self.m['aadl']
+        Nodes,Edges = ast
+        for n in Nodes:
+            pass
+        for e in Edges:
+            pass
         return self.gen_aadl.__doc__ + o 
 
     def gen_sdl(self,ast):
@@ -983,29 +1035,25 @@ Example: [<a href="u?tikz">/u?tikz</a>]</p>
 
 def strip2(z):
     return z[:-2] if not (z[-1] or z[-2]) else z[:-1] if not z[-1] else z
-
+    
 def strip3(z):
     return z[:-3] if not (z[-1] or z[-2] or z[-3]) else z[:-2] if not (z[-1] or z[-2]) else z[:-1] if not z[-1] else z
 
-def strip4(z):
-    return z[:-4] if not (z[-1] or z[-2] or z[-3] or z[-4]) else z[:-3] if not (z[-1] or z[-2] or z[-3]) else z[:-2] if not (z[-1] or z[-2]) else z[:-1] if not z[-1] else z
-    
 ######### UTILITIES ###########
 
 def layout(nodes,edges,rankdir='TB'):
     "computes layout for graphics (tikz and svg) generation"
     bbx,bby,pos,d = None,None,{},'digraph G { rankdir=%s '%rankdir
     for n in nodes:
-        label = n if (len(nodes[n])<2 or nodes[n][1] == None) else re.sub(r'\\','\\\\n',nodes[n][1]) 
+        label = n if (len(nodes[n])<3 or nodes[n][2] == None) else re.sub(r'\\','\\\\n',nodes[n][2]) 
         label = re.sub(r'\$[^\$]+\$','_',label)
-        #label = n.encode('utf-8')
-        d+= ' %s[label="%s"];'%(n,label) #d+= ' %s[label="%s"];'%(n.encode('utf-8'),label)
+        d+= ' %s[label="%s"];'%(n,label) 
     for e in edges:
         n1,n2 = re.sub(r'\..+$','',e[0]),re.sub(r'\..+$','',e[2])
         label = '' if len(e)<4 or e[3] == None else '[label="%s"];'%e[3]
         label = re.sub(r'\$[^\$]+\$','_',label)
-        d+= ' %s->%s %s'%(n1,n2,label) #d+= ' %s->%s'%(e[0].encode('utf-8'),e[2].encode('utf-8'))
-    #print d + '}'
+        d+= ' %s->%s %s'%(n1,n2,label) 
+    #print d + '}' # for debug
     p = subprocess.Popen(['dot'], stdout=subprocess.PIPE, stdin=subprocess.PIPE)
     for l in p.communicate(input=d + '}')[0].split('\n'):
         if reg(re.search('bb="0,0,([\.\d]+),([\.\d]+)"',l)):
@@ -1021,7 +1069,7 @@ def gen_tikz_header(m=[],(ln,le)=({},{})):
     if m:
         for n in m[0]:
             if ln.has_key(n):
-                o += r'\tikzstyle{node%s} = [%s]'%(n,m[0][n][0]) + '\n'
+                o += r'\tikzstyle{node%s} = [%s]'%(n,m[0][n][1]) + '\n'
         for e in m[1]:
             if le.has_key(e):
                 o += r'\tikzstyle{edge%s} = [%s]'%(e,m[1][e]) + '\n'
@@ -1220,19 +1268,20 @@ def gen_svg_header(m,(ln,le),full=True):
     o += '@font-face { font-family: Graublau; src: url(\'./fonts/GraublauWeb.otf\') format("opentype");}\n'
     o += '@font-face { font-family: vag; src: url(\'./fonts/VAG-HandWritten.otf\') format("opentype");}\n'
     o += 'text {font-family:helvetica neue,helvetica,arial,sans-serif;}\n'
-    o += 'text.tiny, tspan.tiny { font-family:helvetica neue,helvetica,arial,sans-serif;font-size: 4pt; fill:DarkSlateGray;}\n'
+    o += 'text.tiny, tspan.tiny { font-family:helvetica neue,helvetica,arial,sans-serif;font-size: 4px; fill:DarkSlateGray;}\n'
     o += 'tspan.body { font-family:helvetica neue,helvetica,arial,sans-serif;font-size: .5em; fill:DarkSlateGray;}\n'
     o += 'text.node { font-size: 1em;}\n'
     if full:
         o += 'textPath {dominant-baseline:text-after-edge;}\n'
-        o += 'text:hover { font-weight:bold;} rect.port { stroke-width:0; fill:lightblue;}\n'
+        #o += 'text:hover {stroke:gray;fill:none;} \n'
+        o += 'rect.port { stroke-width:0; fill:lightblue;}\n'
         o += 'path:hover, rect:hover { opacity:0.5; cursor:crosshair;}\n'
         o += 'path#logo:hover { opacity:1;}\n'
     for n in m[0]:
         if ln.has_key(n):
-            o += 'g.node%s > text { %s }\n'%(n,m[0][n][0]) 
-            sty = m[0][n][1].split('|')[0]
-            o += 'g.node%s > g > %s, path { %s }\n'%(n,sty,m[0][n][2]) 
+            o += 'g.node%s > text { %s }\n'%(n,m[0][n][1]) 
+            sty = m[0][n][2].split('|')[0]
+            o += 'g.node%s > g > %s { %s }\n'%(n,sty,m[0][n][3]) 
     for e in m[1]:
         if le.has_key(e):
             o += 'g.edge%s path { %s }\n'%(e,m[1][e]) 
@@ -1246,8 +1295,8 @@ def gettypes(ast):
     nl,el = {'':True},{'':True}
     Nodes,Edges = ast
     for n in Nodes:
-        if len(Nodes[n]) > 2:
-            nl[Nodes[n][2]] = True 
+        if len(Nodes[n]) > 1:
+            nl[Nodes[n][1]] = True 
     for e in Edges:
         if len(e) > 3:
             el[e[3]] = True 
@@ -1428,14 +1477,21 @@ Some attributes list is attached to each node $v_i$ and each edge $e_k $.""")
 \texttt{A.pin2 -> B.5} & Indexed and named ports \\
 \end{tabular} 
 """)
+    #slides.frame('The big picture (with $\sqcup$!)', uobj.gen_tikz(uobj.parse(r"""
+#A"$@sqcup$ concrete\\syntax\\string"n B"$@sqcup$ abstract\\syntax\\Python\\structure"n  
+#A -e($@sqcup$ parser)> B 
+#B -e(Web)> "SVG"g B -e(doc.gen.)> "Tikz"g B -e(code gen.)> "Ada"l B -e> "Ocaml"l B -e(model gen.)> "AADL"l B -e(generator)> "XXXX"l
+#e"UML\\Simulink\\KAOS\\..."m -d(use)> A 
+#"$@sqcup$ type\\checker"t -l> B 
+#"$@sqcup$ optimizer"t -l> A"""),False,2.8,1.5))
     slides.frame('The big picture (with $\sqcup$!)', uobj.gen_tikz(uobj.parse(r"""
-A"$@sqcup$ concrete\\syntax\\string":node B"$@sqcup$ abstract\\syntax\\Python\\structure":node  
-A -e($@sqcup$ parser)> B 
-B -e(Web)> "SVG":graph B -e(doc.gen.)> "Tikz":graph B -e(code gen.)> "Ada":lang B -e> "Ocaml":lang
-B -e(model gen.)> "AADL":lang B -e(generator)> "XXXX":lang
-e"UML\\Simulink\\KAOS\\...":model -d(use)> A 
-"$@sqcup$ type\\checker":tool -l> B 
-"$@sqcup$ optimizer":tool -l> A"""),False,2.8,1.5))
+A"concrete\\syntax\\string"n B"abstract\\syntax\\Python\\structure"n  
+A -e(parser)> B 
+B -e(Web)> "SVG"g B -e(doc.gen.)> "Tikz"g B -e(code gen.)> "Ada"l B -e> "Ocaml"l B -e(model gen.)> "AADL"l B -e(generator)> "XXXX"l
+e"UML\\Simulink\\KAOS\\..."m -d(use)> A 
+"type\\checker"t -l> B 
+"optimizer"t -l> A
+"""),False,2.8,1.5))
     slides.frame('$\sqcup$ facts', r"""\begin{block}{Structure}
 $\sqcup$ only manages the structure of the graph, not the semantics.\\
 $\sqcup$ parser builds an Abstract Syntax Tree (a Python data Structure) \\ The types libraries are doing the real job!
@@ -1585,9 +1641,9 @@ if __name__ == '__main__':
         print '...Error: please install \'graphviz\' package !'
         sys.exit()
 
-    import doctest
-    doctest.testmod()
-    code_gen_test(True)
+    #import doctest
+    #doctest.testmod()
+    #code_gen_test(True)
     ast_test(True)
     gen_apache_conf()
     gen_doc()
@@ -1612,12 +1668,23 @@ if __name__ == '__main__':
         print 'Digest:%s'%__digest__
 
     ########## debug zone! ##############
-    # test multilinks s = u' AA ⊔A A⊔ C您'
-
     uobj = u()
-    s = u'A-I>B A-⊔>B A-您>B '
-    ast = uobj.parse(s)
-    #print '%s %s'%ast
-    #print uobj.gen_c(ast)
+    tab = ('A->B',
+           'A{B C}->D{E F}',
+           '{B C}->{E F}',
+           'A->B->C',
+           'A{a->b}->B{c->d} X->{u v} {t z}->Y',
+           'a:T"L".1 -> {c.2{e} d:T.3 f:T"L"{g} }',
+           'A->{B{C}}',
+           '-> A {B} ->',
+           u'A:您',
+           u'A{B:您} C{D}',
+           'A:c(a,b|f1,f2)',
+           )
+    for s in tab[0:1]:
+        ast = uobj.parse(s)
+        #print s
+        #print '%s %s'%ast
+        #print uobj.gen_svg(ast)
 
 # the end
