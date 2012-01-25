@@ -1010,7 +1010,7 @@ Example: [<a href="u?tikz">/u?tikz</a>]</p>
             ast = uobj.parse(args)
             if environ['REQUEST_METHOD'].lower() == 'post':
                 raw = environ['wsgi.input'].read(int(environ.get('CONTENT_LENGTH','0')))
-                o = eval('uobj.gen_%s(ast,%s)'%(lang,eval(raw))) 
+                o = eval('uobj.gen_%s(ast,%s)'%(lang,eval(urllib.unquote(re.sub(r'^\w=','',raw))))) 
             else:
                 o = eval('uobj.hf(uobj.gen_%s,\'%s\')(ast)'%(lang,host)) #....encode('utf-8')
         if (under == '_') and not form:
@@ -1225,16 +1225,27 @@ def nodes_path(b1,b2):
     return 'M%s,%sL%s,%s'%(x1,y1,x2,y2)
 
 def include_js():
-    r"""function ajax(url,data,cb) {
+    r"""
+function postURL(data) {
   var req = new XMLHttpRequest();
-  req.onreadystatechange = processRequest;
-  function processRequest () {
+  req.onreadystatechange = function () {
     if (req.readyState == 4) {
-      if (req.status == 200) { if (cb) { cb(req.responseXML); }
-      } else { alert('Error Post status:'+ req.status); }
+      if (req.status == 200) { document.replaceChild(req.responseXML.documentElement,document.documentElement);} 
+      else { alert('Error Post status:'+ req.status); }
     }
   }
-  this.doPost = function() { req.open('POST', url,true); req.send(JSON.stringify(data)); }  
+  req.open('POST', window.location.href,true); req.send(JSON.stringify(data)); 
+}
+function submitURL(data) { 
+  var f = document.createElement('form');
+  f.setAttribute('method','post');
+  h = document.createElement('input');
+  h.setAttribute('type','hidden');
+  h.setAttribute('name','a');
+  h.setAttribute('value',JSON.stringify(data));
+  f.appendChild(h);
+  document.documentElement.appendChild(f);
+  f.submit();
 }
 window.onload = function () { 
   var box   = {};
@@ -1246,10 +1257,8 @@ window.onload = function () {
       box[t[n].id] = [b.x-mx,b.y-my,b.width+2*mx,b.height+2*my];
     }
   }
-  var ai = new ajax(window.location.href,box,function(res) {
-    document.replaceChild(res.documentElement,document.documentElement);
-  });
-  ai.doPost();
+  //postURL(box);
+  submitURL(box);
 }"""
     o = '<script %s type="text/ecmascript">\n/*<![CDATA[*//*---->*/\n'%_XLINKNS
     return o + include_js.__doc__  + '\n/*--*//*]]>*/</script>\n'
