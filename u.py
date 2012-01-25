@@ -1248,7 +1248,7 @@ function submitURL(data) {
   f.submit();
 }
 window.onload = function () { 
-  var box   = {};
+  var box = {};
   var t = document.getElementById('.nodes').childNodes;
   for (var n = 0; n < t.length; n++) {
     if (t[n].nodeName == 'g') {
@@ -1257,8 +1257,9 @@ window.onload = function () {
       box[t[n].id] = [b.x-mx,b.y-my,b.width+2*mx,b.height+2*my];
     }
   }
-  //postURL(box);
-  submitURL(box);
+  if (Object.keys(box).length != 0) { 
+    submitURL(box); //postURL(box);
+  }
 }"""
     o = '<script %s type="text/ecmascript">\n/*<![CDATA[*//*---->*/\n'%_XLINKNS
     return o + include_js.__doc__  + '\n/*--*//*]]>*/</script>\n'
