@@ -779,6 +779,7 @@ def gen_apache_conf():
     o += 'WSGIScriptAlias /%s %s\n'%(prg,path)
     o += 'WSGIScriptAlias /⊔ %s\n'%path
     o += 'AliasMatch /fonts/([^\.]*\.otf) %s/fonts/$1\n'%os.path.dirname(path)
+    o += 'WSGIApplicationGroup %{GLOBAL}\n' # to avoid autoTSLkey apache error
     open('%s.conf'%prg,'w').write('%s\n'%gen_apache_conf.__doc__+o)
 
 def tex_section():
@@ -941,6 +942,37 @@ def get_favicon():
 def get_logo():
     return '<path id="logo" stroke-width="5" fill="none" stroke="Dodgerblue" onclick="window.open(\'http://%s\');" title="⊔ [http://%s]" opacity=".02" d="M10,10L10,35L30,35L30,10"/>\n'%(__url__,__url__)
 
+def get_param(environ):
+    param = {}
+    if environ['REQUEST_METHOD'] == 'POST':    
+        for m in re.compile(r'([^&=]+)\s*=\s*([^&=]*)').finditer(environ['wsgi.input'].read(int(environ.get('CONTENT_LENGTH','0')))):
+            param[m.group(1)] = m.group(2)
+    return param
+
+def get_editor(environ,args):
+    ""
+    o,content,gid = '<?xml version="1.0" encoding="UTF-8" ?>\n<html %s>\n'%_XHTMLNS,'',''
+    o += '<title>⊔</title><style>textarea.editor{resize:none;width:100%; color:white;background-color:#444;}</style>\n'
+    o += '<style>input:required:invalid, input:focus:invalid { background-image: url(\'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAeVJREFUeNqkU01oE1EQ/mazSTdRmqSxLVSJVKU9RYoHD8WfHr16kh5EFA8eSy6hXrwUPBSKZ6E9V1CU4tGf0DZWDEQrGkhprRDbCvlpavan3ezu+LLSUnADLZnHwHvzmJlvvpkhZkY7IqFNaTuAfPhhP/8Uo87SGSaDsP27hgYM/lUpy6lHdqsAtM+BPfvqKp3ufYKwcgmWCug6oKmrrG3PoaqngWjdd/922hOBs5C/jJA6x7AiUt8VYVUAVQXXShfIqCYRMZO8/N1N+B8H1sOUwivpSUSVCJ2MAjtVwBAIdv+AQkHQqbOgc+fBvorjyQENDcch16/BtkQdAlC4E6jrYHGgGU18Io3gmhzJuwub6/fQJYNi/YBpCifhbDaAPXFvCBVxXbvfbNGFeN8DkjogWAd8DljV3KRutcEAeHMN/HXZ4p9bhncJHCyhNx52R0Kv/XNuQvYBnM+CP7xddXL5KaJw0TMAF8qjnMvegeK/SLHubhpKDKIrJDlvXoMX3y9xcSMZyBQ+tpyk5hzsa2Ns7LGdfWdbL6fZvHn92d7dgROH/730YBLtiZmEdGPkFnhX4kxmjVe2xgPfCtrRd6GHRtEh9zsL8xVe+pwSzj+OtwvletZZ/wLeKD71L+ZeHHWZ/gowABkp7AwwnEjFAAAAAElFTkSuQmCC\'); background-position: right top; background-repeat: no-repeat; -moz-box-shadow: none; } input:required:valid { background-image: url(\'data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABAAAAAQCAYAAAAf8/9hAAAAGXRFWHRTb2Z0d2FyZQBBZG9iZSBJbWFnZVJlYWR5ccllPAAAAepJREFUeNrEk79PFEEUx9/uDDd7v/AAQQnEQokmJCRGwc7/QeM/YGVxsZJQYI/EhCChICYmUJigNBSGzobQaI5SaYRw6imne0d2D/bYmZ3dGd+YQKEHYiyc5GUyb3Y+77vfeWNpreFfhvXfAWAAJtbKi7dff1rWK9vPHx3mThP2Iaipk5EzTg8Qmru38H7izmkFHAF4WH1R52654PR0Oamzj2dKxYt/Bbg1OPZuY3d9aU82VGem/5LtnJscLxWzfzRxaWNqWJP0XUadIbSzu5DuvUJpzq7sfYBKsP1GJeLB+PWpt8cCXm4+2+zLXx4guKiLXWA2Nc5ChOuacMEPv20FkT+dIawyenVi5VcAbcigWzXLeNiDRCdwId0LFm5IUMBIBgrp8wOEsFlfeCGm23/zoBZWn9a4C314A1nCoM1OAVccuGyCkPs/P+pIdVIOkG9pIh6YlyqCrwhRKD3GygK9PUBImIQQxRi4b2O+JcCLg8+e8NZiLVEygwCrWpYF0jQJziYU/ho2TUuCPTn8hHcQNuZy1/94sAMOzQHDeqaij7Cd8Dt8CatGhX3iWxgtFW/m29pnUjR7TSQcRCIAVW1FSr6KAVYdi+5Pj8yunviYHq7f72po3Y9dbi7CxzDO1+duzCXH9cEPAQYAhJELY/AqBtwAAAAASUVORK5CYII=\'); background-position: right top; background-repeat: no-repeat; }</style>\n' + include_js_editor()
+    p = os.path.dirname(__file__)
+    if p not in sys.path:
+        sys.path.append(p)
+    import gitu
+    mygit = gitu.gitu()
+    param = get_param(environ)
+    if param.has_key('content'):
+        content = param['content']
+    if param.has_key('gid'):
+        gid = param['gid']
+        content = mygit.cat(gid)
+    o += '<form method="post">'
+    o += '<input pattern="\w{5,10}" title="git id" type="search" list="l" name="gid" value="%s" onchange="submit();" data-message="6 to 10 digits" required/><datalist id="l">'%gid
+    for i in mygit.list():
+        if reg(re.search(r'^100644 blob ([0-9a-f]{40})\t(\w+)$',i)):
+            o += '<option value="%s"></option>'%reg.v.group(2)
+    o += '</datalist><input type="button" id=".save" name="s" disabled="true" value="Save" onclick="submit();"/>'
+    o += '<textarea id=".editor" name="content" class="editor" spellcheck="false" rows="20">%s</textarea>'%content
+    return o + '</form></html>'
 
 def application(environ,start_response):
     """<title>⊔</title><style>h1,h2,h6,p,li,b,a{font-family:helvetica neue,helvetica,arial,sans-serif;} a{text-decoration:none;} 
@@ -968,7 +1000,7 @@ Example: [<a href="u?tikz">/u?tikz</a>]</p>
 <p>Run such commands in local Makefile to manage independent module code generation/compilation/link.</p>
 <h2>[Planned] Supported output languages</h2><b>"""
     s,mime,o,uobj,host = urllib.unquote(environ['QUERY_STRING']),'text/plain;charset=UTF-8','Error!',u(),environ['SERVER_NAME']
-    if reg(re.match(r'\s*(update$|about$|help$|usage$|pdf$|paper|beamer$|)(?:(_?)(%s|raw|ast)(?:&(.*)|)|(.*))\s*$'%'|'.join(__OUT_LANG__),s,re.I)):
+    if reg(re.match(r'\s*(update$|about$|help$|usage$|pdf$|paper$|beamer$|edit$|ace$|)(?:(_?)(%s|raw|ast)(?:&(.*)|)|(.*))\s*$'%'|'.join(__OUT_LANG__),s,re.I)):
         form,action,under,lang,args = False,reg.v.group(1),reg.v.group(2),reg.v.group(3),reg.v.group(5) if reg.v.group(5) else reg.v.group(4)
         if lang: lang = lang.lower()
         if (action,under,lang,args) == ('',None,None,None):
@@ -983,6 +1015,9 @@ Example: [<a href="u?tikz">/u?tikz</a>]</p>
             o,mime = open('%s/u.pdf'%os.path.dirname(environ['SCRIPT_FILENAME'])).read(),'application/pdf'
         elif action and action.lower() == 'beamer':
             o,mime = open('%s/beamer_u.pdf'%os.path.dirname(environ['SCRIPT_FILENAME'])).read(),'application/pdf'
+        elif action and action.lower() in ('edit','ace'):
+            #o,mime = get_editor(environ,args),'application/xml;charset=UTF-8'
+            o,mime = get_editor(environ,args),'text/html;charset=UTF-8'
         elif action and action.lower() == 'update':
             if environ['SERVER_NAME'] != 'pelinquin': # update not possible from RCF network
                 cmd = 'cd %s/..; rm -rf u; git clone git://github.com/pelinquin/u.git; cd u'%os.path.dirname(environ['SCRIPT_FILENAME'])
@@ -1264,6 +1299,33 @@ window.onload = function () {
     o = '<script %s type="text/ecmascript">\n/*<![CDATA[*//*---->*/\n'%_XLINKNS
     return o + include_js.__doc__  + '\n/*--*//*]]>*/</script>\n'
 
+def include_js_editor():
+    r"""
+function postURL(data) {
+  var req = new XMLHttpRequest();
+  req.onreadystatechange = function () {
+    if (req.readyState == 4) {
+      if (req.status == 200) { document.replaceChild(req.responseXML.documentElement,document.documentElement);} 
+      else { alert('Error Post status:'+ req.status); }
+    }
+  }
+  req.open('POST', window.location.href,true); req.send(JSON.stringify(data)); 
+}
+
+if (typeof($)=='undefined') { 
+  function $(id) { return document.getElementById(id.replace(/^#/,'')); } 
+}
+ 
+function change_editor(evt) {
+  $('.save').removeAttribute('disabled');
+}
+
+window.onload = function () { 
+   $('.editor').addEventListener('keyup', change_editor, false);
+}"""
+    o = '<script %s type="text/ecmascript">\n/*<![CDATA[*//*---->*/\n'%_XLINKNS
+    return o + include_js_editor.__doc__  + '\n/*--*//*]]>*/</script>\n'
+
 def svg_defs():
     """ """
     o = '<defs>'
@@ -1488,15 +1550,11 @@ Some attributes list is attached to each node $v_i$ and each edge $e_k $.""")
 \end{tabular} 
 """)
     #slides.frame('The big picture (with $\sqcup$!)', uobj.gen_tikz(uobj.parse(r"""
-#A"$@sqcup$ concrete\\syntax\\string"n B"$@sqcup$ abstract\\syntax\\Python\\structure"n  
-#A -e($@sqcup$ parser)> B 
-#B -e(Web)> "SVG"g B -e(doc.gen.)> "Tikz"g B -e(code gen.)> "Ada"l B -e> "Ocaml"l B -e(model gen.)> "AADL"l B -e(generator)> "XXXX"l
-#e"UML\\Simulink\\KAOS\\..."m -d(use)> A 
 #"$@sqcup$ type\\checker"t -l> B 
 #"$@sqcup$ optimizer"t -l> A"""),False,2.8,1.5))
     slides.frame('The big picture (with $\sqcup$!)', uobj.gen_tikz(uobj.parse(r"""
 A"concrete\\syntax\\string"n B"abstract\\syntax\\Python\\structure"n  
-A -e(parser)> B 
+A -e($@sqcup$ parser)> B 
 B -e(Web)> "SVG"g B -e(doc.gen.)> "Tikz"g B -e(code gen.)> "Ada"l B -e> "Ocaml"l B -e(model gen.)> "AADL"l B -e(generator)> "XXXX"l
 e"UML\\Simulink\\KAOS\\..."m -d(use)> A 
 "type\\checker"t -l> B 

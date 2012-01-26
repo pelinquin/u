@@ -108,7 +108,7 @@ class gitu:
         mm = p.communicate(msg)[0].strip()
         p = subprocess.Popen(('git', 'update-ref', 'refs/heads/master',mm), env=self.e, stdout=subprocess.PIPE)
 
-    def getlist(self):
+    def list(self):
         """ """
         p = subprocess.Popen(('git', 'ls-tree', 'master^{tree}'), env=self.e, stdout=subprocess.PIPE)
         liste = p.communicate()[0].strip()
@@ -216,4 +216,5 @@ if __name__ == '__main__':
     print mygit.cat_simple(gid,rev)
     print mygit.cat(gid)
     print mygit.history(gid)
+    print mygit.list()
 
