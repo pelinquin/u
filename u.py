@@ -46,9 +46,8 @@ __digest__ = base64.urlsafe_b64encode(hashlib.sha1(open(__file__).read()).digest
 # Rmq: Those following global data may be stored in a database (sql or berkeley)
 #      allowing to customize the code generators
 
-#__separator__ = r'[|\'`";,!~^@*+/$]{1,3}' # 14 chars
 __separator__ = r'[|\'`";,!~^@*+/$]' # 14 chars
-__delimiter__ = r'%s(?:%s%s)?'%(__separator__,__separator__,__separator__)
+__delimiter__ = r'%s(?:%s%s)?'%(__separator__,__separator__,__separator__) # one or three chars
 __RE_U__ = r'''     # RegExp (nodes and edges)
    (?:              # NODE:  
     (?=[^\s<\-=>])  # Not empty token 
@@ -120,8 +119,11 @@ __DATA_svg__ = ({
         'D': ('node','fill:blue;','rect','filter:url(#.shadow);fill-opacity:.1;', 10, 50, ('pin1','pin2','pin3','pin4','pin5','pin6')),
         'x': ('node','fill:blue;','rect','fill:blue;fill-opacity:.2;', 10, 50, ('pin1','pin2','pin3','pin4','pin5','pin6')),
         'd': ('node','fill:blue;','rect','filter:url(#.shadow);fill-opacity:.1;', 10, 50, ()),
+        'p': ('place','fill:black;','circle','fill:green;fill-opacity:.3;', 10, 2, ()),
+        't': ('transition','fill:white;','rect','fill:black;fill-opacity:.8;', 2, 40, ()),
         },{
-        '' : 'stroke:black; stroke-width:1; fill:none; marker-end:url(#.arrow);',
+        '' : 'stroke:black; stroke-width:1.5; fill:none; marker-end:url(#.arrow);',
+        'r': 'stroke:black; stroke-width:1.5; fill:none; marker-start:url(#.r_arrow);',
         'I': 'stroke:green; stroke-width:2; fill:none; marker-end:url(#.arrow);',
         'L': 'stroke:red; stroke-width:3; fill:none; marker-end:url(#.arrow);',
         })
@@ -408,7 +410,8 @@ class u:
                 par = []
             else:
                 for a in self.parse_raw(t):
-                    if a[4]: c = a[4:]
+                    if a[4]: 
+                        c,par = a[4:],[]
                     else:
                         nid,attr = find_id(a[:3]),strip3(([],a[1],a[2]))
                         nodes[nid] = self.merge(nodes[nid],attr) if nodes.has_key(nid) else attr
@@ -640,18 +643,21 @@ pragma Profile (Ravenscar);
                     o += '<path d="M%s,%sL%s,%sL%s,%sL%s,%sZ"/>'%(-a[2]/2,-a[3]/2,a[2]/2,-a[3]/2,a[2]/2,a[3]/2,-a[2]/2,a[3]/2)
                 elif m[0][t][2][0] == 'e':
                     o += '<ellipse rx="%s" ry="%s"/>'%(a[2]/2,a[3]/2)
+                elif m[0][t][2][0] == 'c':
+                    o += '<circle r="%s"/>'%(a[2]/2)
                 o += '</g>'
             else:
                 o += ' mx="%s" my="%s">'%(mx,my)
-            args = [] if (not Nodes.has_key(n) or len(Nodes[n])<3 or Nodes[n][2] == None) else Nodes[n][2].split('|')
-            text = args[0] if len(args)>0 else n
-            (na,nm) = (0,0) if len(args) < 2 else (len(args[1].split(',')),0) if len(args) == 2 else (len(args[1].split(',')),len(args[2].split(',')))
-            disp,dy = '',0
-            x,y = pos[n][0]*ratio,pos[n][1]*ratio
+            disp,dy,x,y = '',0,pos[n][0]*ratio,pos[n][1]*ratio 
+            na,nm = 0,0
             #o += '<circle r="2" cx="%s" cy="%s"/>'%(x,y)
             if len(Nodes[n]) > 1 and Nodes[n][1] in classT:
+                args = [n] if (not Nodes.has_key(n) or len(Nodes[n])<3 or Nodes[n][2] == None) else Nodes[n][2].split('|')
+                (na,nm) = (0,0) if len(args) < 2 else (len(args[1].split(',')),0) if len(args) == 2 else (len(args[1].split(',')),len(args[2].split(',')))
+                disp,dy,x,y = '',0,pos[n][0]*ratio,pos[n][1]*ratio
                 disp += '<tspan class="tiny" dominant-baseline="text-after-edge" x="%s">Class</tspan>'%x
-                disp += '<tspan dx="10">%s</tspan>'%text
+                disp += '<tspan dx="10">%s</tspan>'%args[0]
+                print args
                 if len(args)>1:
                     disp += '<tspan class="tiny" x="%s" dy="2em">Attributes</tspan>'%(x)
                     for l in args[1].split(','):
@@ -659,9 +665,10 @@ pragma Profile (Ravenscar);
                     if len(args)>2:
                         disp += '<tspan class="tiny" x="%s" dy="2em">Methods</tspan>'%(x) 
                         for l in args[2].split(','):
-                            disp += '<tspan class="body" x="%s %s" dy="1em">+%s(): Int</tspan>'%(x,x+10,l)  
+                            disp += '<tspan class="body" x="%s %s" dy="1em">+%s(): Int</tspan>'%(x,x+10,l) 
             else:
-                for l in text.split('\\'):
+                args = [n] if (not Nodes.has_key(n) or len(Nodes[n])<3 or Nodes[n][2] == None) else Nodes[n][2].split('\n')
+                for l in args:
                     disp += '<tspan x="%s" dy="%sem">%s</tspan>'%(x,dy,l) 
                     dy = 1
             o += '<text class="node" x="%s" y="%s">%s</text>'%(x,y,disp)
@@ -692,7 +699,7 @@ pragma Profile (Ravenscar);
                     elif na>0:
                         H.append((boxes[n][3]-8-2*my)/(1+.5*na))
                     for h in H:
-                        o += '<path d="M%s,%sl%s,0"/>'%(boxes[n][0],boxes[n][1]+h+my+1,boxes[n][2])
+                        o += '<path class="sep" d="M%s,%sl%s,0"/>'%(boxes[n][0],boxes[n][1]+h+my+1,boxes[n][2])
                 o += '</g>\n' 
             o += '</g>\n' 
         o += '</g>\n'
@@ -1044,7 +1051,9 @@ def get_editor(environ,args):
     return o + '</form></html>'
 
 def application(environ,start_response):
-    """<title>⊔</title><style>h1,h2,h6,p,li,b,a{font-family:helvetica neue,helvetica,arial,sans-serif;} a{text-decoration:none;} 
+    """<title>⊔</title><style>h1,h2,h6,p,li,b,a,td{font-family:helvetica neue,helvetica,arial,sans-serif;} a{text-decoration:none;} 
+table {border: 1px solid #666;width:100%;border-collapse:collapse;}
+td,th {border: 1px solid #666;}
 h6{position:absolute;top:0;right:10;} a.logo{font-size:100pt;color:DodgerBlue;line-height:80%}</style>
 <h1><a href="https://github.com/pelinquin/u" class="logo" title="SquareCup">⊔</a> Web service</h1>
 <h2>Using a Web browser</h2>
@@ -1077,8 +1086,15 @@ Example: [<a href="u?tikz">/u?tikz</a>]</p>
             return [(open(environ['SCRIPT_FILENAME']).read())] 
         elif action and action.lower() in ('about','help','usage'):
             mime,o = 'text/html;charset=UTF-8','<html><title>Version:%s Digest:%s</title>%s'%(__version__,__digest__,get_favicon())
+            #mime = 'application/xml;charset=UTF-8'
             o += application.__doc__ + ', '.join(__OUT_LANG__) + '</b>\n'
             o += '<h2>[Planned] Supported Input Modeling Formalisms</h2><b>' + ', '.join(__IN_MODEL__) + ',...</b>\n'
+            tbl = {'A->B':'cas1','A->B->C':'cas2','A(Z|a,b|func)c':'cas3'}
+            o += '<table><tr><td>Cases</td><td><b>⊔ code</b></td><td><b>Nodes AST</b></td><td><b>Edges AST</b></td><td>svg</td><td>tikz</td><td>c</td></tr>'
+            for i in tbl:
+                n,e = uobj.parse(i)
+                o += '<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td><a href="u?_svg&%s">☑</a></td><td><a href="u?_tikz&%s">☑</a></td><td><a href="u?c&%s">☑</a></td></tr>'%(tbl[i],i,n,e,i,i,i)
+            o += '</table>'
             o += '<h6 title="Base64 encoded short sha1 digest">%s</h6></html>'%__digest__
         elif action and action.lower() in ('paper','pdf'):
             o,mime = open('%s/u.pdf'%os.path.dirname(environ['SCRIPT_FILENAME'])).read(),'application/pdf'
@@ -1088,7 +1104,7 @@ Example: [<a href="u?tikz">/u?tikz</a>]</p>
             #o,mime = get_editor(environ,args),'application/xml;charset=UTF-8'
             o,mime = get_editor(environ,args),'text/html;charset=UTF-8'
         elif action and action.lower() == 'update':
-            if environ['SERVER_NAME'] != 'pelinquin': # update not possible from RCF network
+            if environ['SERVER_NAME'] != 'pelinquin': # update not possible from RCF network because port 22 closed
                 cmd = 'cd %s/..; rm -rf u; git clone git://github.com/pelinquin/u.git; cd u'%os.path.dirname(environ['SCRIPT_FILENAME'])
             else:
                 cmd = 'ls %s'%__file__
@@ -1149,8 +1165,10 @@ def layout(nodes,edges,rankdir='TB'):
     "computes layout for graphics (tikz and svg) generation"
     bbx,bby,pos,d = None,None,{},'digraph G { rankdir=%s '%rankdir
     for n in nodes:
-        label = n if (len(nodes[n])<3 or nodes[n][2] == None) else re.sub(r'\\','\\\\n',nodes[n][2]) 
+        label = n if (len(nodes[n])<3 or nodes[n][2] == None) else re.sub(r'\\','\\\\n',nodes[n][2])  
+        label = re.sub(r'[\n|]','\\\\n',label) 
         label = re.sub(r'\$[^\$]+\$','_',label)
+        label = re.sub(r',','_',label)
         d+= ' %s[label="%s"];'%(n,label) 
     for e in edges:
         n1,n2 = re.sub(r'\..+$','',e[0]),re.sub(r'\..+$','',e[2])
@@ -1399,7 +1417,8 @@ window.onload = function () {
 def svg_defs():
     """ """
     o = '<defs>'
-    o += '<marker id=".arrow" viewBox="0 0 500 500" refX="80" refY="50" markerUnits="strokeWidth" orient="auto" markerWidth="40" markerHeight="30"><polyline points="0,0 100,50 0,100 10,50" fill="#555"/></marker>'
+    o += '<marker id=".arrow" viewBox="0 0 500 500" refX="80" refY="50" markerUnits="strokeWidth" orient="auto" markerWidth="40" markerHeight="30"><polyline points="0,0 100,50 0,100 20,50" fill="#555"/></marker>'
+    o += '<marker id=".r_arrow" viewBox="0 0 500 500" refX="70" refY="50" markerUnits="strokeWidth" orient="auto" markerWidth="40" markerHeight="30"><polyline points="150,0 50,50 150,100 130,50" fill="#555"/></marker>'
     o += '<radialGradient id=".grad" cx="0%" cy="0%" r="90%"><stop offset="0%" stop-color="#FFF"/><stop offset="100%" stop-color="#DDD" class="end"/></radialGradient>'
     o += '<filter id=".shadow" filterUnits="userSpaceOnUse"><feGaussianBlur in="SourceAlpha" result="blur" stdDeviation="2"/><feOffset dy="3" dx="2" in="blur" result="offsetBlur"/><feMerge><feMergeNode in="offsetBlur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>'
     return o + '</defs>\n'
@@ -1423,7 +1442,7 @@ def gen_svg_header(m,(ln,le),full=True):
         if ln.has_key(n):
             o += 'g.node%s > text { %s }\n'%(n,m[0][n][1]) 
             sty = m[0][n][2].split('|')[0]
-            o += 'g.node%s > g > %s { %s }\n'%(n,sty,m[0][n][3]) 
+            o += 'g.node%s > g > %s, path.sep { %s }\n'%(n,sty,m[0][n][3]) 
     for e in m[1]:
         if le.has_key(e):
             o += 'g.edge%s path { %s }\n'%(e,m[1][e]) 
@@ -1665,6 +1684,7 @@ To generate code, $\sqcup$ uses UNIX like piped small tools on the graph Abstrac
                                            ,'XML does not enforce id on each elements'
                                            ,'XML use Xlink,Xpath for referencing'
                                            ,'XML raises {\it attributes} versus {\it elements} dilemma' 
+                                           ,'XML is combersome to use'
                                            ,'XML is unreadable in practice'
                                            ,'Transformations are complex (XSLT)'
                                            ,'Type checking using DTD, XSD, RelaxNG'))
@@ -1821,29 +1841,12 @@ if __name__ == '__main__':
            u'A:您',
            u'A{B:您} C{D}',
            'A:c(a,b|f1,f2)',
+           r'AA"hello\nworld"',
+           'A"Hellowo|adssd|a,b"c'
            )
-    #for s in tab[0:1]:
-    #    ast = uobj.parse(s)
+    #for s in tab[-1:]:
+        #ast = uobj.parse(s)
         #print s
         #print '%s %s'%ast
-        #print uobj.gen_svg(ast)
-
-
-    __RE_FILTER = [(r'(?m)\#.*$',''),            # remove comments
-                   (r'(?m)\s*$',''),             # right strip 
-                   (r'(?m)^\s*',''),             # left strip
-                   (r'\s*[\}\]]\s*', '\'], \''), # add quote and open bracket
-                   (r'\s*[\{\[]\s*', '\', [\''), # add quote and closing bracket
-                   (r'^(.*)$', '[\'\\1\']'),     # add start and end line brackets
-                   (r'\'\',\s*',''),             # remove left empty elements
-                   (r',\s*\'\'','')]             # remove right empty elements
-
-    x = r'A"$BB$" "$CC$" "$$dd"$$'
-    #x = reduce(lambda y,k: re.sub(k[0],k[1],y,re.S),__RE_FILTER__,x)
-    #print x
-    #for m in re.compile(__RE_U__,re.U|re.X|re.S).finditer(x):
-    #    print m.groups()
-    #print uobj.parse_raw(x)
-
-
+        #uobj.gen_svg(ast)
 # the end
