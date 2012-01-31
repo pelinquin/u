@@ -46,7 +46,9 @@ __digest__ = base64.urlsafe_b64encode(hashlib.sha1(open(__file__).read()).digest
 # Rmq: Those following global data may be stored in a database (sql or berkeley)
 #      allowing to customize the code generators
 
-__delimiter__ = r'[|\'`";,!~^@*+/$]+' # 14 chars
+#__separator__ = r'[|\'`";,!~^@*+/$]{1,3}' # 14 chars
+__separator__ = r'[|\'`";,!~^@*+/$]' # 14 chars
+__delimiter__ = r'%s(?:%s%s)?'%(__separator__,__separator__,__separator__)
 __RE_U__ = r'''     # RegExp (nodes and edges)
    (?:              # NODE:  
     (?=[^\s<\-=>])  # Not empty token 
@@ -66,7 +68,6 @@ __RE_U__ = r'''     # RegExp (nodes and edges)
 __RE_FILTER__ = [(r'(?m)\#.*$',''),            # remove comments
                  (r'(?m)\s*$',''),             # right strip 
                  (r'(?m)^\s*',''),             # left strip
-                 (r'\n',' '),                  # on one line
                  (r'\s*[\}\]]\s*', '\'], \''), # add quote and open bracket
                  (r'\s*[\{\[]\s*', '\', [\''), # add quote and closing bracket
                  (r'^(.*)$', '[\'\\1\']'),     # add start and end line brackets
@@ -76,7 +77,6 @@ __RE_FILTER__ = [(r'(?m)\#.*$',''),            # remove comments
 __RE_FILTERu__ = [(r'(?m)\#.*$',''),            # remove comments
                  (r'(?m)\s*$',''),              # right strip 
                  (r'(?m)^\s*',''),              # left strip
-                 (r'\n',' '),                   # on one line
                  (r'\s*[\}\]]\s*', '\'], u\''), # add quote and open bracket
                  (r'\s*[\{\[]\s*', '\', [u\''), # add quote and closing bracket
                  (r'^(.*)$', '[u\'\\1\']'),     # add start and end line brackets
@@ -136,6 +136,12 @@ __DATA_tikz__ = ({
         'm': ('node','rectangle,rounded corners=2pt,drop shadow,draw=gray!40,fill=brown!30',()),
         'g': ('node','ellipse,drop shadow,draw=gray!40,fill=green!20',()),
         'l': ('node','ellipse,drop shadow,draw=gray!40,fill=blue!20',()),
+        'a': ('node','ellipse,drop shadow,draw=gray!40,fill=blue!20',()),
+        'b': ('node','rectangle,drop shadow,draw=gray!40,fill=blue!20',()),
+        'c': ('node','diamond,drop shadow,draw=gray!40,fill=blue!20',()),
+        'd': ('node','regular polygon,regular polygon sides=5,drop shadow,draw=gray!40,fill=blue!20',()),
+        'e': ('node','regular polygon,regular polygon sides=6,drop shadow,draw=gray!40,fill=blue!20',()),
+        'f': ('node','regular polygon,regular polygon sides=8,drop shadow,draw=gray!40,fill=blue!20',()),
         },{
         '':  '--',
         'I': '->,>=open diamond',
@@ -151,6 +157,7 @@ __DATA_tikz__ = ({
 __DATA_c__ = ({
         'C': ('class',),
         'c': ('class',),
+        'm': ('main',),
         },{
         '':(),
         })
@@ -230,12 +237,12 @@ __AST_SET__ = [
     ('white space'            ,' A'),
     ('end white space'        ,'A '),
     ('both white spaces'      ,' A '),
-    ('several lines'          ,'\n\nA\n\n'),
+    ('several lines'          ,r'\n\nA\n\n'),
     ('latin1 char'            ,'éàùç'),
     #('Unicode char'           ,u'A:您'),
     #('Unicode char'           ,u'B:好'),
     ('Long content'           ,'"This is a long content" '),
-    #(''                       ,'"Multi\nlines\ncontent" '),
+    ('Multilines'             ,r'"Multi\nlines\ncontent" '),
     ('Types'                  ,'A:T B:U'),
     ('2 nodes'                ,'A B'),
     ('3 nodes'                ,'A B C'),
@@ -270,8 +277,8 @@ __AST_SET__ = [
     (''                       ,'"x|y"'),
     (''                       ,'"x>y"'),
     (''                       ,'"x<y"'),
-    (''                       ,'#comment\nA'),
-    (''                       ,' #comment1\nA\n #comment2'),
+    (''                       ,r'#comment\nA'),
+    (''                       ,r' #comment1\nA\n #comment2'),
     ('Chain2'                 ,'A->B'),
     ('Chain3'                 ,'A->B->C'),
     ('Link1'                  ,'A>>B'), 
@@ -352,7 +359,7 @@ class u:
     def parse_raw(self,x):
         "returns 10uple (Name,Type,Content,Port,Head+Tail,Type,Content)"
         res = []
-        for m in re.compile(__RE_U__,re.U|re.X).finditer(x):
+        for m in re.compile(__RE_U__,re.U|re.X|re.S).finditer(x):
             tn = m.group(7) if m.group(7) else m.group(2)
             te = m.group(15) if m.group(15) else m.group(10) if m.group(10) else None
             ln = m.group(5) if m.group(5) else m.group(6) if m.group(6) else None
@@ -381,9 +388,9 @@ class u:
         """ """
         nodes,edges,c,o,par = {},[],None,[],[]
         if type(x).__name__ == 'str':
-            x = eval(reduce(lambda y,k: re.sub(k[0],k[1],y),__RE_FILTER__,x))
+            x = eval(reduce(lambda y,k: re.sub(k[0],k[1],y,re.S),__RE_FILTER__,x))
         elif type(x).__name__ == 'unicode':
-            x = eval(reduce(lambda y,k: re.sub(k[0],k[1],y),__RE_FILTERu__,x))
+            x = eval(reduce(lambda y,k: re.sub(k[0],k[1],y,re.S),__RE_FILTERu__,x))
         for t in x:
             if type(t).__name__ == 'list':
                 n,e = self.parse1(t,po)
@@ -444,12 +451,19 @@ class u:
         return app
 
     def gen_c(self,ast):
-        "/* C default code generator */\n/* Begin of .h */\n"
-        m,classT,mainT,o = self.m['c'],[],[],''
+        "/* C default code generator */\n"
+        m,classT,mainT,o,hasclass = self.m['c'],[],[],'',False
         for t in m[0]:
             if len(m[0][t])>0 and m[0][t][0] == 'class':
                 classT.append(t)
+            if len(m[0][t])>0 and m[0][t][0] == 'main':
+                mainT.append(t)
         Nodes,Edges = ast
+        for x in Nodes:
+            if Nodes[x] and len(Nodes[x]) > 1 and Nodes[x][1] in classT:
+                 hasclass = True
+        if hasclass:
+            o += '#pragma once\n'
         for x in Nodes:
             if Nodes[x] and len(Nodes[x]) > 1 and Nodes[x][1] in classT:
                 content = '' if len(Nodes[x]) < 3 else Nodes[x][2]
@@ -458,8 +472,8 @@ class u:
                     for z in t[0].split(','):
                         ti = z.split()
                         if len(ti)>1:
-                            #o += 'typedef struct %s %s;\n'%(ti[0],ti[0])
                             o += '#include"%s.h"\n'%ti[0] 
+                            o += 'typedef struct %s %s;\n'%(ti[0],ti[0])
         for x in Nodes:
             if Nodes[x] and len(Nodes[x]) > 1 and Nodes[x][1] in classT:
                 content = '' if len(Nodes[x]) < 3 else Nodes[x][2]
@@ -479,10 +493,19 @@ class u:
                     o += 'void %s_delete(%s *self);\n'%(x,x)
                     for z in t[1].split(','):
                         o += 'void %s(%s *self);\n'%(z,x) 
-            elif len(Nodes[x]) > 1 and Nodes[x][1] in mainT:
+            elif Nodes[x] and len(Nodes[x]) > 1 and Nodes[x][1] in mainT:
+                content = '' if len(Nodes[x]) < 3 else Nodes[x][2]
+                o += '#include"u.h"\n'
+                t = content.split('|')
+                if len(t) > 0:
+                    for z in t[0].split(','):
+                        o += '#include"%s.h"\n'%z
                 o += '\nint main(void) {\n'
+                if len(t) > 1:
+                    for z in t[1].split(','):
+                        o += '  %s;\n'%z
                 o += '  return(0); \n}\n'
-        return self.gen_c.__doc__ + o + '/* End of .h */\n'
+        return self.gen_c.__doc__ + o + '/* End of file */\n'
 
     def gen_python(self,ast):
         "## Python 2.7"
@@ -547,13 +570,13 @@ pragma Profile (Ravenscar);
         o,m = '',self.m['lua']
         return self.gen_lua.__doc__ + o 
 
-    def gen_tikz(self,ast,standalone=True,rx=2,ry=2):
+    def gen_tikz(self,ast,standalone=True,rx=2,ry=2,ori='LR'):
         "% Generated from ⊔ AST:\n"
         o,m = '',self.m['tikz']
         if standalone:
             o += r'\documentclass[a4paper]{article} \usepackage{tikz}' + '\n'
             o += r'\begin{document}' + '\n'
-        pos = layout(ast[0],ast[1],'LR')
+        pos = layout(ast[0],ast[1],ori)
         Nodes,Edges = ast 
         m = self.m['tikz']
         #o += gen_tikz_header(m,gettypes(ast)) + r'\begin{tikzpicture}[auto,node distance=15mm,semithick]'+ '\n'
@@ -563,8 +586,6 @@ pragma Profile (Ravenscar);
             label = name if (len(Nodes[n])<3 or not Nodes.has_key(n) or (Nodes[n][2] == None)) else Nodes[n][2]
             shape = 'node' if (len(Nodes[n])<2 or not Nodes.has_key(n)) else 'node%s'%Nodes[n][1]
             (x,y) = (pos[n][0]*rx/25,pos[n][1]*ry/25)
-            label = re.sub(r'\\',r'\\\\',label)
-            label = re.sub('@',r'\\',label)
             o += '\\node[%s](%s) at (%0.3f,%0.3f) {%s};'%(shape,name,x,y,label) + '\n'
             # ports
             tt = m[0][''][2] if (len(Nodes[n])<2 or not Nodes.has_key(n) or not m[0].has_key(Nodes[n][1])) else m[0][Nodes[n][1]][2]
@@ -575,7 +596,7 @@ pragma Profile (Ravenscar);
                 p += delta
         for e in Edges:
             #boucle = '[bend left]'
-            boucle = ''
+            boucle = '[loop right]' if e[0] == e[2] else ''  
             typ = 'edge' if len(e)<4 or e[3] == None else 'edge%s'%e[3]
             label = '' if len(e)<5 or e[4] == None else 'node[font=\\small,sloped,above]{%s}'%e[4] 
             label = re.sub('@',r'\\',label)
@@ -763,10 +784,13 @@ For your convenience, the [u.pdf](https://github.com/pelinquin/u/blob/master/u.p
     open('README.md','w').write(o + gen_readme.__doc__)
 
 def gen_makefile():
-    # need main.c and test.u
-    """all: test\n\ntest: main.o test.o\n\tgcc main.o test.o -o test\n\nmain.o: main.c test.h\n\tgcc -c main.c\n\ntest.o: test.c test.h\n\tgcc -c test.c\n
-test.h: test.u\n\t./u.py -fc test.u > test.h\n\ntest.c: test.u\n\t./u.py -fc test.u > test.c\n\nclean:\n\trm -f *o test test.c test.h\n"""
-    o = '# Makefile example to show code generator remote call\n# Base64 encoded sha1 short digest: %s\n# see https://github.com/pelinquin/u\n\n'%__digest__
+    """all: exe\n\nexe: main.o mid.o\n\tgcc main.o mid.o -o exe\n\nmain.o: main.c\n\tgcc -c main.c\n\nmid.o: mid.c u.h\n\tgcc -c mid.c\n\na.h: a.u\n\t./u.py -fc a.u > a.h\n\nb.h: b.u\n\t./u.py -fc b.u > b.h\n\nmain.c: c.u a.h b.h\n\t./u.py -fc c.u > main.c\n\nclean:\n\trm -f *o exe main.c a.h b.h"""
+    open('u.h','w').write('#include <stdio.h>\n#define TOTO 4\nvoid middleware(void);')
+    open('mid.c','w').write('#include "u.h"\n\nvoid middleware(void) {\n  int d;\n  printf("hello\\n");\n}\n')
+    open('a.u','w').write('a:c(z,b *bb)')
+    open('b.u','w').write('b:c(a *aa)')
+    open('c.u','w').write('c:m"a,b|middleware(),a mya,b myb,mya.bb = &myb,mya.bb->aa=&mya"')
+    o = '# Makefile example to show code generator remote call\n# and separate code compilation\n# Base64 encoded sha1 short digest: %s\n# see https://github.com/pelinquin/u\n\n'%__digest__
     open('makefile','w').write(o + gen_makefile.__doc__)
 
 def gen_apache_conf():
@@ -814,7 +838,7 @@ def tex_header():
     o = tex_header.__doc__
     o += r'\markright{\tiny{\texttt{%s}}\hfill}'%__digest__ + '\n'
     o += r'\title{\bf $\sqcup$: %s} \author{%s -- \url{%s} \\ '%(__title__,__author__,__email__) + '\n'
-    o += r'\tiny{version: %s [\texttt{%s}]\footnote{the first five characters of the base64 encoding of the \textsc{sha1} digest of \texttt{u.py} source file. Please compare it with the one published at \url{https://%s} to check or get the last release.}}}'%(__version__,__digest__,__url__) + '\n'
+    o += r'\tiny{version\footnote{the source file \texttt{u.py} for re-generating \LaTeX{} code and \textsc{pdf} file is attached to this \textsc{pdf} document.}: %s [\texttt{%s}]\footnote{the first five characters of the base64 encoding of the \textsc{sha1} digest of \texttt{u.py} source file. Please compare it with the one published at \url{https://%s} to check equality or to get the last release.}}}'%(__version__,__digest__,__url__) + '\n'
     o += r'\maketitle' + '\n'
     o += r'\embedfile[filespec=%s]{%s}'%(os.path.basename(sys.argv[0]),os.path.abspath(sys.argv[0]))
     return o + '\n'
@@ -847,6 +871,49 @@ def insert_code(pat):
         if re.match(pat,l): d = True
         if d: o += l
     return o + r'\end{lstlisting}' + '\n'
+
+class article:
+    r"""%% This is generated, do not edit by hands!
+\documentclass[a4paper,10pt]{article}
+\usepackage[margin=2cm]{geometry}
+\usepackage[utf8]{inputenc}
+\usepackage{url}
+\usepackage{draftwatermark}
+\usepackage{listings}
+\usepackage{lmodern}
+\usepackage{color}
+\usepackage{embedfile}
+\usepackage{graphicx}
+\usepackage{tikz}
+\usepackage{longtable}
+\usepackage{array}
+\newcommand{\pyt}{\emph{Python}}
+\newcommand{\pdf}{\textsc{pdf}}
+"""
+    def __init__(self,title,author,email,dat=None,logo=None):
+        r"""\begin{document}"""
+        self.src = os.path.basename(sys.argv[0])
+        self.tex = article.__doc__ + '\n'
+        self.tex += r'\embedfile[filespec=%s]{%s}'%(self.src,os.path.abspath(self.src))
+        self.tex += r'\title{%s}'%title + '\n'
+        self.tex += r'\author{%s\inst{*}}\institute{*%s}'%(author,email) + '\n' 
+        if dat:
+            self.tex += r'\date{%s}'%dat + '\n'
+        self.tex += article.__init__.__doc__ + r'\maketitle\section{Draft:\texttt{%s}}'%__digest__ + '\n'
+
+    def gen_pdf(self):
+        r"""\end{document}"""
+        self.tex += article.gen_pdf.__doc__ + '\n'
+        open('tmp_%stex'%self.src[:-2],'w').write(self.tex)
+        tex,pdf = 'tmp_%stex'%self.src[:-2],'tmp_%spdf'%self.src[:-2]
+        if subprocess.Popen(('which','pdflatex'),stdout=subprocess.PIPE).communicate()[0]:
+            # don't understand why but needs to run twice pdflatex !
+            lt = os.path.abspath(tex)
+            subprocess.Popen(('cd /tmp; pdflatex -interaction=batchmode %s 1>/dev/null; pdflatex -interaction=batchmode %s 1>/dev/null'%(lt,lt)), shell=True).communicate()
+            #shutil.move('/tmp/%s'%pdf,pdf) 
+            open(pdf,'w').write(re.sub('(\/ID \[[^\]]+\]|\/CreationDate \([^\)]+\)|\/ModDate \([^\)]+\))','',open('/tmp/%s'%pdf).read()))
+        else:
+            sys.stderr.write('pdflatex not installed!\n')
 
 def gen_doc(): 
     r"""\section{A Short Language for Graphs}
@@ -884,6 +951,8 @@ The basic idea is that the editors tools enable both graphical and textual editi
 There is no need to store or share the image dump of the graph except for printing. The \usgl{} file can be shared between modelers, editor tools and code generators and remaining short, human readable and meaningfull for rendering a graph.
 \\
     """
+    article(r'The $\sqcup$ Language',__author__,__email__,'December $7^{th}$ 2011','rcf.png').gen_pdf() 
+
     o = tex_header() + r'\begin{abstract}' + __doc__ + r'\end{abstract}' + '\n' + gen_doc.__doc__
     o += tex_section()
     o += r'\section{The Test Set}' + '\n' + insert_data(__CODE_GEN_SET__) 
@@ -1091,6 +1160,7 @@ def layout(nodes,edges,rankdir='TB'):
     #print d + '}' # for debug
     p = subprocess.Popen(['dot'], stdout=subprocess.PIPE, stdin=subprocess.PIPE)
     for l in p.communicate(input=d + '}')[0].split('\n'):
+        #print l
         if reg(re.search('bb="0,0,([\.\d]+),([\.\d]+)"',l)):
             bbx,bby = float(reg.v.group(1)),float(reg.v.group(2))
         elif reg(re.search('^\s*(\w+)\s*\[label=[^,]*, pos="([\.\d]+),([\.\d]+)"',l)) and bbx and bby:
@@ -1406,13 +1476,13 @@ def ast_test(ref=False):
     n,h,uobj = 0,'{\n',u()
     for j,i in __AST_SET__:
         n +=1
-        i = re.sub(r'\n','\\\\n',i)
+        #i = re.sub(r'\n','\\\\n',i)
         h += '\t# %03d: %s\n\t\'%s\':\n\t%s,\n\n'%(n,j,i,uobj.parse(i))
     h += '}\n'
     try:
         eval(h)
     except:
-        print 'error in parsing !'
+        print 'error in parsing!'
     reff = 'ref.txt'
     if ref:
         if os.path.isfile(reff):
@@ -1433,13 +1503,15 @@ class beamer:
 \usepackage{graphicx}
 \usepackage{tikz}
 """
-    def __init__(self,title,author,email,dat,logo=None):
+    def __init__(self,title,author,email,dat=None,logo=None):
         r"""\begin{document} \frame{\titlepage}"""
         self.src = os.path.basename(sys.argv[0])
         self.tex = beamer.__doc__ + '\n'
         self.tex += r'\embedfile[filespec=%s]{%s}'%(self.src,os.path.abspath(self.src))
         self.tex += r'\title{%s}'%title + '\n'
-        self.tex += r'\author{%s\inst{*}}\institute{*%s}'%(author,email) + '\n' + r'\date{%s}'%dat + '\n'
+        self.tex += r'\author{%s\inst{*}}\institute{*%s}'%(author,email) + '\n' 
+        if dat:
+            self.tex = r'\date{%s}'%dat + '\n'
         if os.path.isfile(os.path.abspath(logo)):
             self.tex += r'\pgfdeclareimage[height=.6cm]{logo}{%s}'%os.path.abspath(logo) + '\n' + r'\logo{\pgfuseimage{logo}}' + '\n\n'
         self.tex += beamer.__init__.__doc__ + r'\section{Draft:\texttt{%s}}'%__digest__ + '\n'
@@ -1507,7 +1579,8 @@ class beamer:
 def gen_beamer():
     ""
     uobj = u()
-    slides = beamer(r'The $\sqcup$ Language',__author__,__email__,'December $7^{th}$ 2011','rcf.png')
+    #slides = beamer(r'The $\sqcup$ Language',__author__,__email__,'December $7^{th}$ 2011','rcf.png')
+    slides = beamer(r'The $\sqcup$ Language',__author__,__email__,None,'rcf.png')
     slides.frame(r'What $\sqcup$ is?', r""" 
 The $\sqcup$ language is a {\bf Universal Graph Language};\\
 \begin{itemize}
@@ -1524,18 +1597,17 @@ The $\sqcup$ language is a {\bf Universal Graph Language};\\
 """)
     slides.frame('Graph', r"""A {\bf graph}: $G = (V,E) $ \\
 where: \\ $$V=\{v_i\} \; \text{and} \; E=\{e_{k}\}$$ ...a set of nodes (vertices) and a set of arcs (edges) between nodes.\\
-$$e_{k} = (\{ v_{i_p}\},\{v_{j_q} \})$$ Edge links some origin nodes set to some destination nodes set.\\
+$$e_{k} = (v_{i_p},v_{j_q})$$ Edge links an origin node to one destination node.\\
 [$p$ and $q$ are ports references]\\
-Rmq: $|i|>1$ or $|j|>1$ for multi-links.\\ 
-Some attributes list is attached to each node $v_i$ and each edge $e_k $.""")
+Dictionnary: some attributes as (key,value) pair is attached to each node $v_i$ and each edge $e_k $.""")
     slides.itemize_graph(r'$\sqcup$ \textsc{thonus} features', (r'\textsc{T}-yped',
                                                                 r'\textsc{H}-ierachical',
                                                                 r'\textsc{O}-nline',
                                                                 r'\textsc{N}-eutral',
                                                                 r'\textsc{U}-nicode',
                                                                 r'\textsc{S}-hort'),
-                         uobj.gen_tikz(uobj.parse('T--H T--O T--N T--U T--U T--S H--O H--N H--U H--S O--N O--U O--S N--U N--S U--S'),False,1,1))    
-    slides.frame('$\sqcup$ at a glance',r"""\begin{tabular}{ll}
+                         uobj.gen_tikz(uobj.parse('{T:a H:b O:c N:d U:e S:f}->{T H O N U S}'),False,1.6,1.6,'TB'))    
+    slides.frame(r'$\sqcup$ at a glance',r"""\begin{tabular}{ll}
 \texttt{Hello -> "World!"} & Hello World! \\
 \texttt{A B foo bar}  & Some Nodes \\
 \texttt{A->B C<-D -- E} & Nodes with links \\
@@ -1549,18 +1621,8 @@ Some attributes list is attached to each node $v_i$ and each edge $e_k $.""")
 \texttt{A.pin2 -> B.5} & Indexed and named ports \\
 \end{tabular} 
 """)
-    #slides.frame('The big picture (with $\sqcup$!)', uobj.gen_tikz(uobj.parse(r"""
-#"$@sqcup$ type\\checker"t -l> B 
-#"$@sqcup$ optimizer"t -l> A"""),False,2.8,1.5))
-    slides.frame('The big picture (with $\sqcup$!)', uobj.gen_tikz(uobj.parse(r"""
-A"concrete\\syntax\\string"n B"abstract\\syntax\\Python\\structure"n  
-A -e($@sqcup$ parser)> B 
-B -e(Web)> "SVG"g B -e(doc.gen.)> "Tikz"g B -e(code gen.)> "Ada"l B -e> "Ocaml"l B -e(model gen.)> "AADL"l B -e(generator)> "XXXX"l
-e"UML\\Simulink\\KAOS\\..."m -d(use)> A 
-"type\\checker"t -l> B 
-"optimizer"t -l> A
-"""),False,2.8,1.5))
-    slides.frame('$\sqcup$ facts', r"""\begin{block}{Structure}
+    slides.frame(r'The big picture (with $\sqcup$!)', uobj.gen_tikz(uobj.parse(r'A"$\sqcup$ concrete\\\\syntax\\\\string"n B" $\sqcup$ abstract\\\\syntax\\\\Python\\\\structure"n  A -e($\sqcup$ parser)> B B -e(Web)> "SVG"g B -e(doc.gen.)> "Tikz"g B -e(code gen.)> "Ada"l B -e> "Ocaml"l B -e(model gen.)> "AADL"l B -e(generator)> "XXXX"l e"UML\\\\Simulink\\\\KAOS\\\\..."m -d(use)> A "$\sqcup$ type\\\\checker"t -l> B "optimizer"t -l> A'),False,2.8,1.5))
+    slides.frame(r'$\sqcup$ facts', r"""\begin{block}{Structure}
 $\sqcup$ only manages the structure of the graph, not the semantics.\\
 $\sqcup$ parser builds an Abstract Syntax Tree (a Python data Structure) \\ The types libraries are doing the real job!
 \end{block}
@@ -1575,17 +1637,15 @@ To generate code, $\sqcup$ uses UNIX like piped small tools on the graph Abstrac
 \item Nodes:
 \begin{itemize}
   \item \texttt{ID}: a unicode word to identify the node
-  \item \texttt{port}: a named or indexed port (type compatible)
-  \item \texttt{label}: a string on possibly several lines separator is simple quote, double quote or triple quotes 
   \item \texttt{type}: Type name available in the node types library 
-  \item \texttt{args}: arguments list
+  \item \texttt{content}: Free dictionnary of attributes, including label or arguments
+  \item \texttt{port}: a named or indexed port (type compatible)
 \end{itemize} 
 \item Edges:
 \begin{itemize}
   \item \texttt{(<>-=)}: Arrow head
-  \item \texttt{label}: a string on possibly several lines separator is simple quote, double quote or triple quotes 
   \item \texttt{type}: Type name available in the edge types library 
-  \item \texttt{args}: Edge Arguments
+  \item \texttt{content}: Free dictionnary of attributes, including label or arguments
   \item \texttt{(<>-=)}: Arrow tail
 \end{itemize} 
 \item Blocks:
@@ -1608,6 +1668,16 @@ To generate code, $\sqcup$ uses UNIX like piped small tools on the graph Abstrac
                                            ,'XML is unreadable in practice'
                                            ,'Transformations are complex (XSLT)'
                                            ,'Type checking using DTD, XSD, RelaxNG'))
+    slides.itemize(r'From yUML (yUML.me)',(r'yUML is an online service'
+                                           ,'yUML rendering is nice'
+                                           ,'yUML syntax is simple and readable'
+                                           ,'yUML layout is automatic'
+                                           ,'yUML is not open-source'
+                                           ,'yUML is not typed (just themes)'
+                                           ,'yUML is not hierarchical'
+                                           ,'yUML generation is a little slow'
+                                           ,'yUML is not oriented for code generation' 
+                                           ,'yUML does not support SVG nor Tikz output'))
     slides.frame('$\sqcup$ Types',r"""\begin{itemize}
 \item User defines is own types library for:
   \begin{itemize}
@@ -1641,7 +1711,7 @@ Node, Edges accumulates properties:
 \texttt{A"label1" A"label2"} &$\equiv$&  \texttt{A"label2"}\\
 \texttt{A(arg1) A(arg2)}     &$\equiv$&  \texttt{A(arg2)}\\
 \texttt{A:T1 A:T2}           &$\equiv$&  \texttt{A:T2}\\
-\texttt{A\{A\}}              &$\equiv$& \texttt{A}  \\
+\texttt{A\{A\}}              &$\equiv$&  \texttt{A}  \\
 \end{tabular}""")
     slides.frame('Edge rules',r"""
 \begin{block}{rule:} Edge has no id! \end{block}
@@ -1658,9 +1728,8 @@ Node, Edges accumulates properties:
 \hline \texttt{-X-} & \texttt{=X-} & \texttt{>X-} & \texttt{<X-}  \\ 
 \hline \texttt{-X=} & \texttt{=X=} & \texttt{>X=} & \texttt{<X=}  \\ \hline
 \end{tabular}""")
-    slides.itemize('Candidate model formalisms',__IN_MODEL__)
-    slides.itemize('Expected code generation',__OUT_LANG__)
-    #slides.itemize2('Candidate model formalisms',__IN_MODEL__,__OUT_LANG__)
+    slides.itemize2('Candidate model formalisms',__IN_MODEL__[:8],__IN_MODEL__[8:])
+    slides.itemize2('Expected code generation',__OUT_LANG__.keys()[:9],__OUT_LANG__.keys()[9:])
     slides.frame('Graphic generation',r"""
 \begin{itemize}
 \item SVG for Web publishing
@@ -1685,8 +1754,7 @@ The same graph may have several styles; themes \\
 \item an embedded and large test set,
 \item plugins for formal model checkers and theorem provers.
 \end{itemize}""")
-    slides.frame('Next about $\sqcup{}$!',r"""\begin{block}{All is on the forge:} \url{https://%s} \end{block} 
-\begin{block}{Source code:} See PDF attached file:u.py \\ ...and generate this beamer. \end{block}"""%__url__)
+    slides.frame('Next about $\sqcup{}$!',r'\begin{block}{All is on the forge:} \url{https://%s} \end{block} \begin{block}{Source code:} See PDF attached file: \texttt{u.py} \\ ...and generate this beamer. \end{block}'%__url__)
     slides.gen_pdf()
 
 def post(server, service, content):
@@ -1702,7 +1770,7 @@ def post(server, service, content):
     return h.file.read()
 
 if __name__ == '__main__':
-    "Run the module or use it as WSGI application with an Apache server"
+    "Command line usage"
     try:
         subprocess.Popen(['dot'], stdout=subprocess.PIPE,stdin=subprocess.PIPE).communicate(input='digraph G {A->B}')
     except:
@@ -1712,26 +1780,31 @@ if __name__ == '__main__':
     #import doctest
     #doctest.testmod()
     #code_gen_test(True)
-    ast_test(True)
-    gen_apache_conf()
-    gen_doc()
-    gen_beamer()
-    gen_readme()
-    gen_makefile()
 
     import getopt
-    opts, args = getopt.getopt(sys.argv[1:],'h:f:',['host=','format='])
+    opts, args = getopt.getopt(sys.argv[1:],'h:f:s',['host=','format=','stdin'])
     o,host = 'raw','127.0.0.1' # use '193.84.73.209'
+
+    if not opts and not args:
+        ast_test(True)
+        gen_apache_conf()
+        #gen_doc()
+        gen_beamer()
+        gen_readme()
+        gen_makefile()
+
     for r in opts:
         if r[0] in ('-h','--host'):
             host = r[1] 
         elif r[0] in ('-f','--format'):
             o = r[1]
+        elif r[0] in ('-s','--stdin'):
+            args.append(sys.stdin.read())
         else:
             print help('u') 
     for arg in args:
-        if os.path.isfile(arg):
-            print post(host, '/u?%s'%o, open(arg).read())
+        data = open(arg).read() if os.path.isfile(arg) else arg
+        print post(host, '/u?%s'%o, data)
     if not args:
         print 'Digest:%s'%__digest__
 
@@ -1749,10 +1822,28 @@ if __name__ == '__main__':
            u'A{B:您} C{D}',
            'A:c(a,b|f1,f2)',
            )
-    for s in tab[0:1]:
-        ast = uobj.parse(s)
+    #for s in tab[0:1]:
+    #    ast = uobj.parse(s)
         #print s
         #print '%s %s'%ast
         #print uobj.gen_svg(ast)
+
+
+    __RE_FILTER = [(r'(?m)\#.*$',''),            # remove comments
+                   (r'(?m)\s*$',''),             # right strip 
+                   (r'(?m)^\s*',''),             # left strip
+                   (r'\s*[\}\]]\s*', '\'], \''), # add quote and open bracket
+                   (r'\s*[\{\[]\s*', '\', [\''), # add quote and closing bracket
+                   (r'^(.*)$', '[\'\\1\']'),     # add start and end line brackets
+                   (r'\'\',\s*',''),             # remove left empty elements
+                   (r',\s*\'\'','')]             # remove right empty elements
+
+    x = r'A"$BB$" "$CC$" "$$dd"$$'
+    #x = reduce(lambda y,k: re.sub(k[0],k[1],y,re.S),__RE_FILTER__,x)
+    #print x
+    #for m in re.compile(__RE_U__,re.U|re.X|re.S).finditer(x):
+    #    print m.groups()
+    #print uobj.parse_raw(x)
+
 
 # the end
