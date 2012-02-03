@@ -670,7 +670,7 @@ pragma Profile (Ravenscar);
                 disp,dy,x,y = '',0,pos[n][0]*ratio,pos[n][1]*ratio
                 disp += '<tspan class="tiny" dominant-baseline="text-after-edge" x="%s">Class</tspan>'%x
                 disp += '<tspan dx="10">%s</tspan>'%args[0]
-                print args
+                #print args
                 if len(args)>1:
                     disp += '<tspan class="tiny" x="%s" dy="2em">Attributes</tspan>'%(x)
                     for l in args[1].split(','):
