@@ -64,23 +64,27 @@ __RE_U__ = r'''     # RegExp (nodes and edges)
     ([<\-=>])       # Tail
 )'''%(__delimiter__,__delimiter__)
 
-__RE_FILTER__ = [(r'(?m)\#.*$',''),            # remove comments
-                 (r'(?m)\s*$',''),             # right strip 
-                 (r'(?m)^\s*',''),             # left strip
-                 (r'\s*[\}\]]\s*', '\'], \''), # add quote and open bracket
-                 (r'\s*[\{\[]\s*', '\', [\''), # add quote and closing bracket
-                 (r'^(.*)$', '[\'\\1\']'),     # add start and end line brackets
-                 (r'\'\',\s*',''),             # remove left empty elements
-                 (r',\s*\'\'','')]             # remove right empty elements
+__RE_FILTER__ = [
+    (r'(?m)\#.*$',''),            # remove comments
+    (r'\n',r'\\n'),
+    (r'(?m)\s*$',''),             # right strip 
+    (r'(?m)^\s*',''),             # left strip
+    (r'\s*[\}\]]\s*', '\'], \''), # add quote and open bracket
+    (r'\s*[\{\[]\s*', '\', [\''), # add quote and closing bracket
+    (r'^(.*)$', '[\'\\1\']'),     # add start and end line brackets
+    (r'\'\',\s*',''),             # remove left empty elements
+    (r',\s*\'\'','')]             # remove right empty elements
 
-__RE_FILTERu__ = [(r'(?m)\#.*$',''),            # remove comments
-                 (r'(?m)\s*$',''),              # right strip 
-                 (r'(?m)^\s*',''),              # left strip
-                 (r'\s*[\}\]]\s*', '\'], u\''), # add quote and open bracket
-                 (r'\s*[\{\[]\s*', '\', [u\''), # add quote and closing bracket
-                 (r'^(.*)$', '[u\'\\1\']'),     # add start and end line brackets
-                 (r'\'\',\s*',''),              # remove left empty elements
-                 (r',\s*\'\'','')]              # remove right empty elements
+__RE_FILTERu__ = [
+    (r'(?m)\#.*$',''),            # remove comments
+    (r'\n',r'\\n'),
+    (r'(?m)\s*$',''),              # right strip 
+    (r'(?m)^\s*',''),              # left strip
+    (r'\s*[\}\]]\s*', '\'], u\''), # add quote and open bracket
+    (r'\s*[\{\[]\s*', '\', [u\''), # add quote and closing bracket
+    (r'^(.*)$', '[u\'\\1\']'),     # add start and end line brackets
+    (r'\'\',\s*',''),              # remove left empty elements
+    (r',\s*\'\'','')]              # remove right empty elements
 # TBC: factorize Regexp for ascii and unicode
 
 _XHTMLNS  = 'xmlns="http://www.w3.org/1999/xhtml"'
@@ -455,7 +459,7 @@ class u:
 
     def gen_c(self,ast):
         "/* C default code generator */\n"
-        m,classT,mainT,o,hasclass = self.m['c'],[],[],'',False
+        m,classT,mainT,o,hasclass,hasmain = self.m['c'],[],[],'',False,False
         for t in m[0]:
             if len(m[0][t])>0 and m[0][t][0] == 'class':
                 classT.append(t)
@@ -464,7 +468,9 @@ class u:
         Nodes,Edges = ast
         for x in Nodes:
             if Nodes[x] and len(Nodes[x]) > 1 and Nodes[x][1] in classT:
-                 hasclass = True
+                 hasclass = True 
+            if Nodes[x] and len(Nodes[x]) > 1 and Nodes[x][1] in mainT:
+                 hasmain = True
         if hasclass:
             o += '#pragma once\n'
         for x in Nodes:
@@ -496,19 +502,27 @@ class u:
                     o += 'void %s_delete(%s *self);\n'%(x,x)
                     for z in t[1].split(','):
                         o += 'void %s(%s *self);\n'%(z,x) 
-            elif Nodes[x] and len(Nodes[x]) > 1 and Nodes[x][1] in mainT:
+        for x in Nodes:
+            if Nodes[x] and len(Nodes[x]) > 1 and Nodes[x][1] in mainT:
                 content = '' if len(Nodes[x]) < 3 else Nodes[x][2]
-                o += '#include"u.h"\n'
                 t = content.split('|')
                 if len(t) > 0:
-                    for z in t[0].split(','):
-                        o += '#include"%s.h"\n'%z
-                o += '\nint main(void) {\n'
+                    for z in t[0].split(','): 
+                        if len(z) > 0:
+                            o += '#include "%s.h"\n'%z
+        if hasmain:
+            o += '#include "mid.h"\n'
+            o += '\nvoid u_main(void) {\n'
+        for x in Nodes:
+            if Nodes[x] and len(Nodes[x]) > 1 and Nodes[x][1] in mainT:
+                content = '' if len(Nodes[x]) < 3 else Nodes[x][2]
+                t = content.split('|')
                 if len(t) > 1:
                     for z in t[1].split(','):
                         o += '  %s;\n'%z
-                o += '  return(0); \n}\n'
-        return self.gen_c.__doc__ + o + '/* End of file */\n'
+        if hasmain:
+            o += '}\n'
+        return self.gen_c.__doc__ + o 
 
     def gen_python(self,ast):
         "## Python 2.7"
@@ -516,7 +530,6 @@ class u:
         for t in m[0]:
             if len(m[0][t])>0 and m[0][t][0] == 'class':
                 classT.append(t)
-        Nodes,Edges = ast
         Nodes,Edges = ast
         for x in Nodes:
             if Nodes[x]:
@@ -1811,10 +1824,10 @@ if __name__ == '__main__':
     if not opts and not args:
         ast_test(True)
         gen_apache_conf()
-        #gen_doc()
+        gen_doc()
         gen_beamer()
         gen_readme()
-        gen_makefile()
+        #gen_makefile()
 
     for r in opts:
         if r[0] in ('-h','--host'):
@@ -1845,11 +1858,8 @@ if __name__ == '__main__':
            u'A{B:您} C{D}',
            'A:c(a,b|f1,f2)',
            r'AA"hello\nworld"',
-           'A"Hellowo|adssd|a,b"c'
-           )
-    #for s in tab[-1:]:
-        #ast = uobj.parse(s)
-        #print s
-        #print '%s %s'%ast
-        #uobj.gen_svg(ast)
+           'A"Hellowo|adssd|a,b"c')
+    #print re.sub(r'\n',r'\\n',x,re.M,re.S)
+    #uobj.parse_raw(x)
+
 # the end
