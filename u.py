@@ -55,7 +55,7 @@ __RE_U__ = r'''     # RegExp (nodes and edges)
     (?::(\w)|)      # Type pre  
     ((%s)(.+?)\4|\(([^)]+)\)|) # Content
     (\w|)           # Type post 
-    (?:\.(\w+)|)    # Port      
+    (?:\.(\w+|\*)|) # Port      
    |                # or EDGE:  
     ([<\-=>])       # Head      
     (\w|)           # Type pre  
@@ -109,6 +109,14 @@ __OUT_LANG__ = {'c'          :['c'   ,('/*'  ,'*/' ,'')],
                 'vhdl'       :['hdl' ,('--'  ,''   ,'')],
                 'systemc'    :['sc'  ,('//'  ,''   ,'')]}
  
+__DATA_ports__ = {
+    'T': ('p1','p2','p3','p4'),
+    'O': ('in1','in2','out1','out2'),
+    'C': ('p1','p2','p3','p4','p5','p6','p7','p8','p9','p10','p11','p12','p13','p14','p15','p16'),
+    'D': ('pin1','pin2','pin3','pin4','pin5','pin6'),
+    'x': ('pin1','pin2','pin3','pin4','pin5','pin6'),
+    }
+
 __DATA_svg__ = ({
         '':  ('node','fill:black;','rect|-5,40,5','fill-opacity:.1;', 10, 10,()),
         'Z': ('node','fill:black;','path|-4,0,0','stroke:green;stroke-width:1;fill:none;', 2, 2,()),
@@ -131,6 +139,7 @@ __DATA_svg__ = ({
         'I': 'stroke:green; stroke-width:2; fill:none; marker-end:url(#.arrow);',
         'L': 'stroke:red; stroke-width:3; fill:none; marker-end:url(#.arrow);',
         })
+
 
 __DATA_tikz__ = ({
         '':  ('node','circle,drop shadow,draw=green!40,fill=gray!20',()),
@@ -325,6 +334,10 @@ __AST_SET__ = [
     (''                       ,'A.por1 -> B.por2'),
     (''                       ,'A:T B:U A.1->B.2'),
     (' '                      ,'A.1->B.2 A:T B:U'),
+    ('Port1'                  ,'A.1->B.2'),
+    ('Port2'                  ,'A.1->{B.2 C.3}'),
+    ('Port3'                  ,'{A.1 B.2}->C.3'),
+    ('Port4'                  ,'{A.1 B.2}->{C.3 D.4}'),
     ('Double definition'      ,'A{a} A{b}'),
 ]
 
@@ -411,8 +424,8 @@ class u:
                 if c == None and par:
                     nodes[o[0]] = self.merge(nodes[o[0]],[m]) if nodes.has_key(o[0]) else (m)
                 else:
-                    edges += self.addedge(c,o,n,po)
-                    c,po = None,{}
+                    edges += self.addedge(c,o,m,po)
+                    #c,po = None,{} # check if needed !
                 if not par:
                     o = m
                 par = []
@@ -424,10 +437,11 @@ class u:
                         nid,attr = find_id(a[:3]),strip3(([],a[1],a[2]))
                         nodes[nid] = self.merge(nodes[nid],attr) if nodes.has_key(nid) else attr
                         if a[3]:
-                            if po.has_key(nid):
-                                po[nid].append(a[3])
-                            else:
-                                po[nid] = [a[3]]
+                            if __DATA_ports__.has_key(a[1]):
+                                if (re.match(r'^\d+$',a[3]) and int(a[3]) < len(__DATA_ports__[a[1]])) or  a[3] in __DATA_ports__[a[1]]:
+                                    po.setdefault(nid,[]).append(a[3])
+                                elif a[3] == '*':
+                                    po[nid] = __DATA_ports__[a[1]]
                         if c:
                             edges += self.addedge(c,o,[nid],po)
                             c,po = None,{}
@@ -483,12 +497,8 @@ class u:
         data = {}
         for e in edges:
             n1,n2 = re.sub(r'\..*$','',e[0]),re.sub(r'\..*$','',e[2])
-            if data.has_key(n1):
-                data[n1].append(n2)
-            else:
-                data[n1] = [n2]
-            if not data.has_key(n2):
-                data[n2] = []
+            data.setdefault(n1,[]).append(n2)
+            if not data.has_key(n2): data[n2] = []
         res = [z for z in tsort({i:set(data[i]) for i in data})]
         res.reverse()
         return res
@@ -736,10 +746,10 @@ pragma Profile (Ravenscar);
             o += '</g>\n' 
         o += '</g>\n'
         if boxes: 
-            o += self.gen_svg_connectors(Edges,boxes,portsPos)
+            o += self.gen_svg_connectors(Edges,boxes,portsPos,ports)
         return o + '\n</svg>'
 
-    def gen_svg_connectors(self,edges,boxes,portsPos): 
+    def gen_svg_connectors(self,edges,boxes,portsPos,ports): 
         o,ne = '<g id=".connectors" >\n',0
         for e in edges:
             n1,n2 = e[0],e[2]
@@ -826,8 +836,8 @@ For your convenience, the [u.pdf](https://github.com/pelinquin/u/blob/master/u.p
 
 def gen_makefile():
     "# Simple Makefile example to use code generator remote call and separate code compilation\n# see https://github.com/pelinquin/u\n"
-    open('a.u','w').write('(a|z,b *bb)h')
-    open('b.u','w').write('(b|a *aa)h')
+    open('a.u','w').write('# generated from u.py\n(a|z,b *bb)h')
+    open('b.u','w').write('# generated from u.py\n(b|a *aa)h')
     open('c.u','w').write('A"a mya|b myb" -> B"mya.bb = &myb|mya.bb->aa = &mya|myb.aa->z = 4" ->{ C"mid_register(f1,(void *)&myb)" D"""mid_register(f2,(void *)"Hello")""" } "f1|f2"e')
     rules = {'all': 'exe|./exe',
              'exe': 'auto.o mid.o app.o|gcc -pthread auto.o mid.o app.o -o exe',
@@ -1891,6 +1901,9 @@ if __name__ == '__main__':
            r'AA"hello\nworld"',
            'A"Hellowo|adssd|a,b"c')
     #print re.sub(r'\n',r'\\n',x,re.M,re.S)
-    #uobj.parse_raw(x)
+    #x= '{A:O.1 C:O.4} -> {B:O.in2 B:O.in3 D}'
+    #x= 'A:O.* -> B:O.*'
+    #print x
+    #print uobj.parse(x)
 
 # the end
