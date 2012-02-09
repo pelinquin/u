@@ -1148,7 +1148,8 @@ Example: [<a href="u?tikz">/u?tikz</a>]</p>
             o,mime = get_editor(environ,args),'text/html;charset=UTF-8'
         elif action and action.lower() == 'log':
             mime,lf = 'text/plain;charset=UTF-8','/var/log/apache2/error.log'
-            o = open(lf).read() if os.path.isfile(lf) else 'no log file'
+            #o = open(lf).read() if os.path.isfile(lf) else 'no log file'
+            o = 'no log file'
         elif action and action.lower() == 'update':
             if environ['SERVER_NAME'] != 'pelinquin': # update not possible from RCF network because port 22 closed
                 cmd = 'cd %s/..; rm -rf u; git clone git://github.com/pelinquin/u.git; cd u'%os.path.dirname(environ['SCRIPT_FILENAME'])
