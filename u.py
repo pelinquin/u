@@ -163,7 +163,11 @@ __DATA_tikz__ = ({
 __DATA_c__ = ({
         'C': ('class',),
         'c': ('class',),
+        'H': ('class',),
+        'h': ('class',),
         'm': ('main',),
+        'e': ('extern',),
+        'E': ('extern',),
         },{
         '':(),
         })
@@ -452,77 +456,92 @@ class u:
                 o += '\n%s Doubledash replaced by double underscore !%s\n'%(sc,ec)        
                 dast = re.sub(r'\-\-','__','%s'%dast)
             o += '\n%s AST = %s %s\n'%(sc,dast,ec)
+            #o += '%s Nodes = {%s\n'%(sc,ec)
+            #for x in Nodes:
+            #    o += '%s %10s: %60s, %s\n'%(sc,x,Nodes[x],ec)
+            #o += '%s } %s\n'%(sc,ec)
+            #o += '%s Edges = [%s\n'%(sc,ec)
+            #for x in Edges:
+            #    o += '%s %s, %s\n'%(sc,x,ec)
+            #o += '%s}%s\n'%(sc,ec)
+            
             a = appli(ast)
             o += '\n%s Types parameters: %s %s\n'%(sc,self.m[lang],ec) + a
             return o + '\n%s %s Nodes %s Edges %s Lines | The end of file %s'%(sc,len(Nodes),len(Edges),len(a.split('\n'))+13,ec)
         return app
 
+    def toposort(self,edges,classT):
+        "returns topologic sort"
+        def tsort(d):
+            while True:
+                ordered = set(item for item, dep in d.items() if not dep)
+                if not ordered: break
+                yield ','.join(sorted(ordered))
+                d = { item: (dep - ordered) for item,dep in d.items() if item not in ordered }
+            if d: # cycle!
+                yield 
+        data = {}
+        for e in edges:
+            n1,n2 = re.sub(r'\..*$','',e[0]),re.sub(r'\..*$','',e[2])
+            if data.has_key(n1):
+                data[n1].append(n2)
+            else:
+                data[n1] = [n2]
+            if not data.has_key(n2):
+                data[n2] = []
+        res = [z for z in tsort({i:set(data[i]) for i in data})]
+        res.reverse()
+        return res
+
     def gen_c(self,ast):
         "/* C default code generator */\n"
-        m,classT,mainT,o,hasclass,hasmain = self.m['c'],[],[],'',False,False
+        m,classT,externT,allT,o,hasclass = self.m['c'],[],[],[],'',False
         for t in m[0]:
-            if len(m[0][t])>0 and m[0][t][0] == 'class':
-                classT.append(t)
-            if len(m[0][t])>0 and m[0][t][0] == 'main':
-                mainT.append(t)
+            if len(m[0][t])>0: 
+                if m[0][t][0] == 'class':
+                    classT.append(t)
+                    allT.append(t)
+                elif m[0][t][0] == 'extern':
+                    externT.append(t)
+                    allT.append(t)
         Nodes,Edges = ast
         for x in Nodes:
             if Nodes[x] and len(Nodes[x]) > 1 and Nodes[x][1] in classT:
                  hasclass = True 
-            if Nodes[x] and len(Nodes[x]) > 1 and Nodes[x][1] in mainT:
-                 hasmain = True
         if hasclass:
             o += '#pragma once\n'
+        seq,head,body = self.toposort(Edges,allT),'',''
+        #o += '// %s \n'%seq
         for x in Nodes:
+            if Nodes[x] and len(Nodes[x]) > 1 and Nodes[x][1] in externT:
+                for i in Nodes[x][2].split('|') if len(Nodes[x])>2 else []:
+                    body += 'extern void %s(void*);\n'%i
             if Nodes[x] and len(Nodes[x]) > 1 and Nodes[x][1] in classT:
-                content = '' if len(Nodes[x]) < 3 else Nodes[x][2]
-                t = content.split('|')
-                if len(t) > 0:
-                    for z in t[0].split(','):
-                        ti = z.split()
-                        if len(ti)>1:
-                            o += '#include"%s.h"\n'%ti[0] 
-                            o += 'typedef struct %s %s;\n'%(ti[0],ti[0])
-        for x in Nodes:
-            if Nodes[x] and len(Nodes[x]) > 1 and Nodes[x][1] in classT:
-                content = '' if len(Nodes[x]) < 3 else Nodes[x][2]
-                t = content.split('|')
-                o += '\n/* Class: %s */\n'%x
-                o += 'typedef struct %s {\n'%x
-                if len(t) > 0:
-                    for z in t[0].split(','):
-                        ti = z.split()
-                        if len(ti)>1:
-                            o += '  %s;\n'%z 
-                        else:
-                            o += '  int %s;\n'%z 
-                o += '} %s;\n'%x
+                t = [] if len(Nodes[x]) < 3 else Nodes[x][2].split('|')
                 if len(t) > 1:
-                    o += '%s* %s_init(void);\n'%(x,x)
-                    o += 'void %s_delete(%s *self);\n'%(x,x)
+                    body += '\n/* Node: %s */\n'%x
+                    body += 'typedef struct %s {\n'%t[0]
                     for z in t[1].split(','):
-                        o += 'void %s(%s *self);\n'%(z,x) 
-        for x in Nodes:
-            if Nodes[x] and len(Nodes[x]) > 1 and Nodes[x][1] in mainT:
-                content = '' if len(Nodes[x]) < 3 else Nodes[x][2]
-                t = content.split('|')
-                if len(t) > 0:
-                    for z in t[0].split(','): 
-                        if len(z) > 0:
-                            o += '#include "%s.h"\n'%z
-        if hasmain:
-            o += '#include "mid.h"\n'
-            o += '\nvoid u_main(void) {\n'
-        for x in Nodes:
-            if Nodes[x] and len(Nodes[x]) > 1 and Nodes[x][1] in mainT:
-                content = '' if len(Nodes[x]) < 3 else Nodes[x][2]
-                t = content.split('|')
-                if len(t) > 1:
-                    for z in t[1].split(','):
-                        o += '  %s;\n'%z
-        if hasmain:
-            o += '}\n'
-        return self.gen_c.__doc__ + o 
+                        ti = z.split()
+                        body += '  %s;\n'%z if len(ti)>1 else '  int %s;\n'%z 
+                        if len(ti)>1:
+                            head += '#include "%s.h"\ntypedef struct %s %s;\n'%(ti[0],ti[0],ti[0])
+                    body += '} struct_%s;\n'%t[0]
+                if len(t) > 2:
+                    body += '%s* %s_init(void);\n'%(x,x)
+                    body += 'void %s_delete(%s *self);\n'%(x,x)
+                    for z in t[2].split(','):
+                        body += 'void %s(%s *self);\n'%(z,x) 
+        if seq:     
+            body += '#include "mid.h"\n\nvoid u_main(void) {\n'
+            for x in seq:
+                for l in x.split(','):
+                    for i in Nodes[l][2].split('|') if len(Nodes[l])>2 else []:
+                        body += '  %s;\n'%i
+                        if not re.match(r'\s*(char|int|float|double|.*\(|.*=)',i):
+                            head += '#include "%s.h"\n'%i.split()[0] 
+            body += '}\n'
+        return self.gen_c.__doc__ + o + head + body 
 
     def gen_python(self,ast):
         "## Python 2.7"
@@ -717,47 +736,49 @@ pragma Profile (Ravenscar);
             o += '</g>\n' 
         o += '</g>\n'
         if boxes: 
-            o += '<g id=".connectors" >\n'
-            ne = 0
-            for e in Edges:
-                ne += 1
-                n1,n2,p1,p2,ep1,ep2 = e[0],e[2],'','','',''
-                edge_label = e[4] if len(e)>4 else None
-                typ = 'edge' if (len(e)<4 or e[3] == None) else 'edge%s'%e[3]
-                if re.search(r'\.',e[0]):
-                    [n1,p1] = e[0].split('.')
-                    if re.match(r'^\d+$',p1):
-                        ep1,p1 = int(p1),' p1="%s"'%int(p1)
-                    elif p1 in ports[n1]:
-                        ep1,p1 = ports[n1].index(p1),' p1="%s"'%ports[n1].index(p1)
-                if re.search(r'\.',e[2]):
-                    [n2,p2] = e[2].split('.')
-                    if re.match(r'^\d+$',p2):
-                        ep2,p2 = int(p2),' p2="%s"'%int(p2)
-                    elif p2 in ports[n2]:
-                        ep2,p2 = ports[n2].index(p2),' p2="%s"'%ports[n2].index(p2)
-                    else:
-                        ep2,p2='',''
-                if ep1 != '' and ep2 != '' and ep1<len(portsPos[n1]) and ep2<len(portsPos[n2]):
-                    d = nodes_path2(portsPos[n1][ep1],portsPos[n2][ep2],boxes.values())
-                elif ep1 != '' and ep1<len(portsPos[n1]):
-                    d = nodes_path1(boxes[n2],portsPos[n1][ep1],False)
-                elif ep2 != '' and ep2<len(portsPos[n2]):
-                    d = nodes_path1(boxes[n1],portsPos[n2][ep2],True)
-                else:
-                    d = nodes_path(boxes[n1],boxes[n2])
-                o += '<g class="%s" n1="%s" n2="%s"%s%s><path id="e_%s" d="%s"/>'%(typ,n1,n2,p1,p2,ne,d)
-                if edge_label:
-                    o += '<text><textPath %s xlink:href="#e_%s" startOffset="50%%">%s</textPath></text>'%(_XLINKNS,ne,edge_label)
-                args = [] if (len(e)<5 or e[4] == None) else e[4].split('|')
-                if args:
-                    o += '<text class="tiny"><textPath %s xlink:href="#e_%s" startOffset="0%%">%s</textPath></text>'%(_XLINKNS,ne,args[0])
-                    if len(args) == 2:
-                        o += '<text class="tiny"><textPath %s xlink:href="#e_%s" text-anchor="end" startOffset="100%%">%s</textPath></text>'%(_XLINKNS,ne,args[1])
-                o += '</g>\n'
-            o += '</g>\n'
+            o += self.gen_svg_connectors(Edges,boxes,portsPos)
         return o + '\n</svg>'
-        
+
+    def gen_svg_connectors(self,edges,boxes,portsPos): 
+        o,ne = '<g id=".connectors" >\n',0
+        for e in edges:
+            n1,n2 = e[0],e[2]
+            p1,p2,ep1,ep2 = '','','',''
+            ne += 1
+            label,typ = e[4] if len(e)>4 else '',e[3] if (len(e)>4 and e[3] != None) else ''
+            if re.search(r'\.',n1):
+                [n1,p1] = n1.split('.')
+                if re.match(r'^\d+$',p1):
+                    ep1,p1 = int(p1),' p1="%s"'%int(p1)
+                elif p1 in ports[n1]:
+                    ep1,p1 = ports[n1].index(p1),' p1="%s"'%ports[n1].index(p1)
+            if re.search(r'\.',n2):
+                [n2,p2] = n2.split('.')
+                if re.match(r'^\d+$',p2):
+                    ep2,p2 = int(p2),' p2="%s"'%int(p2)
+                elif p2 in ports[n2]:
+                    ep2,p2 = ports[n2].index(p2),' p2="%s"'%ports[n2].index(p2)
+                else:
+                    ep2,p2='',''
+            if ep1 != '' and ep2 != '' and ep1<len(portsPos[n1]) and ep2<len(portsPos[n2]):
+                d = nodes_path2(portsPos[n1][ep1],portsPos[n2][ep2],boxes.values())
+            elif ep1 != '' and ep1<len(portsPos[n1]):
+                d = nodes_path1(boxes[n2],portsPos[n1][ep1],False)
+            elif ep2 != '' and ep2<len(portsPos[n2]):
+                d = nodes_path1(boxes[n1],portsPos[n2][ep2],True)
+            else:
+                d = nodes_path(boxes[n1],boxes[n2])
+            o += '<g class="edge%s" n1="%s" n2="%s"%s%s><path id="e_%s" d="%s"/>'%(typ,n1,n2,p1,p2,ne,d)
+            if label:
+                o += '<text><textPath %s xlink:href="#e_%s" startOffset="50%%">%s</textPath></text>'%(_XLINKNS,ne,label) 
+            args = label.split('|')
+            if args:
+                o += '<text class="tiny"><textPath %s xlink:href="#e_%s" startOffset="0%%">%s</textPath></text>'%(_XLINKNS,ne,args[0])
+                if len(args) == 2:
+                    o += '<text class="tiny"><textPath %s xlink:href="#e_%s" text-anchor="end" startOffset="100%%">%s</textPath></text>'%(_XLINKNS,ne,args[1])
+            o += '</g>\n'
+        return o + '</g>\n'
+
     def gen_aadl(self,ast):
         "-- AADL\n"
         o,m = '',self.m['aadl']
@@ -804,14 +825,23 @@ For your convenience, the [u.pdf](https://github.com/pelinquin/u/blob/master/u.p
     open('README.md','w').write(o + gen_readme.__doc__)
 
 def gen_makefile():
-    """all: exe\n\nexe: main.o mid.o\n\tgcc main.o mid.o -o exe\n\nmain.o: main.c\n\tgcc -c main.c\n\nmid.o: mid.c u.h\n\tgcc -c mid.c\n\na.h: a.u\n\t./u.py -fc a.u > a.h\n\nb.h: b.u\n\t./u.py -fc b.u > b.h\n\nmain.c: c.u a.h b.h\n\t./u.py -fc c.u > main.c\n\nclean:\n\trm -f *o exe main.c a.h b.h"""
-    open('u.h','w').write('#include <stdio.h>\n#define TOTO 4\nvoid middleware(void);')
-    open('mid.c','w').write('#include "u.h"\n\nvoid middleware(void) {\n  int d;\n  printf("hello\\n");\n}\n')
-    open('a.u','w').write('a:c(z,b *bb)')
-    open('b.u','w').write('b:c(a *aa)')
-    open('c.u','w').write('c:m"a,b|middleware(),a mya,b myb,mya.bb = &myb,mya.bb->aa=&mya"')
-    o = '# Makefile example to show code generator remote call\n# and separate code compilation\n# Base64 encoded sha1 short digest: %s\n# see https://github.com/pelinquin/u\n\n'%__digest__
-    open('makefile','w').write(o + gen_makefile.__doc__)
+    "# Simple Makefile example to use code generator remote call and separate code compilation\n# see https://github.com/pelinquin/u\n"
+    open('a.u','w').write('(a|z,b *bb)h')
+    open('b.u','w').write('(b|a *aa)h')
+    open('c.u','w').write('A"a mya|b myb" -> B"mya.bb = &myb|mya.bb->aa = &mya|myb.aa->z = 4" ->{ C"mid_register(f1,(void *)&myb)" D"""mid_register(f2,(void *)"Hello")""" } "f1|f2"e')
+    rules = {'all': 'exe|./exe',
+             'exe': 'auto.o mid.o app.o|gcc -pthread auto.o mid.o app.o -o exe',
+             'auto.o': 'auto.c|gcc -c auto.c',
+             'app.o': 'app.c|gcc -c app.c',
+             'mid.o': 'mid.c mid.h|gcc -c mid.c',
+             'a.h': 'a.u|./u.py -fc a.u > a.h',
+             'b.h': 'b.u|./u.py -fc b.u > b.h',
+             'auto.c': 'c.u a.h b.h|./u.py -fc c.u > auto.c',
+             'clean':'|rm -f *o exe auto.c a.h b.h'}
+    o = '# Base64 encoded sha1 short digest: %s\n\n'%__digest__
+    for r in rules:
+        o += '%s: %s\n\t%s\n\n'%((r,)+tuple(rules[r].split('|')))
+    open('makefile','w').write(gen_makefile.__doc__ + o)
 
 def gen_apache_conf():
     """# Apache config file in WSGI mod
@@ -1103,10 +1133,10 @@ Example: [<a href="u?tikz">/u?tikz</a>]</p>
             o += application.__doc__ + ', '.join(__OUT_LANG__) + '</b>\n'
             o += '<h2>[Planned] Supported Input Modeling Formalisms</h2><b>' + ', '.join(__IN_MODEL__) + ',...</b>\n'
             tbl = {'A->B':'cas1','A->B->C':'cas2','A(Z|a,b|func)c':'cas3'}
-            o += '<table><tr><td>Cases</td><td><b>⊔ code</b></td><td><b>Nodes AST</b></td><td><b>Edges AST</b></td><td>svg</td><td>tikz</td><td>c</td></tr>'
+            o += '<table><tr><td>Cases</td><td><b>⊔ code</b></td><td><b>Nodes</b></td><td><b>Edges</b></td><td>svg</td><td>tikz</td><td>c</td></tr>'
             for i in tbl:
                 n,e = uobj.parse(i)
-                o += '<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td><a href="u?_svg&%s">☑</a></td><td><a href="u?_tikz&%s">☑</a></td><td><a href="u?c&%s">☑</a></td></tr>'%(tbl[i],i,n,e,i,i,i)
+                o += '<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td><a href="u?_svg&%s" target="_blank">☑</a></td><td><a href="u?_tikz&%s">☑</a></td><td><a href="u?c&%s">☑</a></td></tr>'%(tbl[i],i,n,e,i,i,i)
             o += '</table>'
             o += '<h6 title="Base64 encoded short sha1 digest">%s</h6></html>'%__digest__
         elif action and action.lower() in ('paper','pdf'):
@@ -1630,7 +1660,7 @@ The $\sqcup$ language is a {\bf Universal Graph Language};\\
 \item License: \textsc{gpl} v3
 \end{itemize} 
 """)
-    slides.frame('Graph', r"""A {\bf graph}: $G = (V,E) $ \\
+    slides.frame('Sparse Graph', r"""A {\bf graph}: $G = (V,E) $ \\
 where: \\ $$V=\{v_i\} \; \text{and} \; E=\{e_{k}\}$$ ...a set of nodes (vertices) and a set of arcs (edges) between nodes.\\
 $$e_{k} = (v_{i_p},v_{j_q})$$ Edge links an origin node to one destination node.\\
 [$p$ and $q$ are ports references]\\
@@ -1827,7 +1857,7 @@ if __name__ == '__main__':
         gen_doc()
         gen_beamer()
         gen_readme()
-        #gen_makefile()
+        gen_makefile()
 
     for r in opts:
         if r[0] in ('-h','--host'):
