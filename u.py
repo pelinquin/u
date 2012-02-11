@@ -486,20 +486,20 @@ class u:
 
     def toposort(self,edges,classT):
         "returns topologic sort"
-        def tsort(d):
-            while True:
-                ordered = set(item for item, dep in d.items() if not dep)
-                if not ordered: break
-                yield ','.join(sorted(ordered))
-                d = { item: (dep - ordered) for item,dep in d.items() if item not in ordered }
-            if d: # cycle!
-                yield 
+        #def tsort(d):
+        #    while True:
+        #        ordered = set(item for item, dep in d.items() if not dep)
+        #        if not ordered: break
+        #        yield ','.join(sorted(ordered))
+        #        d = { item: (dep - ordered) for item,dep in d.items() if item not in ordered }
+        #    if d: # cycle!
+        #        yield 
         data = {}
         for e in edges:
             n1,n2 = re.sub(r'\..*$','',e[0]),re.sub(r'\..*$','',e[2])
             data.setdefault(n1,[]).append(n2)
             if not data.has_key(n2): data[n2] = []
-        res = [z for z in tsort({i:set(data[i]) for i in data})]
+        res = []#z for z in tsort({i:set(data[i]) for i in data})]
         res.reverse()
         return res
 
