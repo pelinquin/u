@@ -761,13 +761,15 @@ pragma Profile (Ravenscar);
                 if re.match(r'^\d+$',p1):
                     ep1,p1 = int(p1),' p1="%s"'%int(p1)
                 elif p1 in ports[n1]:
-                    ep1,p1 = ports[n1].index(p1),' p1="%s"'%ports[n1].index(p1)
+                    ep1 = list(ports[n1]).index(p1)
+                    p1 = ' p1="%s"'%ep1
             if re.search(r'\.',n2):
                 [n2,p2] = n2.split('.')
                 if re.match(r'^\d+$',p2):
                     ep2,p2 = int(p2),' p2="%s"'%int(p2)
                 elif p2 in ports[n2]:
-                    ep2,p2 = ports[n2].index(p2),' p2="%s"'%ports[n2].index(p2)
+                    ep2 = list(ports[n2]).index(p2)
+                    p2 = ' p2="%s"'%ep2
                 else:
                     ep2,p2='',''
             if ep1 != '' and ep2 != '' and ep1<len(portsPos[n1]) and ep2<len(portsPos[n2]):
@@ -1905,5 +1907,8 @@ if __name__ == '__main__':
     #x= 'A:O.* -> B:O.*'
     #print x
     #print uobj.parse(x)
+    #tu = ('a','b','c')
+    #print tu.index('b')
+
 
 # the end
