@@ -511,6 +511,11 @@ class u:
         res.reverse()
         return res
 
+    def gen_raw(self,ast):
+        ""
+        return ''
+        
+
     def gen_c(self,ast):
         "/* C default code generator */\n"
         m,classT,externT,allT,o,hasclass = self.m['c'],[],[],[],'',False
@@ -671,8 +676,10 @@ pragma Profile (Ravenscar);
         o = '<svg %s>\n'%_SVGNS + gen_svg_header(m,gettypes(ast),True if boxes else False)
         if boxes: 
             o += '<title id=".title">%s</title>\n'%__title__ + get_favicon() + get_logo() 
+            o += include_js_pan()
         else:
             o += include_js()
+        o += '<g>\n' 
         o += '<g id=".nodes">\n' 
         portsPos,ports = {},{}
         for n in pos:
@@ -756,7 +763,8 @@ pragma Profile (Ravenscar);
         o += '</g>\n'
         if boxes: 
             o += self.gen_svg_connectors(Edges,boxes,portsPos,ports)
-        return o + '\n</svg>'
+        return o + '\n</g></svg>'
+        #return o + '\n</svg>'
 
     def gen_svg_connectors(self,edges,boxes,portsPos,ports): 
         o,ne = '<g id=".connectors" >\n',0
@@ -1193,7 +1201,9 @@ Example: [<a href="u?tikz">/u?tikz</a>]</p>
                 #o += '<input type=button value=test onclick="submit();"/>'
                 o += '</form>'
         elif lang in (None, 'ast','raw'):
+            ast = uobj.parse(args)
             o = '# ⊔ Python Abstract Syntax Structure:\n\n%s %s'%uobj.parse(args)
+            #o = '# ⊔ Python Abstract Syntax Structure:\n\n%s %s'%uobj.hf(uobj.gen_raw)(ast)
         else:
             ast = uobj.parse(args)
             if environ['REQUEST_METHOD'].lower() == 'post':
@@ -1443,6 +1453,28 @@ window.onload = function () {
     o = '<script %s type="text/ecmascript">\n/*<![CDATA[*//*---->*/\n'%_XLINKNS
     return o + include_js.__doc__  + '\n/*--*//*]]>*/</script>\n'
 
+def include_js_pan():
+    r"""var pan = false, stO, stF;
+document.documentElement.setAttributeNS(null, "onmouseup",   "hMouseUp(evt)");
+document.documentElement.setAttributeNS(null, "onmousedown", "hMouseDown(evt)");
+document.documentElement.setAttributeNS(null, "onmousemove", "hMouseMove(evt)");
+function getP(evt) { var p = document.documentElement.createSVGPoint(); p.x = evt.clientX; p.y = evt.clientY; return p; }
+function setCTM(ele,m) { ele.setAttribute("transform", "matrix(" + m.a + "," + m.b + "," + m.c + "," + m.d + "," + m.e + "," + m.f + ")"); }
+function hMouseMove(evt) {
+  if (pan) {
+    var p = getP(evt).matrixTransform(stF);
+    setCTM(document.getElementById('.nodes').parentNode, stF.inverse().translate(p.x-stO.x, p.y-stO.y));
+  } 
+}
+function hMouseDown(evt) {
+  pan = true;
+  stF = document.getElementById('.nodes').parentNode.getCTM().inverse();
+  stO = getP(evt).matrixTransform(stF);
+}
+function hMouseUp(evt) { pan = false;}"""
+    o = '<script %s type="text/ecmascript">\n/*<![CDATA[*//*---->*/\n'%_XLINKNS
+    return o + include_js_pan.__doc__  + '\n/*--*//*]]>*/</script>\n'
+
 def include_js_editor():
     r"""
 function postURL(data) {
@@ -1455,15 +1487,12 @@ function postURL(data) {
   }
   req.open('POST', window.location.href,true); req.send(JSON.stringify(data)); 
 }
-
 if (typeof($)=='undefined') { 
   function $(id) { return document.getElementById(id.replace(/^#/,'')); } 
 }
- 
 function change_editor(evt) {
   $('.save').removeAttribute('disabled');
 }
-
 window.onload = function () { 
    $('.editor').addEventListener('keyup', change_editor, false);
 }"""
