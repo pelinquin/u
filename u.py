@@ -440,11 +440,12 @@ class u:
                         nid,attr = find_id(a[:3]),strip3(([],a[1],a[2]))
                         nodes[nid] = self.merge(nodes[nid],attr) if nodes.has_key(nid) else attr
                         if a[3]:
-                            if __DATA_ports__.has_key(a[1]):
-                                if (re.match(r'^\d+$',a[3]) and int(a[3]) < len(__DATA_ports__[a[1]])) or  a[3] in __DATA_ports__[a[1]]:
+                            t = nodes[nid][1] if nodes.has_key(nid) and len(nodes[nid]) > 1 and nodes[nid][1] != None else a[1]
+                            if __DATA_ports__.has_key(t):
+                                if (re.match(r'^\d+$',a[3]) and int(a[3]) < len(__DATA_ports__[t])) or  a[3] in __DATA_ports__[t]:
                                     po.setdefault(nid,[]).append(a[3])
                                 elif a[3] == '*':
-                                    po[nid] = __DATA_ports__[a[1]]
+                                    po[nid] = __DATA_ports__[t]
                         if c:
                             edges += self.addedge(c,o,[nid],po)
                             #c,po = None,{}
