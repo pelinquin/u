@@ -1,4 +1,4 @@
-QiEEM: [u.py](https://github.com/pelinquin/u/blob/master/u.py) base64 encoded sha1 short digest
+kTeVX: [u.py](https://github.com/pelinquin/u/blob/master/u.py) base64 encoded sha1 short digest
 
 Welcome to the ⊔ [SquareCup] Language Project !
 ==========================================

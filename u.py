@@ -110,7 +110,7 @@ __OUT_LANG__ = {'c'          :['c'   ,('/*'  ,'*/' ,'')],
                 'systemc'    :['sc'  ,('//'  ,''   ,'')]}
  
 __DATA_ports__ = {
-    'T': ('p1','p2','p3','p4'),
+    'T': ('i','o'),
     'O': ('in1','in2','out1','out2'),
     'C': ('p1','p2','p3','p4','p5','p6','p7','p8','p9','p10','p11','p12','p13','p14','p15','p16'),
     'D': ('pin1','pin2','pin3','pin4','pin5','pin6'),
@@ -118,21 +118,21 @@ __DATA_ports__ = {
     }
 
 __DATA_svg__ = ({
-        '':  ('node','fill:black;','rect|-5,40,5','fill-opacity:.1;', 10, 10,()),
-        'Z': ('node','fill:black;','path|-4,0,0','stroke:green;stroke-width:1;fill:none;', 2, 2,()),
-        'E': ('node','fill:black;','ellipse','stroke:green;stroke-width:1;fill:gray;', 20, 20,()),
-        'F': ('node','fill:black;','rect','filter:url(#.shadow);stroke:green;stroke-width:1;fill:gray;fill-opacity:.1;', 5, 50,()),
-        'm': ('node','fill:black;','rect','filter:url(#.shadow);fill-opacity:.1;', 4, 4,()),
-        'T': ('node','fill:red;','rect','fill:blue;fill-opacity:.6;', 8, 18,('p1','p2','p3','p4')),
-        'R': ('node','fill:red;font-family:helvetica,arial,sans-serif;','rect','fill:none;stroke:black;stroke-width:1;',0,0,()),
-        'O': ('node','fill:blue;','rect','filter:url(#.shadow);fill-opacity:.1;', 30, 30,('in1','in2','out1','out2')),
-        'C': ('class','fill:blue;','rect','filter:url(#.shadow);fill-opacity:.1;', 30, 60, ('p1','p2','p3','p4','p5','p6','p7','p8','p9','p10','p11','p12','p13','p14','p15','p16')),
-        'c': ('class','fill:blue;','rect|0,4,4','fill-opacity:.1;stroke:gray;stroke-width:.5;', 2, 0, ()),
-        'D': ('node','fill:blue;','rect','filter:url(#.shadow);fill-opacity:.1;', 10, 50, ('pin1','pin2','pin3','pin4','pin5','pin6')),
-        'x': ('node','fill:blue;','rect','fill:blue;fill-opacity:.2;', 10, 50, ('pin1','pin2','pin3','pin4','pin5','pin6')),
-        'd': ('node','fill:blue;','rect','filter:url(#.shadow);fill-opacity:.1;', 10, 50, ()),
-        'p': ('place','fill:black;','circle','fill:green;fill-opacity:.3;', 10, 2, ()),
-        't': ('transition','fill:white;','rect','fill:black;fill-opacity:.8;', 2, 40, ()),
+        '':  ('node','fill:black;','rect|-5,40,5','fill-opacity:.1;', 10, 10),
+        'Z': ('node','fill:black;','path|-4,0,0','stroke:green;stroke-width:1;fill:none;', 2, 2),
+        'E': ('node','fill:black;','ellipse','stroke:green;stroke-width:1;fill:gray;', 20, 20),
+        'F': ('node','fill:black;','rect','filter:url(#.shadow);stroke:green;stroke-width:1;fill:gray;fill-opacity:.1;', 5, 50),
+        'm': ('node','fill:black;','rect','filter:url(#.shadow);fill-opacity:.1;', 4, 4),
+        'T': ('node','fill:red;','rect','fill:blue;fill-opacity:.6;', 8, 18),
+        'R': ('node','fill:red;font-family:helvetica,arial,sans-serif;','rect','fill:none;stroke:black;stroke-width:1;',0,0),
+        'O': ('node','fill:blue;','rect','filter:url(#.shadow);fill-opacity:.1;', 30, 30),
+        'C': ('class','fill:blue;','rect','filter:url(#.shadow);fill-opacity:.1;', 30, 60),
+        'c': ('class','fill:blue;','rect|0,4,4','fill-opacity:.1;stroke:gray;stroke-width:.5;', 2, 0),
+        'D': ('node','fill:blue;','rect','filter:url(#.shadow);fill-opacity:.1;', 10, 50),
+        'x': ('node','fill:blue;','rect','fill:blue;fill-opacity:.2;', 10, 50),
+        'd': ('node','fill:blue;','rect','filter:url(#.shadow);fill-opacity:.1;', 10, 50),
+        'p': ('place','fill:black;','circle','fill:green;fill-opacity:.3;', 10, 2),
+        't': ('transition','fill:white;','rect','fill:black;fill-opacity:.8;', 2, 40),
         },{
         '' : 'stroke:black; stroke-width:1.5; fill:none; marker-end:url(#.arrow);',
         'r': 'stroke:black; stroke-width:1.5; fill:none; marker-start:url(#.r_arrow);',
@@ -142,21 +142,21 @@ __DATA_svg__ = ({
 
 
 __DATA_tikz__ = ({
-        '':  ('node','circle,drop shadow,draw=green!40,fill=gray!20',()),
-        'S': ('component','rectangle,draw=black!40,fill=gray!10',('p1','p2')),
-        'T': ('component','circle,drop shadow,draw=green!40,fill=gray!20',('in1','in2','out1','out2')), 
-        'O': ('node','rectangle,drop shadow,rounded corners=3pt,draw=red!40,fill=blue!25',()),
-        't': ('node','rectangle,rounded corners=5pt,drop shadow,draw=gray!40,fill=red!30',()),
-        'n': ('node','rectangle,rounded corners=3pt,drop shadow,draw=gray!40,fill=gray!20',()),
-        'm': ('node','rectangle,rounded corners=2pt,drop shadow,draw=gray!40,fill=brown!30',()),
-        'g': ('node','ellipse,drop shadow,draw=gray!40,fill=green!20',()),
-        'l': ('node','ellipse,drop shadow,draw=gray!40,fill=blue!20',()),
-        'a': ('node','ellipse,drop shadow,draw=gray!40,fill=blue!20',()),
-        'b': ('node','rectangle,drop shadow,draw=gray!40,fill=blue!20',()),
-        'c': ('node','diamond,drop shadow,draw=gray!40,fill=blue!20',()),
-        'd': ('node','regular polygon,regular polygon sides=5,drop shadow,draw=gray!40,fill=blue!20',()),
-        'e': ('node','regular polygon,regular polygon sides=6,drop shadow,draw=gray!40,fill=blue!20',()),
-        'f': ('node','regular polygon,regular polygon sides=8,drop shadow,draw=gray!40,fill=blue!20',()),
+        '':  ('node','circle,drop shadow,draw=green!40,fill=gray!20'),
+        'S': ('component','rectangle,draw=black!40,fill=gray!10'),
+        'T': ('component','circle,drop shadow,draw=green!40,fill=gray!20'), 
+        'O': ('node','rectangle,drop shadow,rounded corners=3pt,draw=red!40,fill=blue!25'),
+        't': ('node','rectangle,rounded corners=5pt,drop shadow,draw=gray!40,fill=red!30'),
+        'n': ('node','rectangle,rounded corners=3pt,drop shadow,draw=gray!40,fill=gray!20'),
+        'm': ('node','rectangle,rounded corners=2pt,drop shadow,draw=gray!40,fill=brown!30'),
+        'g': ('node','ellipse,drop shadow,draw=gray!40,fill=green!20'),
+        'l': ('node','ellipse,drop shadow,draw=gray!40,fill=blue!20'),
+        'a': ('node','ellipse,drop shadow,draw=gray!40,fill=blue!20'),
+        'b': ('node','rectangle,drop shadow,draw=gray!40,fill=blue!20'),
+        'c': ('node','diamond,drop shadow,draw=gray!40,fill=blue!20'),
+        'd': ('node','regular polygon,regular polygon sides=5,drop shadow,draw=gray!40,fill=blue!20'),
+        'e': ('node','regular polygon,regular polygon sides=6,drop shadow,draw=gray!40,fill=blue!20'),
+        'f': ('node','regular polygon,regular polygon sides=8,drop shadow,draw=gray!40,fill=blue!20'),
         },{
         '':  '--',
         'I': '->,>=open diamond',
@@ -334,10 +334,12 @@ __AST_SET__ = [
     (''                       ,'A.por1 -> B.por2'),
     (''                       ,'A:T B:U A.1->B.2'),
     (' '                      ,'A.1->B.2 A:T B:U'),
-    ('Port1'                  ,'A.1->B.2'),
-    ('Port2'                  ,'A.1->{B.2 C.3}'),
-    ('Port3'                  ,'{A.1 B.2}->C.3'),
-    ('Port4'                  ,'{A.1 B.2}->{C.3 D.4}'),
+    ('Port0'                  ,'A.0->B.pin1->C.*->D'),
+    ('Port1'                  ,'A:T.0->B:T.1'),
+    ('Port2'                  ,'A:T.1->{B:T.0 C:T.0}'),
+    ('Port3'                  ,'{A:T.1 B:T.0}->C:T.1'),
+    ('Port4'                  ,'{A:T.1 B:T.0}->{C:T.1 D:T.0}'),
+    ('Port5'                  ,'A:T.1->B:T.0->C:T.1'),
     ('Double definition'      ,'A{a} A{b}'),
 ]
 
@@ -425,6 +427,7 @@ class u:
                     nodes[o[0]] = self.merge(nodes[o[0]],[m]) if nodes.has_key(o[0]) else (m)
                 else:
                     edges += self.addedge(c,o,m,po)
+                    c = None
                     #c,po = None,{} # check if needed !
                 if not par:
                     o = m
@@ -444,7 +447,8 @@ class u:
                                     po[nid] = __DATA_ports__[a[1]]
                         if c:
                             edges += self.addedge(c,o,[nid],po)
-                            c,po = None,{}
+                            #c,po = None,{}
+                            c = None
                         o,par = [nid],[nid]
         return nodes,edges
 
@@ -478,8 +482,11 @@ class u:
             #for x in Edges:
             #    o += '%s %s, %s\n'%(sc,x,ec)
             #o += '%s}%s\n'%(sc,ec)
-            
             a = appli(ast)
+            nt,et = gettypes(ast)
+            for n in nt:
+                if n and __DATA_ports__.has_key(n):
+                    o += '%s Node type:"%s" Ports: %s %s\n'%(sc,n,__DATA_ports__[n],ec)
             o += '\n%s Types parameters: %s %s\n'%(sc,self.m[lang],ec) + a
             return o + '\n%s %s Nodes %s Edges %s Lines | The end of file %s'%(sc,len(Nodes),len(Edges),len(a.split('\n'))+13,ec)
         return app
@@ -633,12 +640,13 @@ pragma Profile (Ravenscar);
             (x,y) = (pos[n][0]*rx/25,pos[n][1]*ry/25)
             o += '\\node[%s](%s) at (%0.3f,%0.3f) {%s};'%(shape,name,x,y,label) + '\n'
             # ports
-            tt = m[0][''][2] if (len(Nodes[n])<2 or not Nodes.has_key(n) or not m[0].has_key(Nodes[n][1])) else m[0][Nodes[n][1]][2]
+            t = '' if (len(Nodes[n])<2 or not Nodes.has_key(n)) else Nodes[n][1]
+            tt = __DATA_ports__[t] if __DATA_ports__.has_key(t) else [] 
             if tt:
                 delta,p = 360/len(tt),-180
-            for i in tt:
-                o += r'\draw (%s.%s) node{\tiny{%s}};'%(n,p,i) + '\n'
-                p += delta
+                for i in tt:
+                    o += r'\draw (%s.%s) node{\tiny{%s}};'%(n,p,i) + '\n'
+                    p += delta
         for e in Edges:
             #boucle = '[bend left]'
             boucle = '[loop right]' if e[0] == e[2] else ''  
@@ -716,7 +724,7 @@ pragma Profile (Ravenscar);
             o += '<text class="node" x="%s" y="%s">%s</text>'%(x,y,disp)
             if boxes.has_key(n):
                 o += '<g>' 
-                portsPos[n],ports[n] = [],m[0][t][6]
+                portsPos[n],ports[n] = [],__DATA_ports__[t] if __DATA_ports__.has_key(t) else []
                 if ports[n]:
                     delta = 200.0/len(ports[n])
                     d = delta/2.0 - 100
@@ -773,7 +781,7 @@ pragma Profile (Ravenscar);
                 else:
                     ep2,p2='',''
             if ep1 != '' and ep2 != '' and ep1<len(portsPos[n1]) and ep2<len(portsPos[n2]):
-                d = nodes_path2(portsPos[n1][ep1],portsPos[n2][ep2],boxes.values())
+                d = nodes_path2o(portsPos[n1][ep1],portsPos[n2][ep2],boxes.values())
             elif ep1 != '' and ep1<len(portsPos[n1]):
                 d = nodes_path1(boxes[n2],portsPos[n1][ep1],False)
             elif ep2 != '' and ep2<len(portsPos[n2]):
@@ -1285,22 +1293,10 @@ def nodes_path2(p1,p2,nodes=[]):
     o += 'L%s,%s'%(x2,y2)
     return o
 
-def nodes_path2_old(p1,p2,nodes=[]):
+def nodes_path2o(p1,p2,nodes=[]):
     ""
-    m = 20
     x1,y1,x2,y2 = p1[0],p1[1],p2[0],p2[1]
     o = 'M%s,%s'%(x1,y1)
-    o += 'L%s,%s'%(x1,y1)
-    if abs(x2-x1) > abs(y2-y1):
-        for n in nodes:
-            if n[1] < y1 and n[1] + n[3] > y1:
-                if n[0] > x1:
-                    o += 'L%s,%s'%(n[0],y1)
-        o += 'L%s,%s'%(x2,y1)
-    else:
-        
-        o += 'L%s,%s'%(x1,y2)
-    o += 'L%s,%s'%(x2,y2)
     o += 'L%s,%s'%(x2,y2)
     return o
 
@@ -1907,8 +1903,5 @@ if __name__ == '__main__':
     #x= 'A:O.* -> B:O.*'
     #print x
     #print uobj.parse(x)
-    #tu = ('a','b','c')
-    #print tu.index('b')
-
 
 # the end
