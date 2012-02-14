@@ -340,6 +340,8 @@ __AST_SET__ = [
     ('Port3'                  ,'{A:T.1 B:T.0}->C:T.1'),
     ('Port4'                  ,'{A:T.1 B:T.0}->{C:T.1 D:T.0}'),
     ('Port5'                  ,'A:T.1->B:T.0->C:T.1'),
+    ('Port *'                 ,'A:T.*->B:T.*'),
+    ('PortOutOfrange'         ,'A:T.5->B:T.pin12'),
     ('Double definition'      ,'A{a} A{b}'),
 ]
 
@@ -467,7 +469,7 @@ class u:
             o += '%s Host: %32s %s\n'%(sc,host,ec)            
             o += '%s ******** Do not edit by hand! ******** %s\n'%(sc,ec)
             o += '%s Base64 short sha1 digest: %12s %s\n'%(sc,__digest__,ec)
-            o += '%s Forge:  https://github.com/pelinquin/u %s\n'%(sc,ec)
+            o += '%s Forge:  https://%s %s\n'%(sc,__url__,ec)
             o += '%s © Copyright 2012 Rockwell Collins, Inc %s\n'%(sc,ec)
             o += '%s ** GNU General Public License  (v3) ** %s\n'%(sc,ec)
             dast = '%s %s'%ast
@@ -510,11 +512,6 @@ class u:
         res = []#z for z in tsort({i:set(data[i]) for i in data})]
         res.reverse()
         return res
-
-    def gen_raw(self,ast):
-        ""
-        return ''
-        
 
     def gen_c(self,ast):
         "/* C default code generator */\n"
@@ -850,7 +847,7 @@ You can use it as a Python module and overload functions.\n\n
 Or use it as a Web service...for [instance](https://193.84.73.209/u?about).  
 For your convenience, the [u.pdf](https://github.com/pelinquin/u/blob/master/u.pdf?raw=true) and [beamer_u.pdf](https://github.com/pelinquin/u/blob/master/beamer_u.pdf?raw=true) files are also commited.\n\nEnjoy!
 """
-    o = '%s: [u.py](https://github.com/pelinquin/u/blob/master/u.py) base64 encoded sha1 short digest\n\n'%__digest__
+    o = '%s: [u.py](https://%s/blob/master/u.py) base64 encoded sha1 short digest\n\n'%(__digest__,__url__)
     open('README.md','w').write(o + gen_readme.__doc__)
 
 def gen_makefile():
@@ -1203,7 +1200,6 @@ Example: [<a href="u?tikz">/u?tikz</a>]</p>
         elif lang in (None, 'ast','raw'):
             ast = uobj.parse(args)
             o = '# ⊔ Python Abstract Syntax Structure:\n\n%s %s'%uobj.parse(args)
-            #o = '# ⊔ Python Abstract Syntax Structure:\n\n%s %s'%uobj.hf(uobj.gen_raw)(ast)
         else:
             ast = uobj.parse(args)
             if environ['REQUEST_METHOD'].lower() == 'post':
@@ -1454,24 +1450,13 @@ window.onload = function () {
     return o + include_js.__doc__  + '\n/*--*//*]]>*/</script>\n'
 
 def include_js_pan():
-    r"""var pan = false, stO, stF;
-document.documentElement.setAttributeNS(null, "onmouseup",   "hMouseUp(evt)");
-document.documentElement.setAttributeNS(null, "onmousedown", "hMouseDown(evt)");
-document.documentElement.setAttributeNS(null, "onmousemove", "hMouseMove(evt)");
+    r"""var pan = false, stO, stF;document.documentElement.setAttributeNS(null,"onmouseup","hMouseUp(evt)"); document.documentElement.setAttributeNS(null,"onmousedown", "hMouseDown(evt)");document.documentElement.setAttributeNS(null,"onmousemove","hMouseMove(evt)");window.addEventListener('DOMMouseScroll', hMouseWheel, false); 
 function getP(evt) { var p = document.documentElement.createSVGPoint(); p.x = evt.clientX; p.y = evt.clientY; return p; }
 function setCTM(ele,m) { ele.setAttribute("transform", "matrix(" + m.a + "," + m.b + "," + m.c + "," + m.d + "," + m.e + "," + m.f + ")"); }
-function hMouseMove(evt) {
-  if (pan) {
-    var p = getP(evt).matrixTransform(stF);
-    setCTM(document.getElementById('.nodes').parentNode, stF.inverse().translate(p.x-stO.x, p.y-stO.y));
-  } 
-}
-function hMouseDown(evt) {
-  pan = true;
-  stF = document.getElementById('.nodes').parentNode.getCTM().inverse();
-  stO = getP(evt).matrixTransform(stF);
-}
-function hMouseUp(evt) { pan = false;}"""
+function hMouseMove(evt) { if (pan) { var p = getP(evt).matrixTransform(stF); setCTM(document.getElementById('.nodes').parentNode, stF.inverse().translate(p.x-stO.x,p.y-stO.y)); }}
+function hMouseDown(evt) { pan = true; stF = document.getElementById('.nodes').parentNode.getCTM().inverse(); stO = getP(evt).matrixTransform(stF);}
+function hMouseUp(evt) { pan = false;}
+function hMouseWheel(evt) { var g = document.getElementById('.nodes').parentNode; var p = getP(evt).matrixTransform(g.getCTM().inverse()); var k = document.documentElement.createSVGMatrix().translate(p.x,p.y).scale(1+evt.detail/-90).translate(-p.x,-p.y); setCTM(g, g.getCTM().multiply(k)); if(typeof(stF) == "undefined") stF = g.getCTM().inverse(); stF = stF.multiply(k.inverse()); }"""
     o = '<script %s type="text/ecmascript">\n/*<![CDATA[*//*---->*/\n'%_XLINKNS
     return o + include_js_pan.__doc__  + '\n/*--*//*]]>*/</script>\n'
 
