@@ -1,4 +1,4 @@
-NQ2Fv: [u.py](https://github/pelinquin/u/blob/master/u.py) base64 encoded sha1 short digest
+eGhvE: [u.py](https://github/pelinquin/u/blob/master/u.py) base64 encoded sha1 short digest
 
 Welcome to the ⊔ [SquareCup] Language Project !
 ==========================================

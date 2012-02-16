@@ -673,11 +673,14 @@ pragma Profile (Ravenscar);
         o = '<svg %s>\n'%_SVGNS + gen_svg_header(m,gettypes(ast),True if boxes else False)
         if boxes: 
             o += '<title id=".title">%s</title>\n'%__title__ + get_favicon() + get_logo() 
-            o += include_js_pan()
+            o += '<text id="zoom"  x="99%" y="12" title="zoom factor">100%</text>\n'
+            o += '<svg id="zoomin" title="zoom in" onclick="zoom(-10);" viewBox="0 0 20 20" y="18" width="99%" height="20" preserveAspectRatio="xMaxYMin meet"><rect height="100%" width="20" fill="lightgray" stroke-width="0"/><rect x="3" y="8" height="20%" width="14" fill="white"/><rect x="8" y="3" height="70%" width="4" fill="white"/></svg>'
+            o += '<svg id="zoomout" title="zoom out" onclick="zoom(10);" viewBox="0 0 20 20" y="40" width="99%" height="20" preserveAspectRatio="xMaxYMin meet"><rect height="100%" width="20" fill="lightgray" stroke-width="0"/><rect x="3" y="8" height="20%" width="14" fill="white"/></svg>'
+            o += include_js_zoom_pan()
+            o += '<g>\n' 
         else:
             o += include_js()
-        o += '<g>\n' 
-        o += '<g id=".nodes">\n' 
+        o += '<g id=".nodes"><g>\n' 
         portsPos,ports = {},{}
         for n in pos:
             t = '' if not (Nodes.has_key(n) and (len(Nodes[n])>1) and m[0].has_key(Nodes[n][1])) else Nodes[n][1]
@@ -757,11 +760,12 @@ pragma Profile (Ravenscar);
                         o += '<path class="sep" d="M%s,%sl%s,0"/>'%(boxes[n][0],boxes[n][1]+h+my+1,boxes[n][2])
                 o += '</g>\n' 
             o += '</g>\n' 
-        o += '</g>\n'
+        o += '</g></g>\n'
         if boxes: 
             o += self.gen_svg_connectors(Edges,boxes,portsPos,ports)
-        return o + '\n</g></svg>'
-        #return o + '\n</svg>'
+            o += '</g>\n' 
+        return o + '\n</svg>'
+
 
     def gen_svg_connectors(self,edges,boxes,portsPos,ports): 
         o,ne = '<g id=".connectors" >\n',0
@@ -1243,13 +1247,39 @@ def layout(nodes,edges,rankdir='TB'):
         label = re.sub(r'[\n|]','\\\\n',label) 
         label = re.sub(r'\$[^\$]+\$','_',label)
         label = re.sub(r',','_',label)
-        d+= ' %s[label="%s"];'%(n,label) 
+        child = '' if len(nodes[n])<1 else ' '.join(nodes[n][0])
+        #d += 'subgraph cluster%s {%s;}'%(n,child) if child else ' %s[label="%s"];'%(n,label)
+        d += ' %s[label="%s"];'%(n,label)
     for e in edges:
         n1,n2 = re.sub(r'\..+$','',e[0]),re.sub(r'\..+$','',e[2])
         label = '' if len(e)<4 or e[3] == None else '[label="%s"];'%e[3]
         label = re.sub(r'\$[^\$]+\$','_',label)
         d+= ' %s->%s %s'%(n1,n2,label) 
     #print d + '}' # for debug
+    p = subprocess.Popen(['dot'], stdout=subprocess.PIPE, stdin=subprocess.PIPE)
+    for l in p.communicate(input=d + '}')[0].split('\n'):
+        #print l
+        if reg(re.search('bb="0,0,([\.\d]+),([\.\d]+)"',l)):
+            bbx,bby = float(reg.v.group(1)),float(reg.v.group(2))
+        elif reg(re.search('^\s*(\w+)\s*\[label=[^,]*, pos="([\.\d]+),([\.\d]+)"',l)) and bbx and bby:
+            pos[reg.v.group(1)] = (float(reg.v.group(2))*100/bbx,float(reg.v.group(3))*100/bby)
+    return pos
+
+def layout_old(nodes,edges,rankdir='TB'):
+    "computes layout for graphics (tikz and svg) generation"
+    bbx,bby,pos,d = None,None,{},'digraph G { rankdir=%s '%rankdir
+    for n in nodes:
+        label = n if (len(nodes[n])<3 or nodes[n][2] == None) else re.sub(r'\\','\\\\n',nodes[n][2])  
+        label = re.sub(r'[\n|]','\\\\n',label) 
+        label = re.sub(r'\$[^\$]+\$','_',label)
+        label = re.sub(r',','_',label)
+        d+= ' %s[label="%s"];'%(n,label) 
+    for e in edges:
+        n1,n2 = re.sub(r'\..+$','',e[0]),re.sub(r'\..+$','',e[2])
+        label = '' if len(e)<4 or e[3] == None else '[label="%s"];'%e[3]
+        label = re.sub(r'\$[^\$]+\$','_',label)
+        d+= ' %s->%s %s'%(n1,n2,label) 
+    print d + '}' # for debug
     p = subprocess.Popen(['dot'], stdout=subprocess.PIPE, stdin=subprocess.PIPE)
     for l in p.communicate(input=d + '}')[0].split('\n'):
         #print l
@@ -1434,9 +1464,10 @@ function submitURL(data) {
 }
 window.onload = function () { 
   var box = {};
-  var t = document.getElementById('.nodes').childNodes;
+  var base = document.getElementById('.nodes');
+  var t = base.getElementsByTagName('g'); //var t = base.childNodes;
   for (var n = 0; n < t.length; n++) {
-    if (t[n].nodeName == 'g') {
+    if (t[n].nodeName == 'g' && t[n].getAttribute('class') == 'node') {
       var b = t[n].firstChild.getBBox();
       var mx = parseInt(t[n].getAttribute('mx')); var my = parseInt(t[n].getAttribute('my'));
       box[t[n].id] = [b.x-mx,b.y-my,b.width+2*mx,b.height+2*my];
@@ -1449,16 +1480,27 @@ window.onload = function () {
     o = '<script %s type="text/ecmascript">\n/*<![CDATA[*//*---->*/\n'%_XLINKNS
     return o + include_js.__doc__  + '\n/*--*//*]]>*/</script>\n'
 
-def include_js_pan():
+def include_js_zoom_pan():
     r"""var pan = false, stO, stF;document.documentElement.setAttributeNS(null,"onmouseup","hMouseUp(evt)"); document.documentElement.setAttributeNS(null,"onmousedown", "hMouseDown(evt)");document.documentElement.setAttributeNS(null,"onmousemove","hMouseMove(evt)");window.addEventListener('DOMMouseScroll', hMouseWheel, false); 
 function getP(evt) { var p = document.documentElement.createSVGPoint(); p.x = evt.clientX; p.y = evt.clientY; return p; }
 function setCTM(ele,m) { ele.setAttribute("transform", "matrix(" + m.a + "," + m.b + "," + m.c + "," + m.d + "," + m.e + "," + m.f + ")"); }
 function hMouseMove(evt) { if (pan) { var p = getP(evt).matrixTransform(stF); setCTM(document.getElementById('.nodes').parentNode, stF.inverse().translate(p.x-stO.x,p.y-stO.y)); }}
-function hMouseDown(evt) { pan = true; stF = document.getElementById('.nodes').parentNode.getCTM().inverse(); stO = getP(evt).matrixTransform(stF);}
-function hMouseUp(evt) { pan = false;}
-function hMouseWheel(evt) { var g = document.getElementById('.nodes').parentNode; var p = getP(evt).matrixTransform(g.getCTM().inverse()); var k = document.documentElement.createSVGMatrix().translate(p.x,p.y).scale(1+evt.detail/-90).translate(-p.x,-p.y); setCTM(g, g.getCTM().multiply(k)); if(typeof(stF) == "undefined") stF = g.getCTM().inverse(); stF = stF.multiply(k.inverse()); }"""
+function hMouseDown(evt) { 
+pan = true; stF = document.getElementById('.nodes').parentNode.getCTM().inverse(); stO = getP(evt).matrixTransform(stF);}
+function hMouseUp(evt) { pan = false; document.getElementById('zoom').firstChild.nodeValue = stO.x.toFixed(0) + ',' + stO.y.toFixed(0);}
+function hMouseWheel(evt) { var g = document.getElementById('.nodes').parentNode; do_zoom(evt.detail,getP(evt));}
+function zoom(delta) { var q = document.documentElement.createSVGPoint(); q.x = window.innerWidth/2; q.y = window.innerHeight/2; do_zoom(delta,q);}
+function do_zoom(delta,q) {
+  var g = document.getElementById('.nodes').parentNode; 
+  var p = q.matrixTransform(g.getCTM().inverse()); 
+  var k = document.documentElement.createSVGMatrix().translate(p.x,p.y).scale(1+delta/-90).translate(-p.x,-p.y); 
+  setCTM(g, g.getCTM().multiply(k)); 
+  if(typeof(stF) == "undefined") stF = g.getCTM().inverse(); 
+  stF = stF.multiply(k.inverse()); 
+  document.getElementById('zoom').firstChild.nodeValue = (100.0/stF.a).toFixed(0)+ '%';
+}"""
     o = '<script %s type="text/ecmascript">\n/*<![CDATA[*//*---->*/\n'%_XLINKNS
-    return o + include_js_pan.__doc__  + '\n/*--*//*]]>*/</script>\n'
+    return o + include_js_zoom_pan.__doc__  + '\n/*--*//*]]>*/</script>\n'
 
 def include_js_editor():
     r"""
@@ -1501,7 +1543,7 @@ def gen_svg_header(m,(ln,le),full=True):
     o += 'text {font-family:helvetica neue,helvetica,arial,sans-serif;}\n'
     o += 'text.tiny, tspan.tiny { font-family:helvetica neue,helvetica,arial,sans-serif;font-size: 4px; fill:DarkSlateGray;}\n'
     o += 'tspan.body { font-family:helvetica neue,helvetica,arial,sans-serif;font-size: .5em; fill:DarkSlateGray;}\n'
-    o += 'text.node { font-size: 1em;}\n'
+    o += 'text.node { font-size: 1em;}\ntext#zoom { font-size: .8em; fill:lightgray; text-anchor:end;}\n'
     if full:
         o += 'textPath {dominant-baseline:text-after-edge;}\n'
         #o += 'text:hover {stroke:gray;fill:none;} \n'
@@ -1915,8 +1957,9 @@ if __name__ == '__main__':
            'A"Hellowo|adssd|a,b"c')
     #print re.sub(r'\n',r'\\n',x,re.M,re.S)
     #x= '{A:O.1 C:O.4} -> {B:O.in2 B:O.in3 D}'
-    #x= 'A:O.* -> B:O.*'
-    #print x
-    #print uobj.parse(x)
+    #x= 'A{B C{D E} } '
+    #ast = uobj.parse(x)
+    #print ast
+    #uobj.gen_svg(ast)
 
 # the end
