@@ -1486,8 +1486,9 @@ function getP(evt) { var p = document.documentElement.createSVGPoint(); p.x = ev
 function setCTM(ele,m) { ele.setAttribute("transform", "matrix(" + m.a + "," + m.b + "," + m.c + "," + m.d + "," + m.e + "," + m.f + ")"); }
 function hMouseMove(evt) { if (pan) { var p = getP(evt).matrixTransform(stF); setCTM(document.getElementById('.nodes').parentNode, stF.inverse().translate(p.x-stO.x,p.y-stO.y)); }}
 function hMouseDown(evt) { 
+document.documentElement.setAttribute('cursor','move');
 pan = true; stF = document.getElementById('.nodes').parentNode.getCTM().inverse(); stO = getP(evt).matrixTransform(stF);}
-function hMouseUp(evt) { pan = false; document.getElementById('zoom').firstChild.nodeValue = stO.x.toFixed(0) + ',' + stO.y.toFixed(0);}
+function hMouseUp(evt) { pan = false; document.getElementById('zoom').firstChild.nodeValue = stO.x.toFixed(0) + ',' + stO.y.toFixed(0); document.documentElement.setAttribute('cursor','default');}
 function hMouseWheel(evt) { var g = document.getElementById('.nodes').parentNode; do_zoom(evt.detail,getP(evt));}
 function zoom(delta) { var q = document.documentElement.createSVGPoint(); q.x = window.innerWidth/2; q.y = window.innerHeight/2; do_zoom(delta,q);}
 function do_zoom(delta,q) {
@@ -1920,7 +1921,7 @@ if __name__ == '__main__':
     if not opts and not args:
         ast_test(True)
         gen_apache_conf()
-        gen_doc()
+        #gen_doc()
         gen_beamer()
         gen_readme()
         gen_makefile()
