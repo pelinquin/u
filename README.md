@@ -1,4 +1,4 @@
-EvWet: [u.py](https://github/pelinquin/u/blob/master/u.py) base64 encoded sha1 short digest
+Yvdv6: [u.py](https://github/pelinquin/u/blob/master/u.py) base64 encoded sha1 short digest
 
 Welcome to the ⊔ [SquareCup] Language Project !
 ==========================================

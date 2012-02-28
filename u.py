@@ -676,14 +676,17 @@ pragma Profile (Ravenscar);
             o += '<text id="zoom"  x="99%" y="12" title="zoom factor">100%</text>\n'
             o += '<svg id="zoomin" title="zoom in" onclick="zoom(-10);" viewBox="0 0 20 20" y="18" width="99%" height="20" preserveAspectRatio="xMaxYMin meet"><rect height="100%" width="20" fill="lightgray" stroke-width="0"/><rect x="3" y="8" height="20%" width="14" fill="white"/><rect x="8" y="3" height="70%" width="4" fill="white"/></svg>'
             o += '<svg id="zoomout" title="zoom out" onclick="zoom(10);" viewBox="0 0 20 20" y="40" width="99%" height="20" preserveAspectRatio="xMaxYMin meet"><rect height="100%" width="20" fill="lightgray" stroke-width="0"/><rect x="3" y="8" height="20%" width="14" fill="white"/></svg>'
+            o += '<g id="target" transform="translate(0,0)" fill="none" stroke-width="1" stroke="red"><path display="none" d="M-50,-40L-50,-50L-40,-50M40,-50L50,-50L50,-40M50,40L50,50L40,50M-40,50L-50,50L-50,40"/><path display="none" d="M-60,-50L-50,-50L-50,-60M50,-60L50,-50L60,-50M60,50L50,50L50,60M-50,60L-50,50L-60,50"/></g>'
             o += include_js_zoom_pan()
             o += '<g>\n' 
         else:
             o += include_js()
-        o += '<g id=".nodes"><g>\n' 
+        #o += '<g id=".nodes"><g>\n' 
+        o += '<g id=".nodes">\n' 
         portsPos,ports = {},{}
         for n in pos:
             t = '' if not (Nodes.has_key(n) and (len(Nodes[n])>1) and m[0].has_key(Nodes[n][1])) else Nodes[n][1]
+            #o += '<!-- %s -->\n'%t
             mx,my = m[0][t][4],m[0][t][5]
             style = 'node' if (not Nodes.has_key(n) or len(Nodes[n])<2) else 'node%s'%Nodes[n][1]
             o += '<g id="%s" class="%s"'%(n,style)
@@ -760,7 +763,8 @@ pragma Profile (Ravenscar);
                         o += '<path class="sep" d="M%s,%sl%s,0"/>'%(boxes[n][0],boxes[n][1]+h+my+1,boxes[n][2])
                 o += '</g>\n' 
             o += '</g>\n' 
-        o += '</g></g>\n'
+        #o += '</g></g>\n'
+        o += '</g>\n'
         if boxes: 
             o += self.gen_svg_connectors(Edges,boxes,portsPos,ports)
             o += '</g>\n' 
@@ -1465,9 +1469,11 @@ function submitURL(data) {
 window.onload = function () { 
   var box = {};
   var base = document.getElementById('.nodes');
-  var t = base.getElementsByTagName('g'); //var t = base.childNodes;
+  //var t = base.getElementsByTagName('g'); 
+  var t = base.childNodes;
   for (var n = 0; n < t.length; n++) {
-    if (t[n].nodeName == 'g' && t[n].getAttribute('class') == 'node') {
+    if (t[n].nodeName == 'g' && t[n].firstChild.getAttribute('class') == 'node') {
+    //if (t[n].nodeName == 'g') {
       var b = t[n].firstChild.getBBox();
       var mx = parseInt(t[n].getAttribute('mx')); var my = parseInt(t[n].getAttribute('my'));
       box[t[n].id] = [b.x-mx,b.y-my,b.width+2*mx,b.height+2*my];
@@ -1486,7 +1492,7 @@ function getP(evt) { var p = document.documentElement.createSVGPoint(); p.x = ev
 function setCTM(ele,m) { ele.setAttribute("transform", "matrix(" + m.a + "," + m.b + "," + m.c + "," + m.d + "," + m.e + "," + m.f + ")"); }
 function hMouseMove(evt) { if (pan) { var p = getP(evt).matrixTransform(stF); setCTM(document.getElementById('.nodes').parentNode, stF.inverse().translate(p.x-stO.x,p.y-stO.y)); }}
 function hMouseDown(evt) { 
-document.documentElement.setAttribute('cursor','move');
+document.documentElement.setAttribute('cursor','-moz-grabbing'); // for FF only //document.documentElement.setAttribute('cursor','move');
 pan = true; stF = document.getElementById('.nodes').parentNode.getCTM().inverse(); stO = getP(evt).matrixTransform(stF);}
 function hMouseUp(evt) { pan = false; document.getElementById('zoom').firstChild.nodeValue = stO.x.toFixed(0) + ',' + stO.y.toFixed(0); document.documentElement.setAttribute('cursor','default');}
 function hMouseWheel(evt) { var g = document.getElementById('.nodes').parentNode; do_zoom(evt.detail,getP(evt));}
@@ -1494,12 +1500,17 @@ function zoom(delta) { var q = document.documentElement.createSVGPoint(); q.x = 
 function do_zoom(delta,q) {
   var g = document.getElementById('.nodes').parentNode; 
   var p = q.matrixTransform(g.getCTM().inverse()); 
+  var tg = document.getElementById('target');
+  if (delta<0) { tg.firstChild.setAttribute('display','inline'); } else { tg.firstChild.nextSibling.setAttribute('display','inline'); }
+  tg.setAttribute('transform','translate(' + q.x + ',' + q.y + ')');
   var k = document.documentElement.createSVGMatrix().translate(p.x,p.y).scale(1+delta/-90).translate(-p.x,-p.y); 
   setCTM(g, g.getCTM().multiply(k)); 
   if(typeof(stF) == "undefined") stF = g.getCTM().inverse(); 
   stF = stF.multiply(k.inverse()); 
   document.getElementById('zoom').firstChild.nodeValue = (100.0/stF.a).toFixed(0)+ '%';
-}"""
+  setTimeout('hidetarget()',400);
+}
+function hidetarget() {var tg = document.getElementById('target'); tg.firstChild.setAttribute('display','none'); tg.firstChild.nextSibling.setAttribute('display','none');}"""
     o = '<script %s type="text/ecmascript">\n/*<![CDATA[*//*---->*/\n'%_XLINKNS
     return o + include_js_zoom_pan.__doc__  + '\n/*--*//*]]>*/</script>\n'
 
@@ -1545,11 +1556,13 @@ def gen_svg_header(m,(ln,le),full=True):
     o += 'text.tiny, tspan.tiny { font-family:helvetica neue,helvetica,arial,sans-serif;font-size: 4px; fill:DarkSlateGray;}\n'
     o += 'tspan.body { font-family:helvetica neue,helvetica,arial,sans-serif;font-size: .5em; fill:DarkSlateGray;}\n'
     o += 'text.node { font-size: 1em;}\ntext#zoom { font-size: .8em; fill:lightgray; text-anchor:end;}\n'
+    o += 'svg#zoomin,svg#zoomout { cursor:pointer;}\n'
     if full:
         o += 'textPath {dominant-baseline:text-after-edge;}\n'
         #o += 'text:hover {stroke:gray;fill:none;} \n'
         o += 'rect.port { stroke-width:0; fill:lightblue;}\n'
-        o += 'path:hover, rect:hover { opacity:0.5; cursor:crosshair;}\n'
+        #o += 'path:hover, rect:hover { opacity:0.5; cursor:crosshair;}\n'
+        o += 'path:hover, rect:hover { opacity:0.5;}\n'
         o += 'path#logo:hover { opacity:1;}\n'
     for n in m[0]:
         if ln.has_key(n):
