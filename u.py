@@ -672,7 +672,7 @@ pragma Profile (Ravenscar);
         pos,ratio = layout(Nodes,Edges,'LR'),4
         o = '<svg %s>\n'%_SVGNS + gen_svg_header(m,gettypes(ast),True if boxes else False)
         if boxes: 
-            o += '<title id=".title">%s</title>\n'%__title__ + get_favicon() + get_logo() 
+            o += '<title id=".title">%s</title>\n'%__title__ + favicon() + get_logo() 
             o += '<text id="zoom"  x="99%" y="12" title="zoom factor">100%</text>\n'
             o += '<svg id="zoomin" title="zoom in" onclick="zoom(-10);" viewBox="0 0 20 20" y="18" width="99%" height="20" preserveAspectRatio="xMaxYMin meet"><rect height="100%" width="20" fill="lightgray" stroke-width="0"/><rect x="3" y="8" height="20%" width="14" fill="white"/><rect x="8" y="3" height="70%" width="4" fill="white"/></svg>'
             o += '<svg id="zoomout" title="zoom out" onclick="zoom(10);" viewBox="0 0 20 20" y="40" width="99%" height="20" preserveAspectRatio="xMaxYMin meet"><rect height="100%" width="20" fill="lightgray" stroke-width="0"/><rect x="3" y="8" height="20%" width="14" fill="white"/></svg>'
@@ -1086,11 +1086,9 @@ def reg(value):
 
 ######### WEB APPLICATION ###########
 
-def get_favicon():
-    d = '%s'%datetime.datetime.now() # this is ack to change favicon in the cache
-    code = '<svg xmlns="http://www.w3.org/2000/svg" n="%s"><path stroke-width="2.5" fill="none" stroke="Dodgerblue" d="M3,1 L3,14 L13,14 L13,1"/><path d="M33,18 L27,21 L33,24Z" fill="white"/></svg>'%d
-    data = code.encode('base64').replace('\n','')
-    return '<link %s rel="shortcut icon" type="image/svg+xml" href="data:image/svg+xml;base64,%s"/>\n'%(_XHTMLNS,data)
+def favicon():
+    code = '<svg xmlns="http://www.w3.org/2000/svg" n="%s"><path stroke-width="4" fill="none" stroke="Dodgerblue" d="M3,1 L3,14 L13,14 L13,1"/><path d="M33,18 L27,21 L33,24Z" fill="white"/></svg>'%datetime.datetime.now()
+    return '<link %s rel="shortcut icon" type="image/svg+xml" href="data:image/svg+xml;base64,%s"/>\n'%(_XHTMLNS,code.encode('base64').replace('\n',''))
 
 def get_logo():
     return '<path id="logo" stroke-width="5" fill="none" stroke="Dodgerblue" onclick="window.open(\'http://%s\');" title="⊔ [http://%s]" opacity=".02" d="M10,10L10,35L30,35L30,10"/>\n'%(__url__,__url__)
@@ -1162,7 +1160,7 @@ Example: [<a href="u?tikz">/u?tikz</a>]</p>
             start_response('200 OK',[('Content-type',mime),('Content-Disposition','filename=u.py')])
             return [(open(environ['SCRIPT_FILENAME']).read())] 
         elif action and action.lower() in ('about','help','usage'):
-            mime,o = 'text/html;charset=UTF-8','<html><title>Version:%s Digest:%s</title>%s'%(__version__,__digest__,get_favicon())
+            mime,o = 'text/html;charset=UTF-8','<html><title>Version:%s Digest:%s</title>\n%s'%(__version__,__digest__,favicon())
             #mime = 'application/xml;charset=UTF-8'
             o += application.__doc__ + ', '.join(__OUT_LANG__) + '</b>\n'
             o += '<h2>[Planned] Supported Input Modeling Formalisms</h2><b>' + ', '.join(__IN_MODEL__) + ',...</b>\n'
@@ -1934,7 +1932,7 @@ if __name__ == '__main__':
     if not opts and not args:
         ast_test(True)
         gen_apache_conf()
-        #gen_doc()
+        gen_doc()
         gen_beamer()
         gen_readme()
         gen_makefile()
