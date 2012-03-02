@@ -1,7 +1,7 @@
 #!/usr/bin/python
 # -*- coding: utf-8 -*-
 
-# Welcome to ⊔ [SquareCup]! See https://github/pelinquin/u
+# Welcome to ⊔ [SquareCup]!
 #-----------------------------------------------------------------------------
 #  © Copyright 2012 Rockwell Collins, Inc 
 #    This file is part of ⊔ [SquareCup].
@@ -37,7 +37,7 @@ __email__   = 'lfournie@rockwellcollins.com'
 __title__   = 'The Universal Short Graph Language'
 __version__ = '0.2'
 __license__ = 'GPLv3'
-__url__     = 'github/pelinquin/u'
+__url__     = 'github.com/pelinquin/u'
 
 import os,sys,re,hashlib,shutil,subprocess,urllib,datetime,httplib,base64
 
@@ -49,14 +49,16 @@ __digest__ = base64.urlsafe_b64encode(hashlib.sha1(open(__file__).read()).digest
 __separator__ = r'[|\'`";,!~^@*+/$]' # 14 chars
 __delimiter__ = r'%s(?:%s%s)?'%(__separator__,__separator__,__separator__) # one or three chars
 __RE_U__ = r'''     # RegExp (nodes and edges)
-   (?:              # NODE:  
+   (?:              # Three basic tokens:
+    (?:\#[^\n]*)    # (1) Line comment
+   |                # or (2) NODE:
     (?=[^\s<\-=>])  # Not empty token 
     (?:(\w+)|)      # Name      
     (?::(\w)|)      # Type pre  
     ((%s)(.+?)\4|\(([^)]+)\)|) # Content
     (\w|)           # Type post 
     (?:\.(\w+|\*)|) # Port      
-   |                # or EDGE:  
+   |                # or (3) EDGE:  
     ([<\-=>])       # Head      
     (\w|)           # Type pre  
     ((%s)(.+?)\12|\(([^)]+)\)|) # Content
@@ -65,7 +67,6 @@ __RE_U__ = r'''     # RegExp (nodes and edges)
 )'''%(__delimiter__,__delimiter__)
 
 __RE_FILTER__ = [
-    (r'(?m)\#.*$',''),            # remove comments
     (r'\n',r'\\n'),
     (r'(?m)\s*$',''),             # right strip 
     (r'(?m)^\s*',''),             # left strip
@@ -76,7 +77,6 @@ __RE_FILTER__ = [
     (r',\s*\'\'','')]             # remove right empty elements
 
 __RE_FILTERu__ = [
-    (r'(?m)\#.*$',''),            # remove comments
     (r'\n',r'\\n'),
     (r'(?m)\s*$',''),              # right strip 
     (r'(?m)^\s*',''),              # left strip
@@ -392,7 +392,8 @@ class u:
             ln = m.group(5) if m.group(5) else m.group(6) if m.group(6) else None
             le = m.group(13) if m.group(13) else m.group(14) 
             arrow = m.group(9)+m.group(16) if m.group(9) and m.group(16) else None
-            res.append((m.group(1),tn,ln,m.group(8),arrow,te,le))
+            if m.group(1) or arrow:
+                res.append((m.group(1),tn,ln,m.group(8),arrow,te,le))
         return res
 
     def addedge(self,c,x,y,po):
@@ -496,14 +497,25 @@ class u:
 
     def toposort(self,edges,classT):
         "returns topologic sort"
-        #def tsort(d):
-        #    while True:
-        #        ordered = set(item for item, dep in d.items() if not dep)
-        #        if not ordered: break
-        #        yield ','.join(sorted(ordered))
-        #        d = { item: (dep - ordered) for item,dep in d.items() if item not in ordered }
-        #    if d: # cycle!
-        #        yield 
+        def tsort(d):
+            while True:
+                ordered = set(item for item, dep in d.items() if not dep)
+                if not ordered: break
+                yield ','.join(sorted(ordered))
+                d = { item: (dep - ordered) for item,dep in d.items() if item not in ordered }
+            if d: # cycle!
+                yield 
+        data = {}
+        for e in edges:
+            n1,n2 = re.sub(r'\..*$','',e[0]),re.sub(r'\..*$','',e[2])
+            data.setdefault(n1,[]).append(n2)
+            if not data.has_key(n2): data[n2] = []
+        res = [ z for z in tsort({i:set(data[i]) for i in data})]
+        res.reverse()
+        return res
+
+    def toposort2_5(self,edges,classT):
+        "returns topologic sort"
         data = {}
         for e in edges:
             n1,n2 = re.sub(r'\..*$','',e[0]),re.sub(r'\..*$','',e[2])
@@ -672,7 +684,7 @@ pragma Profile (Ravenscar);
         pos,ratio = layout(Nodes,Edges,'LR'),4
         o = '<svg %s>\n'%_SVGNS + gen_svg_header(m,gettypes(ast),True if boxes else False)
         if boxes: 
-            o += '<title id=".title">%s</title>\n'%__title__ + favicon() + get_logo() 
+            o += '<title id=".title">%s</title>\n'%__title__ + favicon() + get_logo(.02) + '\n' 
             o += '<text id="zoom"  x="99%" y="12" title="zoom factor">100%</text>\n'
             o += '<svg id="zoomin" title="zoom in" onclick="zoom(-10);" viewBox="0 0 20 20" y="18" width="99%" height="20" preserveAspectRatio="xMaxYMin meet"><rect height="100%" width="20" fill="lightgray" stroke-width="0"/><rect x="3" y="8" height="20%" width="14" fill="white"/><rect x="8" y="3" height="70%" width="4" fill="white"/></svg>'
             o += '<svg id="zoomout" title="zoom out" onclick="zoom(10);" viewBox="0 0 20 20" y="40" width="99%" height="20" preserveAspectRatio="xMaxYMin meet"><rect height="100%" width="20" fill="lightgray" stroke-width="0"/><rect x="3" y="8" height="20%" width="14" fill="white"/></svg>'
@@ -859,23 +871,25 @@ For your convenience, the [u.pdf](https://github.com/pelinquin/u/blob/master/u.p
     open('README.md','w').write(o + gen_readme.__doc__)
 
 def gen_makefile():
-    "# Simple Makefile example to use code generator remote call and separate code compilation\n# see https://github.com/pelinquin/u\n"
-    open('a.u','w').write('# generated from u.py\n(a|z,b *bb)h')
-    open('b.u','w').write('# generated from u.py\n(b|a *aa)h')
-    open('c.u','w').write('A"a mya|b myb" -> B"mya.bb = &myb|mya.bb->aa = &mya|myb.aa->z = 4" ->{ C"mid_register(f1,(void *)&myb)" D"""mid_register(f2,(void *)"Hello")""" } "f1|f2"e')
+    "# Simple Makefile example to use code generator remote call and separate code compilation\n"
+    d = 'dir'
+    if not os.path.isdir(d): os.mkdir(d)
+    open('%s/a.u'%d,'w').write('# generated from u.py\nA(a|z,b *bb)h')
+    open('%s/b.u'%d,'w').write('# generated from u.py\nB(b|a *aa)h')
+    open('%s/c.u'%d,'w').write('A"a mya|b myb" -> B"mya.bb = &myb|mya.bb->aa = &mya|myb.aa->z = 4" ->{ C"mid_register(f1,(void *)&myb)" D"""mid_register(f2,(void *)"Hello")""" } E"f1|f2"e')
     rules = {'all': 'exe|./exe',
              'exe': 'auto.o mid.o app.o|gcc -pthread auto.o mid.o app.o -o exe',
              'auto.o': 'auto.c|gcc -c auto.c',
              'app.o': 'app.c|gcc -c app.c',
              'mid.o': 'mid.c mid.h|gcc -c mid.c',
-             'a.h': 'a.u|./u.py -fc a.u > a.h',
-             'b.h': 'b.u|./u.py -fc b.u > b.h',
-             'auto.c': 'c.u a.h b.h|./u.py -fc c.u > auto.c',
+             'a.h': 'a.u|${TOOL} -fc a.u > a.h',
+             'b.h': 'b.u|${TOOL} -fc b.u > b.h',
+             'auto.c': 'c.u a.h b.h|${TOOL} -fc c.u > auto.c',
              'clean':'|rm -f *o exe auto.c a.h b.h'}
-    o = '# Base64 encoded sha1 short digest: %s\n\n'%__digest__
+    o = '# See https://%s\n# Base64 encoded sha1 short digest: %s\n\nTOOL=../u.py\n\n'%(__url__,__digest__)
     for r in rules:
         o += '%s: %s\n\t%s\n\n'%((r,)+tuple(rules[r].split('|')))
-    open('makefile','w').write(gen_makefile.__doc__ + o)
+    open('%s/makefile'%d,'w').write(gen_makefile.__doc__ + o)
 
 def gen_apache_conf():
     """# Apache config file in WSGI mod
@@ -1087,11 +1101,11 @@ def reg(value):
 ######### WEB APPLICATION ###########
 
 def favicon():
-    code = '<svg xmlns="http://www.w3.org/2000/svg" n="%s"><path stroke-width="4" fill="none" stroke="Dodgerblue" d="M3,1 L3,14 L13,14 L13,1"/><path d="M33,18 L27,21 L33,24Z" fill="white"/></svg>'%datetime.datetime.now()
+    code = '<svg xmlns="http://www.w3.org/2000/svg" n="%s"><path stroke-width="4" fill="none" stroke="Dodgerblue" d="M3,1 L3,14 L13,14 L13,1"/></svg>'%datetime.datetime.now()
     return '<link %s rel="shortcut icon" type="image/svg+xml" href="data:image/svg+xml;base64,%s"/>\n'%(_XHTMLNS,code.encode('base64').replace('\n',''))
 
-def get_logo():
-    return '<path id="logo" stroke-width="5" fill="none" stroke="Dodgerblue" onclick="window.open(\'http://%s\');" title="⊔ [http://%s]" opacity=".02" d="M10,10L10,35L30,35L30,10"/>\n'%(__url__,__url__)
+def get_logo(opac=1):
+    return '<path id="logo" stroke-width="8" fill="none" stroke="Dodgerblue" onclick="window.open(\'http://%s\');" title="⊔ [http://%s]" opacity="%s" d="M10,10L10,35L30,35L30,10"/>'%(__url__,__url__,opac)
 
 def get_param(environ):
     param = {}
@@ -1126,34 +1140,31 @@ def get_editor(environ,args):
     return o + '</form></html>'
 
 def application(environ,start_response):
-    """<title>⊔</title><style>h1,h2,h6,p,li,b,a,td{font-family:helvetica neue,helvetica,arial,sans-serif;} a{text-decoration:none;} 
-table {border: 1px solid #666;width:100%;border-collapse:collapse;}
-td,th {border: 1px solid #666;}
-h6{position:absolute;top:0;right:10;} a.logo{font-size:100pt;color:DodgerBlue;line-height:80%}</style>
-<h1><a href="https://github.com/pelinquin/u" class="logo" title="SquareCup">⊔</a> Web service</h1>
-<h2>Using a Web browser</h2>
-<p>The Web service root name (after domain and server name in the URL) is: ⊔ [<a href="u?about">/u...</a>] or [<a href="⊔?about">/⊔...</a>] (U+2294).</p>
-<p>Any URL argument (after '?') shall be a valid ⊔ string and the default output is the AST (a Python data structure).
-Example: [<a href="u?A->B">/u?A->B</a>]</p>
-<p>If a language name is given first, then the output is the generated code for this language. Example: [<a href="u?ada&A->B">/u?ada&A->B</a>]</p>
-<p>With no other argument than a language name (no '&'), a local file browser is provided to select an input ⊔ file for upload.
-Example: [<a href="u?tikz">/u?tikz</a>]</p>
-<p>If the '_' character is given before the language name, then the output is the interpretation of the generated language;</p>
-   <li>For <b>svg</b> the graphics is rendered within the browser. Example: [<a href="u?_svg&A->B">/u?_svg&A->B</a>]</li>
-   <li>For <b>tikz</b>, the pdf reader is called for rendering the graphics. Example: [<a href="u?_tikz&A->B">/u?_tikz&A->B</a>]</li>
-<p>Special keywords:</p>
-   <li><i>pdf</i> or <i>paper</i> returns the generated paper on ⊔ in pdf format: [<a href="u?pdf">/u?pdf</a>]</li>
-   <li><i>beamer</i> returns the generated beamer slides on ⊔ in pdf format: [<a href="u?beamer">/u?beamer</a>]</li>
-   <li><i>update</i> [<a href="u?update">/u?update</a>] is used to update the web application with the last release from 
-[<a href="https://github.com/pelinquin/u">https://github.com/pelinquin/u</a>]</li>
-   <li><i>help</i>,<i>about</i> or <i>usage</i> displays this page.</li>
-<p>If no argument is given, the output [<a href="u">/u</a>] is the Python source code for reading or for <a href="u"><b>download</b></a>.</p>
-<h2>Using command line</h2>
-<p>Usage: "./u.py -h&lt;host server&gt; -f&lt;language name&gt; &lt;⊔ input file&gt;" (default server is localhost).</p>
-<p>Run such commands in local Makefile to manage independent module code generation/compilation/link.</p>
-<h2>[Planned] Supported output languages</h2><b>"""
+    """<title>⊔</title><style>h1,h3,h6,p,li,b,a,td,th{font-family:helvetica neue,helvetica,arial,sans-serif;} a{text-decoration:none;} 
+table {border: 1px solid #666;width:100%;border-collapse:collapse;} td,th {border: 1px solid #666;} 
+h1{position:absolute;top:-8;left:60;} h6{position:absolute;top:0;right:10;}</style>
+<h1>Web services</h1>
+<table><tr><th>Action</th><th>URL examples</th><th>Comment</th></tr>
+<tr><td>Root</td><td><a href="u?about">/u...</a> or <a href="⊔?about">/⊔...</a> </td><td>⊔: (U+2294)</td></tr>
+<tr><td>Abstract Syntax Tree</td><td><a href="u?A->B">/u?A->B</a> or <a href="u?ast&A->B">/u?ast&A->B</a> or <a href="u?raw&A->B">/u?raw&A->B</a></td><td>a valid Python data tructure</td></tr>
+<tr><td>Generated code from url parameters</td><td><a href="u?ada&A->B">/u?ada&A->B</a> or <a href="u?c&A->B">/u?c&A->B</a> or <a href="u?svg&A->B">/u?svg&A->B</a></td><td>[c,ada,svg,tikz,...]</td></tr>
+<tr><td>Generated code from ⊔ file</td><td><a href="u?c">/u?c</a></td><td>open the local file browser</td></tr>
+<tr><td>(SVG) direct interpretation</td><td><a target="_blank" href="u?_svg&A->B">/u?_svg&A->B</a></td><td>'_' character before language name</td></tr>
+<tr><td>(Tikz) direct interpretation</td><td><a href="u?_tikz&A->B">/u?_tikz&A->B</a></td><td>PDF generated</td></tr>
+<tr><td>Editor</td><td><a href="u?edit">/u?edit</a> or <a href="u?ace">/u?ace</a> or <a href="u?git">/u?git</a> </td><td>with textarea or <a href="http://ace.ajax.org">Ace</a> Editor</td></tr>
+<tr><td>Documentation</td><td><a href="u?pdf">/u?pdf</a> or <a href="u?paper">/u?paper</a></td><td>from generated LaTeX</td></tr>
+<tr><td>Presentation</td><td><a href="u?beamer">/u?beamer</a></td><td>from generated Beamer</td></tr>
+<tr><td><a href="u?update">Update</a></td><td><a href="u?update">/u?update</a></td><td>from <a href="https://github.com/pelinquin/u">https://github.com/pelinquin/u</a></td></tr>
+<tr><td>Help</td><td><a href="u?about">/u?about</a> or <a href="u?help">/u?help</a> or <a href="u?usage">/u?usage</a></td><td>this page</td></tr>
+<tr><td><a href="u">Download</a></td><td><a href="u">/u</a></td><td>or reading source file</td></tr>
+<tr><td>Log</td><td><a href="u?log">/u?log</a></td><td>see Apache log file for debugging</td></tr>
+</table>
+<h3>Command line usage:</h3>
+<p>"./u.py -h&lt;host server&gt; -f&lt;language name&gt; &lt;⊔ input file&gt;" (default server is localhost).</p>
+<p>Run such command in local Makefile to manage independent module code generation/compilation/link.</p>
+<h3>Supported output languages:</h3><p>"""
     s,mime,o,uobj,host = urllib.unquote(environ['QUERY_STRING']),'text/plain;charset=UTF-8','Error!',u(),environ['SERVER_NAME']
-    if reg(re.match(r'\s*(update$|about$|help$|usage$|pdf$|paper$|beamer$|edit$|ace$|log$|)(?:(_?)(%s|raw|ast)(?:&(.*)|)|(.*))\s*$'%'|'.join(__OUT_LANG__),s,re.I)):
+    if reg(re.match(r'\s*(update$|about$|help$|usage$|pdf$|paper$|beamer$|edit$|ace$|git$|log$|)(?:(_?)(%s|raw|ast)(?:&(.*)|)|(.*))\s*$'%'|'.join(__OUT_LANG__),s,re.I)):
         form,action,under,lang,args = False,reg.v.group(1),reg.v.group(2),reg.v.group(3),reg.v.group(5) if reg.v.group(5) else reg.v.group(4)
         if lang: lang = lang.lower()
         if (action,under,lang,args) == ('',None,None,None):
@@ -1162,29 +1173,30 @@ Example: [<a href="u?tikz">/u?tikz</a>]</p>
         elif action and action.lower() in ('about','help','usage'):
             mime,o = 'text/html;charset=UTF-8','<html><title>Version:%s Digest:%s</title>\n%s'%(__version__,__digest__,favicon())
             #mime = 'application/xml;charset=UTF-8'
-            o += application.__doc__ + ', '.join(__OUT_LANG__) + '</b>\n'
-            o += '<h2>[Planned] Supported Input Modeling Formalisms</h2><b>' + ', '.join(__IN_MODEL__) + ',...</b>\n'
+            o += '\n<svg xmlns="http://www.w3.org/2000/svg" height="64">%s</svg>\n'%get_logo() + application.__doc__ 
+            o += ', '.join(__OUT_LANG__) + '</p>\n'
+            o += '<h3>Supported Input Modeling Formalisms:</h3><p>' + ', '.join(__IN_MODEL__) + ',...</p>\n'
             tbl = {'A->B':'cas1','A->B->C':'cas2','A(Z|a,b|func)c':'cas3'}
-            o += '<table><tr><td>Cases</td><td><b>⊔ code</b></td><td><b>Nodes</b></td><td><b>Edges</b></td><td>svg</td><td>tikz</td><td>c</td></tr>'
+            o += '<table><tr><th>Cases</th><th>⊔ code</th><th>Nodes</th><th>Edges</th><th>svg</th><th>tikz</th><th>c</th></tr>'
             for i in tbl:
                 n,e = uobj.parse(i)
                 o += '<tr><td>%s</td><td>%s</td><td>%s</td><td>%s</td><td><a href="u?_svg&%s" target="_blank">☑</a></td><td><a href="u?_tikz&%s">☑</a></td><td><a href="u?c&%s">☑</a></td></tr>'%(tbl[i],i,n,e,i,i,i)
-            o += '</table>'
+            o += '</table>\n'
             o += '<h6 title="Base64 encoded short sha1 digest">%s</h6></html>'%__digest__
         elif action and action.lower() in ('paper','pdf'):
             o,mime = open('%s/u.pdf'%os.path.dirname(environ['SCRIPT_FILENAME'])).read(),'application/pdf'
         elif action and action.lower() == 'beamer':
             o,mime = open('%s/beamer_u.pdf'%os.path.dirname(environ['SCRIPT_FILENAME'])).read(),'application/pdf'
-        elif action and action.lower() in ('edit','ace'):
+        elif action and action.lower() in ('edit','ace','git'):
             #o,mime = get_editor(environ,args),'application/xml;charset=UTF-8'
             o,mime = get_editor(environ,args),'text/html;charset=UTF-8'
         elif action and action.lower() == 'log':
             mime,lf = 'text/plain;charset=UTF-8','/var/log/apache2/error.log'
             #o = open(lf).read() if os.path.isfile(lf) else 'no log file'
-            o = 'no log file'
+            o = 'Log file not visible'
         elif action and action.lower() == 'update':
             if environ['SERVER_NAME'] != 'pelinquin': # update not possible from RCF network because port 22 closed
-                cmd = 'cd %s/..; rm -rf u; git clone git://github.com/pelinquin/u.git; cd u'%os.path.dirname(environ['SCRIPT_FILENAME'])
+                cmd = 'cd %s/..; rm -rf u; git clone git://%s.git; cd u'%(os.path.dirname(environ['SCRIPT_FILENAME']),__url__)
             else:
                 cmd = 'ls %s'%__file__
             res = subprocess.Popen((cmd), shell=True,stdout=subprocess.PIPE,stderr=subprocess.PIPE).communicate()
@@ -1914,7 +1926,7 @@ def post(server, service, content):
     return h.file.read()
 
 if __name__ == '__main__':
-    "Command line usage"
+    "For Command line usage"
     try:
         subprocess.Popen(['dot'], stdout=subprocess.PIPE,stdin=subprocess.PIPE).communicate(input='digraph G {A->B}')
     except:
@@ -1927,7 +1939,7 @@ if __name__ == '__main__':
 
     import getopt
     opts, args = getopt.getopt(sys.argv[1:],'h:f:s',['host=','format=','stdin'])
-    o,host = 'raw','127.0.0.1' # use '193.84.73.209'
+    o,host = 'raw','127.0.0.1' # use '193.84.73.209 for testing'
 
     if not opts and not args:
         ast_test(True)
@@ -1973,5 +1985,5 @@ if __name__ == '__main__':
     #ast = uobj.parse(x)
     #print ast
     #uobj.gen_svg(ast)
-
+    
 # the end
