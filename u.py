@@ -542,7 +542,7 @@ class u:
                  hasclass = True 
         if hasclass:
             o += '#pragma once\n'
-        seq,head,body = self.toposort(Edges,allT),'',''
+        seq,head,body = self.toposort2_5(Edges,allT),'',''
         #o += '// %s \n'%seq
         for x in Nodes:
             if Nodes[x] and len(Nodes[x]) > 1 and Nodes[x][1] in externT:
@@ -1964,26 +1964,4 @@ if __name__ == '__main__':
     if not args:
         print 'Digest:%s'%__digest__
 
-    ########## debug zone! ##############
-    uobj = u()
-    tab = ('A->B',
-           'A{B C}->D{E F}',
-           '{B C}->{E F}',
-           'A->B->C',
-           'A{a->b}->B{c->d} X->{u v} {t z}->Y',
-           'a:T"L".1 -> {c.2{e} d:T.3 f:T"L"{g} }',
-           'A->{B{C}}',
-           '-> A {B} ->',
-           u'A:您',
-           u'A{B:您} C{D}',
-           'A:c(a,b|f1,f2)',
-           r'AA"hello\nworld"',
-           'A"Hellowo|adssd|a,b"c')
-    #print re.sub(r'\n',r'\\n',x,re.M,re.S)
-    #x= '{A:O.1 C:O.4} -> {B:O.in2 B:O.in3 D}'
-    #x= 'A{B C{D E} } '
-    #ast = uobj.parse(x)
-    #print ast
-    #uobj.gen_svg(ast)
-    
 # the end
