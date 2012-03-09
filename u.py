@@ -889,7 +889,7 @@ def gen_apache_conf():
     prg,path = os.path.basename(sys.argv[0])[:-3],os.path.abspath(sys.argv[0]) 
     o = '# Base64 encoded sha1 short digest:%s\n\n'%__digest__
     o += 'WSGIScriptAlias /%s %s\n'%(prg,path)
-    o += '# Python3 test!\nWSGIScriptAlias /u3.py /home/laurent/u/u3.py\n'
+    #o += '# Python3 test!\nWSGIScriptAlias /u3 /home/laurent/u/u3.py\n' # not used til squeeze installed
     o += 'WSGIScriptAlias /⊔ %s\n'%path
     o += 'AliasMatch /fonts/([^\.]*\.otf) %s/fonts/$1\n'%os.path.dirname(path)
     o += 'WSGIApplicationGroup %{GLOBAL}\n' # to avoid autoTSLkey apache error
@@ -1134,7 +1134,7 @@ def application(environ,start_response):
     """<title>⊔</title><style>h1,h3,h6,p,li,b,a,td,th{font-family:helvetica neue,helvetica,arial,sans-serif;} a{text-decoration:none;} 
 table {border: 1px solid #666;width:100%;border-collapse:collapse;} td,th {border: 1px solid #666;} 
 h1{position:absolute;top:-8;left:60;} h6{position:absolute;top:0;right:10;}</style>
-<h1>Web services</h1>
+<h1>Framework</h1>
 <table><tr><th>Action</th><th>URL examples</th><th>Comment</th></tr>
 <tr><td>Root</td><td><a href="u?about">/u...</a> or <a href="⊔?about">/⊔...</a> </td><td>⊔: (U+2294)</td></tr>
 <tr><td>Abstract Syntax Tree</td><td><a href="u?A->B">/u?A->B</a> or <a href="u?ast&A->B">/u?ast&A->B</a> or <a href="u?raw&A->B">/u?raw&A->B</a></td><td>a valid Python data tructure</td></tr>
