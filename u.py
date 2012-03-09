@@ -495,33 +495,23 @@ class u:
             return o + '\n%s %s Nodes %s Edges %s Lines | The end of file %s'%(sc,len(Nodes),len(Edges),len(a.split('\n'))+13,ec)
         return app
 
+    # for Python2.5!
     def toposort(self,edges,classT):
         "returns topologic sort"
-        def tsort(d):
-            while True:
-                ordered = set(item for item, dep in d.items() if not dep)
-                if not ordered: break
-                yield ','.join(sorted(ordered))
-                d = { item: (dep - ordered) for item,dep in d.items() if item not in ordered }
-            if d: # cycle!
-                yield 
+        #def tsort(d):
+        #    while True:
+        #        ordered = set(item for item, dep in d.items() if not dep)
+        #        if not ordered: break
+        #        yield ','.join(sorted(ordered))
+        #        d = { item: (dep - ordered) for item,dep in d.items() if item not in ordered }
+        #    if d: # cycle!
+        #        yield 
         data = {}
         for e in edges:
             n1,n2 = re.sub(r'\..*$','',e[0]),re.sub(r'\..*$','',e[2])
             data.setdefault(n1,[]).append(n2)
             if not data.has_key(n2): data[n2] = []
-        res = [ z for z in tsort({i:set(data[i]) for i in data})]
-        res.reverse()
-        return res
-
-    def toposort2_5(self,edges,classT):
-        "returns topologic sort"
-        data = {}
-        for e in edges:
-            n1,n2 = re.sub(r'\..*$','',e[0]),re.sub(r'\..*$','',e[2])
-            data.setdefault(n1,[]).append(n2)
-            if not data.has_key(n2): data[n2] = []
-        res = []#z for z in tsort({i:set(data[i]) for i in data})]
+        res = [] # z for z in tsort({i:set(data[i]) for i in data})]
         res.reverse()
         return res
 
@@ -542,7 +532,7 @@ class u:
                  hasclass = True 
         if hasclass:
             o += '#pragma once\n'
-        seq,head,body = self.toposort2_5(Edges,allT),'',''
+        seq,head,body = self.toposort(Edges,allT),'',''
         #o += '// %s \n'%seq
         for x in Nodes:
             if Nodes[x] and len(Nodes[x]) > 1 and Nodes[x][1] in externT:
