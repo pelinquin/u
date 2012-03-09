@@ -265,47 +265,50 @@ __AST_SET__ = [
     ('Link1',                  'A>>B'), 
     ('Link2',                  'A><B'),
     ('Link3',                  'A>-B'),
-    ('Link4'                  ,'A>=B'),
-    ('Link5'                  ,'A<>B'),
-    ('Link6'                  ,'A<<B'),
-    ('Link7'                  ,'A<-B'),
-    ('Link8'                  ,'A<=B'),
-    ('Link9'                  ,'A->B'),
-    ('Link10'                 ,'A-<B'),
-    ('Link11'                 ,'A--B'), 
-    ('Link12'                 ,'A-=B'),
-    ('Link13'                 ,'A=>B'), 
-    ('Link14'                 ,'A=<B'),
-    ('Link15'                 ,'A=-B'),
-    ('Link16'                 ,'A==B'),
-    ('SpaceBeforeEdge'        ,'A ->B'),
-    ('SpaceAfterEdge'         ,'A-> B'),
-    ('Spaces'                 ,'A -> B'),
-    ('Autoref'                ,'A->A'),
-    ('cas26'                  ,'A -(content)- B'),
-    ('cas27'                  ,'A -T- B'),
-    ('cas28'                  ,'A -T(content)- B'),
-    ('cas29'                  ,'A -(content)T- B'),
-    ('cas30'                  ,'A{a1 a2} -> B{b1 b2}'),
-    ('cas31'                  ,'{a1 a2} -> B{b1 b2}'),
-    ('cas32'                  ,'A{a1 a2} -> {b1 b2}'),
-    ('cas33'                  ,'{a1 a2} -> {b1 b2}'),
-    ('cas34'                  ,'A{a1 -> a2} B{b1 -> b2}'),
-    ('cas35'                  ,'A{a1 -> a2} -> B{b1 -> b2}'),
-    ('cas36'                  ,'A.1 -> B.2'),
-    ('cas37'                  ,'A.por1 -> B.por2'),
-    ('cas38'                  ,'A:T B:U A.1->B.2'),
-    ('cas39'                  ,'A.1->B.2 A:T B:U'),
-    ('Port0'                  ,'A.0->B.pin1->C.*->D'),
-    ('Port1'                  ,'A:T.0->B:T.1'),
-    ('Port2'                  ,'A:T.1->{B:T.0 C:T.0}'),
-    ('Port3'                  ,'{A:T.1 B:T.0}->C:T.1'),
-    ('Port4'                  ,'{A:T.1 B:T.0}->{C:T.1 D:T.0}'),
-    ('Port5'                  ,'A:T.1->B:T.0->C:T.1'),
-    ('Port*'                  ,'A:T.*->B:T.*'),
-    ('PortOutOfrange'         ,'A:T.5->B:T.pin12'),
-    ('Double definition'      ,'A{a} A{b}'),
-    ('MainC','Code:C@@@#include <stddio.h>\nvoid main(void){\ninta;\n}\n@@@'),
+    ('Link4',                  'A>=B'),
+    ('Link5',                  'A<>B'),
+    ('Link6',                  'A<<B'),
+    ('Link7',                  'A<-B'),
+    ('Link8',                  'A<=B'),
+    ('Link9',                  'A->B'),
+    ('Link10',                 'A-<B'),
+    ('Link11',                 'A--B'), 
+    ('Link12',                 'A-=B'),
+    ('Link13',                 'A=>B'), 
+    ('Link14',                 'A=<B'),
+    ('Link15',                 'A=-B'),
+    ('Link16',                 'A==B'),
+    ('SpaceBeforeEdge',        'A ->B'),
+    ('SpaceAfterEdge',         'A-> B'),
+    ('Spaces',                 'A -> B'),
+    ('Autoref',                'A->A'),
+    ('cas26',                  'A -(content)- B'),
+    ('cas27',                  'A -T- B'),
+    ('cas28',                  'A -T(content)- B'),
+    ('cas29',                  'A -(content)T- B'),
+    ('cas30',                  'A{a1 a2} -> B{b1 b2}'),
+    ('cas31',                  '{a1 a2} -> B{b1 b2}'),
+    ('cas32',                  'A{a1 a2} -> {b1 b2}'),
+    ('cas33',                  '{a1 a2} -> {b1 b2}'),
+    ('cas34',                  'A{a1 -> a2} B{b1 -> b2}'),
+    ('cas35',                  'A{a1 -> a2} -> B{b1 -> b2}'),
+    ('cas36',                  'A.1 -> B.2'),
+    ('cas37',                  'A.por1 -> B.por2'),
+    ('cas38',                  'A:T B:U A.1->B.2'),
+    ('cas39',                  'A.1->B.2 A:T B:U'),
+    ('Port0',                  'A.0->B.pin1->C.*->D'),
+    ('Port1',                  'A:T.0->B:T.1'),
+    ('Port2',                  'A:T.1->{B:T.0 C:T.0}'),
+    ('Port3',                  '{A:T.1 B:T.0}->C:T.1'),
+    ('Port4',                  '{A:T.1 B:T.0}->{C:T.1 D:T.0}'),
+    ('Port5',                  'A:T.1->B:T.0->C:T.1'),
+    ('Port*',                  'A:T.*->B:T.*'),
+    ('PortOutOfrange',         'A:T.5->B:T.pin12'),
+    ('Doubledefinition',       'A{a} A{b}'),
+    ('MainC',                  'Code:C@@@#include <stddio.h>\nvoid main(void){\ninta;\n}\n@@@'),
+    ('linkBefore',             '->A{->B}'),
+    ('linkAfter',              '{A->}B->'),
+    ('linkOverload',           'A->--B'),
 ]
 
 # (0) Parser
@@ -324,7 +327,7 @@ def gettypes(ast):
 
 class u:
     """ This is the base class for ⊔ 
-    One can customize that class by adding/modifying __DADA_xxx__ structure or by overloading a gen_xxx() method
+    One can customize that class by adding/modifying __DADA_xxx__ structure and by overloading a gen_xxx() method
     """
 
     def __init__(self):
@@ -458,6 +461,17 @@ class u:
         for e in edges:
             o += ' {},\n'.format(e)
         return '<svg>{}</svg>\n'.format(o)
+
+    def gen_c(self, ast):
+        "ansi c"
+        nodes, edges = ast
+        o = '{}'.format(ast)
+        pos = self.layout(ast)
+        for n in nodes:
+            o += ' \'{}\': {},\n'.format(n, nodes[n])
+        for e in edges:
+            o += ' {},\n'.format(e)
+        return 'C{}C\n'.format(o)
 
 # (1) Doc generation 
 
@@ -722,17 +736,20 @@ def application(environ, start_response):
     """ WSGI Web application """
     s, mime, o, myu = urllib.unquote(environ['QUERY_STRING']), 'text/plain;charset=UTF-8', 'Error!', u()
     host = environ['SERVER_NAME']
-    if reg(re.match(r'\s*(_?)(svg|)&?((\w{10})|(.*))\s*$', s, re.I)):
+    if reg(re.match(r'\s*(_?)(svg|c|)&?((\w{10})|(.*))\s*$', s, re.I)):
         lang, gid, arg = reg.v.group(2), reg.v.group(4), reg.v.group(5) 
-    header = [('Content-type', mime)]
-    start_response('200 OK', header)
+    header = [('Content-type', mime),('Content-Disposition','filename=u.py')]
     if lang:
-        o = myu.headfoot(myu.gen_svg, lang, host)(myu.parse(arg))
+        o = eval('myu.headfoot(myu.gen_{}, lang, host)(myu.parse(arg))'.format(lang))
     else:
         if gid:
             mygit = gitu()
             arg = mygit.cat(gid)
-        o = myu.headfoot(myu.gen_ast, 'python', host)(myu.parse(arg))
+        if arg:
+            o = myu.headfoot(myu.gen_ast, 'python', host)(myu.parse(arg))
+        else:
+            o = open(environ['SCRIPT_FILENAME']).read() 
+    start_response('200 OK', header)
     return [(o)] 
 
 # (5) Command line
