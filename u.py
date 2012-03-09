@@ -889,6 +889,7 @@ def gen_apache_conf():
     prg,path = os.path.basename(sys.argv[0])[:-3],os.path.abspath(sys.argv[0]) 
     o = '# Base64 encoded sha1 short digest:%s\n\n'%__digest__
     o += 'WSGIScriptAlias /%s %s\n'%(prg,path)
+    o += '# Python3 test!\nWSGIScriptAlias /u3.py /home/laurent/u/u3.py\n'
     o += 'WSGIScriptAlias /⊔ %s\n'%path
     o += 'AliasMatch /fonts/([^\.]*\.otf) %s/fonts/$1\n'%os.path.dirname(path)
     o += 'WSGIApplicationGroup %{GLOBAL}\n' # to avoid autoTSLkey apache error
