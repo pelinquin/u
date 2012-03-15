@@ -74,7 +74,7 @@ __RE_U__ = r'''     # RegExp
     ([<\-=>])       # Tail
 )''' % (__delimiter__, __delimiter__)
 
-__ACTIONS__ = ('update', 'about', 'help', 'usage', 'pdf', 'paper', 'beamer', 'edit', 'ace', 'git', 'log', 'test')
+__ACTIONS__ = ('update', 'about', 'help', 'usage', 'pdf', 'paper', 'beamer', 'edit', 'ace', 'git', 'log', 'test', 'parse', 'unparse')
 
 __OUT_LANG__ = {'c'          :['c',    ('/*', '*/', ''), 'gcc ansi pedantic'],
                 'objectivec' :['m',    ('/*', '*/', ''), ''],
@@ -387,7 +387,7 @@ class u:
         else:
             typ = g[8] if g[8] else g[2]
             lab = g[7] if g[7] else g[6] if g[6] else g[5] 
-            nid = g[1] if g[1] else re.sub(r'\W', '', lab) if lab else '__%s' % typ
+            nid = g[1] if g[1] else re.sub(r'\W', '', lab.lower())[:10] if lab else '__%s' % typ
             res = (nid, typ, lab)
         return res
 
@@ -504,7 +504,25 @@ class u:
                     Nodes[nid] = (prt, typ, lab)
         return Nodes, Edges
 
+    def unparse(self, ast):
+        " returns an optimized u string from an AST"
+        nodes, edges = ast
+        o = ''
+        #o += '# %s %s'%ast
+        for n in nodes:
+            lab = '(%s)'%nodes[n][2] if nodes[n][2] else ''
+            typ = ':%s'%nodes[n][1] if nodes[n][1] else ''
+            o += '{}{}{} \n'.format(n, typ, lab)
+        for e in edges:
+            lab = '(%s)'%e[4] if e[4] else ''
+            typ = '%s'%e[3] if e[3] else ''
+            p1 = '.%s'%e[0][1] if e[0][1] else ''
+            p2 = '.%s'%e[2][1] if e[2][1] else ''
+            o += '{}{} {}{}{}{} {}{} \n'.format(e[0][0], p1, e[1][0], typ, lab, e[1][1], e[2][0], p2)
+        return o
+
     def getport(self, typ, por):
+        "_"
         vpo = None
         if typ in __DATA_ports__:
             if por and re.match(r'^\d+$', por) and int(por) < len(__DATA_ports__[typ]): 
@@ -934,19 +952,27 @@ table {border: 1px solid #666;width:100%;border-collapse:collapse;} td,th {borde
 h1{position:absolute;top:-8;left:60;} h6{position:absolute;top:0;right:10;}"""
     return '<style>{}</style>\n'.format(style.__doc__)
 
-def table_test():
+def table_test(par):
     "_"
-    o, uobj = '<h1>Test set</h1>\n<table>', u()
-    o += '<tr><th>#</th><th>Description</th><th>⊔ input</th><th>Nodes</th><th>Edges</th></tr>\n'
-    for x in __AST_SET__: 
-        res, d0, d1 = uobj.parse(x[1]), '', ''
-        for i in res[0]:
-            tmp = '{}'.format(res[0][i])
-            d0 += '{}: {}<br/>'.format(html.escape(i), html.escape(tmp))
-        for e in res[1]:
-            tmp = '{}'.format(e)
-            d1 += '{}<br/>'.format(html.escape(tmp))
-        o += '<tr><td><small>{:03d}</small></td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>\n'.format(__AST_SET__.index(x) + 1, x[0], html.escape(x[1]), d0, d1)
+    title = 'Parsing' if par else 'Unparsing'
+    o, uobj = '<h1>%s Test set</h1>\n<table>'%title, u()
+    if par:
+        o += '<tr><th>#</th><th>Description</th><th>⊔ input</th><th>Nodes</th><th>Edges</th></tr>\n'
+        for x in __AST_SET__: 
+            res, d0, d1 = uobj.parse(x[1]), '', ''
+            for i in res[0]:
+                tmp = '{}'.format(res[0][i])
+                d0 += '{}: {}<br/>'.format(html.escape(i), html.escape(tmp))
+            for e in res[1]:
+                tmp = '{}'.format(e)
+                d1 += '{}<br/>'.format(html.escape(tmp))
+            o += '<tr><td><small>{:03d}</small></td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>\n'.format(__AST_SET__.index(x) + 1, x[0], html.escape(x[1]), d0, d1)
+    else:
+        o += '<tr><th>#</th><th>Description</th><th>⊔ input</th><th>unparsed string</th></tr>\n'
+        for x in __AST_SET__: 
+            res, d0 = uobj.unparse(uobj.parse(x[1])), ''
+            d0 = html.escape(res)
+            o += '<tr><td><small>{:03d}</small></td><td>{}</td><td>{}</td><td>{}</td></tr>\n'.format(__AST_SET__.index(x) + 1, x[0], html.escape(x[1]), d0)
     return o + '</table>'
 
 def application(environ, start_response):
@@ -972,8 +998,10 @@ def application(environ, start_response):
                 o += 'edit' 
             elif act.lower() in ('log',): 
                 o += 'log'
-            elif act.lower() in ('test',): 
-                o += table_test()
+            elif act.lower() in ('test', 'parse'): 
+                o += table_test(True)
+            elif act.lower() in ('unparse',): 
+                o += table_test(False)
             o += '<h6 title="Base64 encoded short sha1 digest">%s</h6></html>' % __digest__.decode('utf-8')
             o = o.encode('utf-8')
     else:
@@ -1034,5 +1062,6 @@ if __name__ == '__main__':
         else:
             o = put(host, '/u3?%s' % o, data)
         print (o)
+
 # end    
     
