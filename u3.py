@@ -23,8 +23,17 @@
 # Warning! Small bug in Emacs editor default font: 
 # swap ⊔ 'squarecap' (U+2293) and ⊓ 'squarecup' (U+2294) char!   
 
+# SHORT TODO LIST:
+# - nested dot layout
+# - use python compiler module
+# - wsgi with python3
+# - svg with proportional police size
+# - command line with shortcut for localhost
+# - types data in Berkeley database
+# - fix bug on {A->}
+
 r"""
-LaTeX doc here!
+Abstract LaTeX doc here!
 """
 
 __author__   = 'Laurent Fournier'
@@ -35,56 +44,61 @@ __license__  = 'GPLv3'
 __url__      = 'github.com/pelinquin/u'
 __git_base__ = '/u'
 
-import sys, os, re, hashlib, subprocess, urllib, base64, random, functools, datetime
+import sys, os, re, hashlib, subprocess, urllib.parse, base64, random, functools, datetime, shutil, html
+
+__digest__ = base64.urlsafe_b64encode(hashlib.sha1(open(__file__, 'r', encoding='utf-8').read().encode('utf-8')).digest())[:5]
+
+_XHTMLNS  = 'xmlns="http://www.w3.org/1999/xhtml"'
+_SVGNS    = 'xmlns="http://www.w3.org/2000/svg"'
+_XLINKNS  = 'xmlns:xlink="http://www.w3.org/1999/xlink"'
 
 __separator__ = r'[|\'`";,!~^@*+/$]' # 14 chars
 __delimiter__ = r'%s(?:%s%s)?' % (__separator__, __separator__, __separator__) # one or three chars
 __RE_U__ = r'''     # RegExp 
    (?:              # Three basic tokens:
-    ([{}\]\[])      # (1) Block 
+    ([{}])          # (1) Block 
    |
     (?:\#[^\n]*)    # or (2) Line comment
    |                # or (3) NODE:
     (?=[^\s<\-=>])  # Not empty token 
     (?:(\w+)|)      # Name      
     (?::(\w)|)      # Type pre  
-    ((%s)(.+?)\5|\(([^)]+)\)|) # Content
+    ((%s)(.+?)\5|\[([^\]]+)\]|\(([^)]+)\)|) # Content
     (\w|)           # Type post 
     (?:\.(\w+|\*)|) # Port      
    |                # or (4) EDGE:  
     ([<\-=>])       # Head      
-    (\w|)           # Type pre  
-    ((%s)(.+?)\13|\(([^)]+)\)|) # Content
+    (?:(\w)|)       # Type pre  
+    ((%s)(.+?)\14|\[([^\]]+)\]|\(([^)]+)\)|) # Content
     (\w|)           # Type post
     ([<\-=>])       # Tail
 )''' % (__delimiter__, __delimiter__)
 
-_XHTMLNS  = 'xmlns="http://www.w3.org/1999/xhtml"'
-_SVGNS    = 'xmlns="http://www.w3.org/2000/svg"'
-_XLINKNS  = 'xmlns:xlink="http://www.w3.org/1999/xlink"'
+__ACTIONS__ = ('update', 'about', 'help', 'usage', 'pdf', 'paper', 'beamer', 'edit', 'ace', 'git', 'log', 'test')
 
-__OUT_LANG__ = {'c'          :['c',    ('/*', '*/', '')],
-                'objectivec' :['m',    ('/*', '*/', '')],
-                'python'     :['py',   ('#', '', '#!/usr/bin/python\n# -*- coding: utf-8 -*-\n')],
-                'ada'        :['adb',  ('--', '', '')],
-                'scala'      :['scl',  ('--', '', '')],
-                'java'       :['java', ('//', '', '')],
-                'ruby'       :['rb',   ('#', '', '')],
-                'ocaml'      :['ml',   ('(*', '*)', '')],
-                'haskell'    :['hs',   ('{-', '-}', '')],
-                'lua'        :['lua',  ('--', '', '')],
-                'tikz'       :['tex',  ('%', '', '')],
-                'svg'        :['svg',  ('<!--', '-->', '<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n')],
-                'aadl'       :['adl',  ('--', '', '')],
-                'sdl'        :['sdl',  ('--', '', '')],
-                'lustre'     :['lst',  ('--', '', '')],
-                'vhdl'       :['hdl',  ('--', '', '')],
-                'systemc'    :['sc',   ('//', '', '')]}
+__OUT_LANG__ = {'c'          :['c',    ('/*', '*/', ''), 'gcc ansi pedantic'],
+                'objectivec' :['m',    ('/*', '*/', ''), ''],
+                'python'     :['py',   ('#', '', '#!/usr/bin/python3\n# -*- coding: utf-8 -*-\n'), ' python 3.2 '],
+                'ada'        :['adb',  ('--', '', ''), 'Ada95 Ravenscar'],
+                'scala'      :['scl',  ('--', '', ''), ''],
+                'java'       :['java', ('//', '', ''), ''],
+                'ruby'       :['rb',   ('#', '', ''), ''],
+                'ocaml'      :['ml',   ('(*', '*)', ''), ''],
+                'haskell'    :['hs',   ('{-', '-}', ''), ''],
+                'lua'        :['lua',  ('--', '', ''), ''],
+                'tikz'       :['tex',  ('%', '', ''), 'for LaTeX'],
+                'svg'        :['svg',  ('<!--', '-->', '<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n'), 'Mozilla  Webkit'],
+                'aadl'       :['adl',  ('--', '', ''), 'AADL v2'],
+                'sdl'        :['sdl',  ('--', '', ''), ''],
+                'lustre'     :['lst',  ('--', '', ''), ''],
+                'vhdl'       :['hdl',  ('--', '', ''), ''],
+                'systemc'    :['sc',   ('//', '', ''), '']}
  
 __DATA_ports__ = {
     None:('p1', 'p2', 'p3', 'p4'),
     'T': ('i', 'o'),
     'O': ('in1', 'in2', 'out1', 'out2'),
+    'V': ('in1', 'in2', 'out1', 'out2'),
     'C': ('p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8', 'p9', 'p10', 'p11', 'p12', 'p13', 'p14', 'p15', 'p16'),
     'D': ('pin1', 'pin2', 'pin3', 'pin4', 'pin5', 'pin6'),
     'x': ('pin1', 'pin2', 'pin3', 'pin4', 'pin5', 'pin6'),
@@ -106,13 +120,12 @@ __DATA_svg__ = ({
         'd': ('node','fill:blue;','rect','filter:url(#.shadow);fill-opacity:.1;', 10, 50),
         'p': ('place','fill:black;','circle','fill:green;fill-opacity:.3;', 10, 2),
         't': ('transition','fill:white;','rect','fill:black;fill-opacity:.8;', 2, 40),
-        },{
+        }, {
         '' : 'stroke:black; stroke-width:1.5; fill:none; marker-end:url(#.arrow);',
         'r': 'stroke:black; stroke-width:1.5; fill:none; marker-start:url(#.r_arrow);',
         'I': 'stroke:green; stroke-width:2; fill:none; marker-end:url(#.arrow);',
         'L': 'stroke:red; stroke-width:3; fill:none; marker-end:url(#.arrow);',
         })
-
 
 __DATA_tikz__ = ({
         '':  ('node','circle,drop shadow,draw=green!40,fill=gray!20'),
@@ -130,7 +143,7 @@ __DATA_tikz__ = ({
         'd': ('node','regular polygon,regular polygon sides=5,drop shadow,draw=gray!40,fill=blue!20'),
         'e': ('node','regular polygon,regular polygon sides=6,drop shadow,draw=gray!40,fill=blue!20'),
         'f': ('node','regular polygon,regular polygon sides=8,drop shadow,draw=gray!40,fill=blue!20'),
-        },{
+        }, {
         '':  '--',
         'I': '->,>=open diamond',
         'L': '->,>=triangle 60',
@@ -150,14 +163,14 @@ __DATA_c__ = ({
         'm': ('main', ),
         'e': ('extern', ),
         'E': ('extern', ),
-        },{
+        }, {
         None:(),
         })
 
 __DATA_python__ = ({
         'C': ('class', ),
         'c': ('class', ),
-        },{
+        }, {
         None:(),
         })
 
@@ -179,6 +192,21 @@ __IN_MODEL__ = ['UML', 'SysML', 'AADL-Graph', 'Marte', 'PSL', 'Xcos', 'Kaos', 'E
                 'Network-Graph', 'Flowchart', 'Petri-net', 'State-Machine', 'Markov-Chain', 'Behavior-Tree'] 
 
 __AST_SET__ = [
+    ('Link0',                  'A->B'),
+    ('Link1',                  'A->{B}->C->D{E}->F'),
+    ('Link2',                  'A{B{C->D}->E{F->G}}->H{I{J->K}->L{M->N}}'),
+    ('Parent1',                'A{B C} {L} D->{E} F{G H{I->J} K} }}}'),
+    ('Parent2',                'A{B->C} D{{E}} F{G}{H}'),
+    ('HelloWorld',             'Hello->World'),
+    ('BasicComposition',       'Parent{Child1 Child2}'),
+    ('BasicMultilinks',        'A->{B C}'),
+    ('BasicPorts',             'A.1->B.p2'),
+    ('BasicLabel',             'nodeA(This is a label for nodeA)'),
+    ('BasicNodeType',          'nodeA:T'),
+    ('BasicEdgeType',          'A<T>B'), 
+    ('BasicFullLink',          'B[l1]T.0 -U"l2"> C:V(l3).2 '),
+    ('BasicParentFullLink',    'A { B -> C } '),
+    ('BasicYUMLstyle',         '(node1) -> [node2]'),
     ('OnlyId',                 'A'),
     ('OnlyContent',            '"L"'),
     ('OnlyType',               ':T'),
@@ -212,36 +240,39 @@ __AST_SET__ = [
     ('Delimiter:/',            'L/content/'),
     ('Delimiter:$',            'M$content$'),
     ('Delimiter:()',           'N(content)'),
-    ('Word Id',                'Aaa'),
-    ('Not first digit',        'A1'),
-    ('First digit',            '1A'),
-    ('white space',            ' A'),
-    ('end white space',        'A '),
-    ('both white spaces',      ' A '),
-    ('several lines',         r'\n\nA\n\n'),
-    ('latin1 char',            'éàùç'),
-    ('Unicode char',           'A:您'),
-    ('Unicode char',           'B:好'),
+    ('Delimiter:[]',           'N[content]'),
+    ('WordId',                 'Aaa'),
+    ('NotFirstDigit',          'A1'),
+    ('FirstDigit',             '1A'),
+    ('WhiteSpace',             ' A'),
+    ('EndWhiteSpace',          'A '),
+    ('BothWhiteSpaces',        ' A '),
+    ('SeveralLines',           '\n\nA\n\n'),
+    ('Latin1Char',             'éàùç'),
+    ('UnicodeCharId',          '您'),
+    ('UnicodeCharType',        'A:您'),
+    ('UnicodeCharContent',     'B(好您)'),
+    ('UnicodeCharLinkType',    'A-好>B'),
     ('Long content',           '"This is a long content" '),
-    ('Multilines',            r'"Multi\nlines\ncontent" '),
+    ('Multilines',             '"Multi\nlines\ncontent" '),
     ('Types',                  'A:T B:U'),
-    ('2 nodes',                'A B'),
-    ('3 nodes',                'A B C'),
-    ('4 nodes',                'A B C D'),
-    ('Overload content',       'A"content1" A"content2"'),
+    ('2nodes',                 'A B'),
+    ('3nodes',                 'A B C'),
+    ('4nodes',                 'A B C D'),
+    ('OverloadContent',        'A"content1" A"content2"'),
     ('Accumulation1',          'A A"content"'),
     ('Accumulation2',          'A"content" A'),
     ('TypeContentAcc',         'A:T A"content"'),
     ('ContentTypeAcc',         'A"content" A:T'),
     ('ChildContentAcc',        'A{a} A"content"'),
     ('ContentChildAcc',        'A"content" A{a}'),
-    ('cas01',                  'A A"content1" A"content2"(x)'),
-    ('cas02',                  'A"content2"(x) A"content" A'),
-    ('cas03',                  '"content"T1 "content"T2'),
+    ('cas01',                  'A A"content1" A"content2"T'),
+    ('cas02',                  'A"content2"T A"content" A'),
+    ('cas03',                  '"content"T "content"U'),
     ('cas04',                  'A"content" B"content"'),
     ('cas05',                  'A{a} B{b1 b2} C{c1 c2 c3}'),
     ('cas06',                  'A{a} B {b} {c}'),
-    ('cas07',                  ':T1{a b} :T2{c d}'),
+    ('cas07',                  ':T{a b} :U{c d}'),
     ('cas08',                  'A{ B{c b} C{e f} }'),
     ('cas09',                  'A{B{C{c}}}'),
     ('cas10',                  '"x-y"'),
@@ -305,7 +336,6 @@ __AST_SET__ = [
     ('Port*',                  'A:T.*->B:T.*'),
     ('PortOutOfrange',         'A:T.5->B:T.pin12'),
     ('Doubledefinition',       'A{a} A{b}'),
-    ('MainC',                  'Code:C@@@#include <stddio.h>\nvoid main(void){\ninta;\n}\n@@@'),
     ('linkBefore',             '->A{->B}'),
     ('linkAfter',              '{A->}B->'),
     ('linkOverload',           'A->--B'),
@@ -314,7 +344,7 @@ __AST_SET__ = [
 # (0) Parser
 
 def gettypes(ast):
-    ""
+    "_"
     nl, el = {'':True}, {'':True}
     Nodes, Edges = ast
     for n in Nodes:
@@ -345,48 +375,133 @@ class u:
                 ti = range(-int(i[1])) if i[1] and int(i[1]) < 0 else [i[1]]
                 for p in tc:
                     for q in ti:
-                        Edges.append(((c[0],p), cli[0], (i[0],q), cli[1], cli[2]))
+                        Edges.append(((c[0], p), cli[0], (i[0], q), cli[1], cli[2]))
         return Edges
 
-    def parse(self, x):
-        "kernel"
-        Nodes, Edges = {}, []
-        tgt, cht, op, orig, link, bing, state = [], [], False, [None,], False, False, 0
-        cli = []
+    def typeLabel(self, g, edge=True):
+        "_"
+        if edge:
+            lab = g[16] if g[16] else g[15] if g[15] else g[14]
+            typ = g[17] if g[17] else g[11]
+            res = (g[10]+g[18], typ, lab)
+        else:
+            typ = g[8] if g[8] else g[2]
+            lab = g[7] if g[7] else g[6] if g[6] else g[5] 
+            nid = g[1] if g[1] else re.sub(r'\W', '', lab) if lab else '__%s' % typ
+            res = (nid, typ, lab)
+        return res
+
+    def parse_old(self, x):
+        "kernel parser"
+        Nodes, Edges, tgt, cht, op, orig, link, bing, state, cli = {}, [], [], [], False, [None,], False, False, 0, []
         for m in re.compile(__RE_U__, re.U|re.X|re.S).finditer(x):
             #print(m.groups())
-            if m.group(1) in ('{','['):
+            if m.group(1) == '{': # open block
                 op, tgt = True, []
                 if state == 1: 
                     state = 2
                 orig.append(None)
-            elif m.group(1) in ('}',']'):
+            elif m.group(1) == '}': # close block
                 if orig:
                     orig.pop()
                 op, state = False, 0
                 if cht and bing: 
-                    Edges += self.addedge(cht, tgt, cli)
+                    Edges += self.addedge(cht, tgt, cli) # A->{B} or {A}->{B}
                     bing = False
-            elif m.group(10):
-                link, bing, state, cht = True, True, 0, tgt
-                cli = [m.group(10) + m.group(17), m.group(14), m.group(16) if m.group(16) else m.group(11)] 
-            else:
-                if not op: tgt = []
-                typ, lab = m.group(8) if m.group(8) else m.group(3), m.group(6)
-                nid = self.findid(m.group(2),typ,lab)
+            elif m.group(11): # link
+                cht, link, cli, state, bing = tgt, True, self.typeLabel(m.groups()), 0, True
+            else: # node
+                if not op: 
+                    tgt = []
+                (nid, typ, lab) = self.typeLabel(m.groups(), False)
                 if state != 2: 
-                    tgt.append((nid, self.getport(typ,m.group(9))))
+                    tgt.append((nid, self.getport(typ, m.group(10))))
                 parent = orig[-2] if state == 2 and len(orig)>1 else None
                 Nodes[nid] = (parent, typ, lab)
                 if state == 0: 
                     state = 1
                 if not op and cht and bing: 
-                    Edges += self.addedge(cht, tgt, cli)
+                    Edges += self.addedge(cht, tgt, cli) # A->B
                     bing, link = False, False
                 if orig:
                     if link and orig[-1]:
-                        Edges += self.addedge([(orig[-1], None)], [(nid, None)], cli)
+                        Edges += self.addedge([(orig[-1], None)], [(nid, None)], cli) # {A}->B
                     link, orig[-1] = False, nid
+        return Nodes, Edges
+
+    def parse1(self, x):
+        "kernel parser"
+        Nodes, Edges, tgt, cht, op, orig, link, bing = {}, [], [], [], False, [None,], False, False
+        stk = [(None, None),] # for parent setting
+        single, drt, cli, stl, src, src1 = False, False, (), [[],], [], [] # for edge setting
+        mult = False
+        for m in re.compile(__RE_U__, re.U|re.X|re.S).finditer(x):
+            if stk:
+                if m.group(1) == '{': # open block
+                    stk.append((None, None))
+                    stl.append([])
+                    single = False
+                    drt = False
+                elif m.group(1) == '}': # close block
+                    if mult and src:
+                        print('T1{}->{}'.format(src, stl[-1]))
+                    src = src1 = stl[-1]
+                    stk.pop()
+                    stl.pop()
+                    if stk: stk[-1] = (None, None)
+                    single = False
+                elif m.group(11): # link
+                    print('LINK{}->{}'.format(stk, stl))
+                    stk[-1] = (None, None)
+                    cli = self.typeLabel(m.groups())
+                    single = True
+                    drt = True 
+                else: # node
+                    (nid, typ, lab) = self.typeLabel(m.groups(), False)
+                    prt = stk[-2][0] if len(stk)>1 else None
+                    #if drt and src:
+                    #    print('T2{}->{}'.format(src, nid))
+                    if not prt and len(stl)>1:
+                        stl[-2] = []
+                        mult = True
+                    if prt: mult = False
+                    if single and stl[-1]: 
+                        Edges += self.addedge([(stl[-1][-1], None)], [(nid, None)], cli) 
+                    single = False
+                    stk[-1] = (nid, self.getport(typ, m.group(10)))
+                    stl[-1].append(nid)
+                    Nodes[nid] = (prt, typ, lab)
+                    print('node:{}'.format(stl))
+        return Nodes, Edges
+
+    def parse(self, x):
+        "kernel parser"
+        Nodes, Edges, = {}, []
+        sak = [(None, None),] # for parent setting
+        sgl, cli, stl = False, (), [[],] # for edge setting
+        for m in re.compile(__RE_U__, re.U|re.X|re.S).finditer(x):
+            if sak:
+                if m.group(1) == '{': # open block
+                    sak.append((None, None))
+                    stl.append([])
+                    sgl = False
+                elif m.group(1) == '}': # close block
+                    sak.pop()
+                    stl.pop()
+                    if sak: sak[-1] = (None, None)
+                    sgl = False
+                elif m.group(11): # link
+                    sak[-1] = (None, None)
+                    cli, sgl = self.typeLabel(m.groups()), True
+                else: # node
+                    (nid, typ, lab) = self.typeLabel(m.groups(), False)
+                    por, prt = self.getport(typ, m.group(10)), sak[-2][0] if len(sak)>1 else None
+                    if not prt and len(stl)>1: stl[-2] = []
+                    if sgl and stl[-1]: 
+                        Edges += self.addedge([stl[-1][-1]], [(nid, por)], cli) 
+                    sak[-1], sgl = (nid, por), False
+                    stl[-1].append((nid, por))
+                    Nodes[nid] = (prt, typ, lab)
         return Nodes, Edges
 
     def getport(self, typ, por):
@@ -399,10 +514,6 @@ class u:
             elif por == '*':
                 vpo = - len(__DATA_ports__[typ])
         return vpo
-
-    def findid(self, nid, typ, lab):
-        "find best node id "
-        return nid if nid else re.sub(r'\W','',lab) if lab else '__%s' % typ
 
     def layout(self, ast, rankdir = 'TB'):
         "dot"
@@ -419,27 +530,26 @@ class u:
         " Print header "
         def app(ast):
             (sc, ec, head) = __OUT_LANG__[lang][1]
-            #head, sc, ec = '', '#', ''
             nodes, edges = ast
-            digest = base64.urlsafe_b64encode(hashlib.sha1(open(__file__).read()).digest())[:5]
             d = '{}'.format(datetime.datetime.now())
             o = '{}{} ⊔ Generated Code [{}] {}\n'.format(head, sc, d[:19], ec)
             o += '{} ******** Do not edit by hand! ******** {}\n'.format(sc, ec)
-            o += '{} Base64 short sha1 digest: {: >12} {}\n'.format(sc, digest, ec)
+            o += '{} Base64 short sha1 digest: {: >12} {}\n'.format(sc, __digest__.decode('utf-8'), ec)
             o += '{} Host: {: >32} {}\n'.format(sc, host, ec) 
             o += '{} Forge:  https://{} {}\n'.format(sc, __url__, ec)
             o += '{} © Copyright 2012 Rockwell Collins, Inc {}\n'.format(sc, ec)
             o += '{} ** GNU General Public License  (v3) ** {}\n'.format(sc, ec) 
-            o += '\n%s AST = %s %s\n\n'%(sc,re.sub(r'\-\-','__','%s %s'%ast), ec)
+            o += '{} Output language: {} [{}] {}\n'.format(sc, lang, __OUT_LANG__[lang][2], ec)
+            o += '\n%s AST = %s %s\n\n' % (sc, re.sub(r'\-\-', '__', '%s %s' % ast), ec)
             nt, et = gettypes(ast)
             for n in nt:
                 if n in __DATA_ports__:
-                    o += '%s Node type:"%s" Ports: %s %s\n'%(sc, n, __DATA_ports__[n], ec)
+                    o += '%s Node type:"%s" Ports: %s %s\n' % (sc, n, __DATA_ports__[n], ec)
             o += '\n'
             return o + appli(ast) + '\n{} {} Nodes {} Edges {: >30} {}'.format(sc, len(nodes), len(edges), 'the end of file.', ec)
         return app
 
-    def gen_ast(self,ast):
+    def gen_ast(self, ast):
         " ast "
         nodes, edges = ast
         o = '# ⊔ Python Abstract Syntax Structure:\n\n'
@@ -454,7 +564,7 @@ class u:
     def gen_svg(self, ast):
         "svg"
         nodes, edges = ast
-        o = '{}'.format(ast)
+        o = ''
         pos = self.layout(ast)
         for n in nodes:
             o += ' \'{}\': {},\n'.format(n, nodes[n])
@@ -463,34 +573,106 @@ class u:
         return '<svg>{}</svg>\n'.format(o)
 
     def gen_c(self, ast):
-        "ansi c"
+        "c"
         nodes, edges = ast
-        o = '{}'.format(ast)
+        o = ''
         pos = self.layout(ast)
         for n in nodes:
             o += ' \'{}\': {},\n'.format(n, nodes[n])
         for e in edges:
             o += ' {},\n'.format(e)
-        return 'C{}C\n'.format(o)
+        return o
+
+    def gen_python(self, ast):
+        "python"
+        #nodes, edges = ast
+        o = ''
+        #for n in nodes: o += ' \'{}\': {},\n'.format(n, nodes[n])
+        #for e in edges: o += ' {},\n'.format(e)
+        return o 
+
+    def gen_ada(self, ast):
+        "ada"
+        o = ''
+        return o
 
 # (1) Doc generation 
 
-class beamer:
-    r"""%% This is generated, do not edit by hands!
-\documentclass{beamer}
-"""
-    def __init__(self, title, author, email):
-        r"""\begin{document} \frame{\titlepage}"""
-        pkg = ('beamerthemeshadow', 'draftwatermark', 'listings', 'embedfile', 'graphicx', 'tikz')
+class latex:
+    "% This is generated, do not edit by hands!\n"
+    def __init__(self):
+        r"\begin{document}"
         self.src = os.path.basename(sys.argv[0])
-        self.tex = beamer.__doc__ + '\n'
-        self.tex += r'\embedfile[filespec=%s]{%s}' % (self.src, os.path.abspath(self.src))
-        self.tex += r'\title{%s}' % title + '\n'
-        self.tex += r'\author{%s\inst{*}}\institute{*%s}' % (author, email) + '\n' 
-        self.tex += beamer.__init__.__doc__ 
-        for p in pkg:
-            self.tex += r'\usepackage{%s}' % p + '\n'
-        self.tex += r'\section{Draft:\texttt{%s}}' % __digest__ + '\n'
+        self.tex = latex.__doc__ + '\n'
+        self.digest = re.sub('_', '\_', r'\texttt{%s}' % __digest__.decode('utf-8'))
+        
+    def head(self, lpkg, hcmd, title, author, email, beam=False):
+        "_"
+        for p in ('draftwatermark', 'listings', 'embedfile', 'graphicx', 'tikz', 'url') + lpkg:
+            a = p.split('|')
+            if len(a) > 1:
+                self.tex += r'\usepackage[%s]{%s}' % (a[1], a[0]) + '\n'
+            else:
+                self.tex += r'\usepackage{%s}' % a[0] + '\n'
+        base = {'pyt':r'\emph{Python}', 'pdf':r'\textsc{pdf}'}
+        base.update(hcmd)
+        for c in base:
+            self.tex += r'\newcommand{\%s}{%s}' % (c, base[c]) + '\n'
+        if beam:
+            self.tex += r'\title[%s]{%s}' % (self.digest, title) + '\n'
+            self.tex += r'\author{%s\inst{*}}\institute{*%s}' % (author, email) + '\n'
+            self.tex += r'\pgfdeclareimage[height=.6cm]{logo}{/home/laurent/u/rcf.png}' + r'\logo{\pgfuseimage{logo}}' + '\n'
+        else:
+            self.tex += r'\title{\bf %s}' % title + '\n'
+            self.tex += r'\author{%s -- \url{%s} \\' % (author, email) + '\n'
+            self.tex += r'\tiny{[%s]}\footnote{the first five characters of the base64 encoding of the \textsc{sha1} digest of the attached source file.}}}' % self.digest
+            self.tex += r'\pagestyle{myheadings} \markright{\tiny{%s}\hfill}' % self.digest + '\n'
+        self.tex += latex.__init__.__doc__ + '\n'
+        self.tex += r'\lstset{language=Python, breaklines=true}'
+        self.tex += r'\embedfile[filespec=%s]{%s}' % (self.src, os.path.abspath(self.src)) + '\n'
+        if beam:
+            self.tex += r"\frame{\titlepage}" + '\n'
+        else:
+            self.tex += r'\maketitle' + '\n'
+        
+    def gen_pdf(self, name):
+        r"""\end{document}"""
+        self.tex += latex.gen_pdf.__doc__ + '\n'
+        open('%s.tex' % name, 'w').write(self.tex)
+        subprocess.Popen(('cd /tmp; pdflatex -interaction=batchmode /home/laurent/u/%s.tex 1>/dev/null' % name), shell=True).communicate()
+        shutil.move('/tmp/%s.pdf' % name, '/home/laurent/u/%s.pdf' % name)
+
+class article (latex):
+    r"\documentclass[a4paper,10pt]{article}"
+    def __init__(self, title, author, email):
+        "_"
+        latex.__init__(self)
+        self.tex += article.__doc__ + '\n'
+        self.head(('geometry|margin=2cm', 'inputenc|utf8', 'lmodern', 'color', 'longtable', 'array'), {}, title, author, email)
+        self.tex += r'\begin{abstract}' + __doc__ + r'\end{abstract}' + '\n'
+        
+    def section(self, title, content):
+        self.tex += r'\section{%s}' % title + '\n'
+        self.tex += content + '\n'
+
+    def insert_code(self, pat):
+        " ....in LaTeX "
+        o, d = r'\lstset{basicstyle=\ttfamily, numbers=left, numberstyle=\tiny, stepnumber=5, numbersep=5pt}', False
+        o += r'\begin{lstlisting}[texcl]' + '\n'
+        for l in open(__file__).readlines():
+            if re.match(r'(if|\s*def|class|__)', l): d = False
+            if re.match(pat, l): d = True
+            if d: o += l
+        return o + r'\end{lstlisting}' + '\n'
+
+class beamer (latex):
+    r"\documentclass{beamer}"
+    def __init__(self, title, author, email):
+        "_"
+        latex.__init__(self)
+        self.tex += beamer.__doc__ + '\n'
+        self.head(('beamerthemeshadow', ), {}, title, author, email, True)
+        self.tex += r'\note{%s}' % __doc__ + '\n'
 
     def frame(self, title, content):
         "frame"
@@ -498,28 +680,24 @@ class beamer:
         self.tex += content + '\n'
         self.tex += '}\n'
     
-    def gen_pdf(self):
-        r"""\end{document}"""
-        self.tex += beamer.gen_pdf.__doc__ + '\n'
-        open('toto.tex','w').write(self.tex)
-        subprocess.Popen(('cd /tmp; pdflatex -interaction=batchmode /home/laurent/u/toto.tex 1>/dev/null'), shell=True).communicate()
-        #x = open('/tmp/toto.pdf','rb').read()
-        #open('toto.pdf','w').write(open('/tmp/toto.pdf','rb').read())
-
 def gen_doc():
-    "gen_doc"
-    pass
-
-def gen_beamer():
-    "gen_beamer"
-    slides = beamer(r'The $\sqcup$ Language', __author__, __email__)
-    slides.frame(r'What $\sqcup$ is?', r""" 
+    "article and beamer"
+    art = article(r'The $\sqcup$ Language', __author__, __email__)
+    sli = beamer(r'The $\sqcup$ Language', __author__, __email__)
+    #
+    art.section('chapitre', 'blabla')
+    art.tex += art.insert_code('__RE_U__') 
+    art.section('Parser', 'blabla')
+    art.tex += art.insert_code(r'\s*def\s+parse\(') 
+    #
+    sli.frame(r'What $\sqcup$ is?', r""" 
 The $\sqcup$ language is a {\bf Universal Graph Language};\\
 \begin{itemize}
 \item Symbol: $\bigsqcup$ \\
 \end{itemize} 
 """)
-    slides.gen_pdf()
+    art.gen_pdf('u3')
+    sli.gen_pdf('beamer_u3')
 
 # (2) Tests
 
@@ -548,17 +726,25 @@ def gen_test(cas=0):
             x = functools.reduce(lambda x, i:x+random.choice(c), range(100), '')
             print ((i, x), uobj.parse(x))
     elif cas == 2:
+        refname, cmpname, o = 'ref3.txt', 'cmp3.txt', '' 
         for x in __AST_SET__:
-            print (x, uobj.parse(x[1]))
+            o += '{:03d}: {} {}\n\n'.format(__AST_SET__.index(x), x, uobj.parse(x[1]))
+        open(cmpname, 'w').write(o)
+        if os.path.isfile(refname):
+            r = subprocess.Popen(('diff', refname, cmpname), stdout=subprocess.PIPE).communicate()[0].strip().decode('utf-8')
+            if not re.match('^\s*$', r): 
+                print ('Test fails:\nReference<\nComputed>\n', r)
+        else:
+            shutil.move(cmpname, refname)
 
 # (3) Git storage
 
 def register(content=''):
     """ If the same content is requested, then id does not change """
-    base = __BASE__
+    base = __git_base__
     if not os.path.isdir(base):
         os.mkdir(base)
-    rev = dbhash.open('%s/rev.db' % base,'c')
+    rev = dbhash.open('%s/rev.db' % base, 'c')
     if rev.has_key(content):
         gid = rev[content]
     else:
@@ -568,10 +754,10 @@ def register(content=''):
     return gid
 
 def print_db(db):
-    """ """
+    "_"
     d = dbhash.open(db, 'r')
     for item in d.keys():
-        print ('[%s] %s -> %s' % (db,item,d[item]))
+        print ('[%s] %s -> %s' % (db, item, d[item]))
     d.close()
 
 def create_id(rev):
@@ -587,141 +773,141 @@ class gitu:
         if not os.path.isdir(__git_base__):
             os.mkdir(__git_base__)
         e = os.environ.copy()
-        e['GIT_AUTHOR_NAME'],e['GIT_AUTHOR_EMAIL'] = user,ip
-        e['GIT_COMMITTER_NAME'],e['GIT_COMMITTER_EMAIL'] = 'laurent','pelinquin@gmail.com'
-        e['GIT_DIR'] = '%s/.git'%__git_base__
+        e['GIT_AUTHOR_NAME'], e['GIT_AUTHOR_EMAIL'] = user, ip
+        e['GIT_COMMITTER_NAME'], e['GIT_COMMITTER_EMAIL'] = __author__, __email__
+        e['GIT_DIR'] = '%s/.git' % __git_base__
         self.e = e
         if not os.path.isdir(e['GIT_DIR']):
-            subprocess.Popen(('git', 'init','-q'), env=e,close_fds=True).communicate()
-            p = subprocess.Popen(('git', 'hash-object','-w','--stdin'), env=e, stdout=subprocess.PIPE, stdin=subprocess.PIPE)
-            li = '100644 blob %s\tstart\n'%p.communicate(' \n')[0].strip()
+            subprocess.Popen(('git', 'init', '-q'), env=e, close_fds=True).communicate()
+            p = subprocess.Popen(('git', 'hash-object', '-w', '--stdin'), env=e, stdout=subprocess.PIPE, stdin=subprocess.PIPE)
+            li = '100644 blob %s\tstart\n' % p.communicate(' \n')[0].strip()
             q = subprocess.Popen(('git', 'mktree'), env=e, stdout=subprocess.PIPE, stdin=subprocess.PIPE)
             r = subprocess.Popen(('git', 'commit-tree', q.communicate(li)[0].strip()), env=e, stdout=subprocess.PIPE, stdin=subprocess.PIPE)
-            subprocess.Popen(('git', 'update-ref', 'refs/heads/master',r.communicate('start')[0].strip()), env=e, stdout=subprocess.PIPE).communicate()
+            subprocess.Popen(('git', 'update-ref', 'refs/heads/master', r.communicate('start')[0].strip()), env=e, stdout=subprocess.PIPE).communicate()
 
     def save(self, key, c, state=''):
-        """ """
+        "_"
         p = subprocess.Popen(('git', 'show', 'master^{tree}:'+key), env=self.e, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = p.communicate('')
         p = subprocess.Popen(('git', 'ls-tree', 'master^{tree}'), env=self.e, stdout=subprocess.PIPE)
         liste = p.communicate()[0].strip()
         if err:
-            liste += '\n100644 blob %s\t%s'%(self.sha(c),key) 
-            self.commit (liste,key)
+            liste += '\n100644 blob %s\t%s' % (self.sha(c), key) 
+            self.commit (liste, key)
         else:
             if out[:-1] != c:
-                self.commit(re.sub(r'(100644 blob) [0-9a-f]{40}(\t%s)'%key,'\\1 %s\\2'%self.sha(c),liste),key+'\n'+state)
-        p = subprocess.Popen(('git', 'log','--pretty=format:%H','-1'), env=self.e, stdout=subprocess.PIPE)
+                self.commit(re.sub(r'(100644 blob) [0-9a-f]{40}(\t%s)' % key, '\\1 %s\\2' % self.sha(c), liste), key+'\n'+state)
+        p = subprocess.Popen(('git', 'log', '--pretty=format:%H', '-1'), env=self.e, stdout=subprocess.PIPE)
         return p.communicate()[0][:15]
 
     def sha(self, content):
-        """ """
-        p = subprocess.Popen(('git', 'hash-object','-w','--stdin'), env=self.e, stdout=subprocess.PIPE, stdin=subprocess.PIPE)
+        "_"
+        p = subprocess.Popen(('git', 'hash-object', '-w', '--stdin'), env=self.e, stdout=subprocess.PIPE, stdin=subprocess.PIPE)
         return p.communicate(content+'\n')[0].strip()
 
     def commit(self, li, msg):
-        """ """
+        "_"
         p = subprocess.Popen(('git', 'mktree'), env=self.e, stdout=subprocess.PIPE, stdin=subprocess.PIPE)
         sha = p.communicate(li)[0].strip()
-        p = subprocess.Popen(('git', 'show-ref','--hash','refs/heads/master'), env=self.e, stdout=subprocess.PIPE)
+        p = subprocess.Popen(('git', 'show-ref', '--hash', 'refs/heads/master'), env=self.e, stdout=subprocess.PIPE)
         parent = p.communicate()[0].strip()
-        p = subprocess.Popen(('git', 'commit-tree', sha,'-p',parent), env=self.e, stdout=subprocess.PIPE, stdin=subprocess.PIPE)
+        p = subprocess.Popen(('git', 'commit-tree', sha, '-p', parent), env=self.e, stdout=subprocess.PIPE, stdin=subprocess.PIPE)
         mm = p.communicate(msg)[0].strip()
-        p = subprocess.Popen(('git', 'update-ref', 'refs/heads/master',mm), env=self.e, stdout=subprocess.PIPE)
+        p = subprocess.Popen(('git', 'update-ref', 'refs/heads/master', mm), env=self.e, stdout=subprocess.PIPE)
 
     def list(self):
-        """ """
+        "_"
         p = subprocess.Popen(('git', 'ls-tree', 'master^{tree}'), env=self.e, stdout=subprocess.PIPE)
         liste = p.communicate()[0].strip()
         return liste.split('\n')
 
     def history(self, key=''):
-        """ """
+        "_"
         if key:
-            p = subprocess.Popen(('git', 'log', '--pretty=format:%H:%an:%ar:%s','--',key), env=self.e, stdout=subprocess.PIPE)
+            p = subprocess.Popen(('git', 'log', '--pretty=format:%H:%an:%ar:%s', '--', key), env=self.e, stdout=subprocess.PIPE)
         else:
             p = subprocess.Popen(('git', 'log', '--pretty=format:%H:%an:%ar:%s'), env=self.e, stdout=subprocess.PIPE)
         liste = p.communicate()[0].strip()
         return liste.split('\n')
 
     def gethead(self, key):
-        """ """
-        p = subprocess.Popen(('git', 'log', '-1', '--pretty=format:%H:%an:%ar:%at','--',key), env=self.e, stdout=subprocess.PIPE) # ar
+        "_"
+        p = subprocess.Popen(('git', 'log', '-1', '--pretty=format:%H:%an:%ar:%at', '--', key), env=self.e, stdout=subprocess.PIPE) # ar
         return p.communicate()[0].strip()
     
     def revision(self, key):
-        """ """
-        c = subprocess.Popen(('git', 'log', '-1', '--pretty=format:%H','--', key), env=self.e, stdout=subprocess.PIPE)
+        "_"
+        c = subprocess.Popen(('git', 'log', '-1', '--pretty=format:%H', '--', key), env=self.e, stdout=subprocess.PIPE)
         return c.communicate()[0][:15]
 
     def date(self, key):
-        """ """
-        c = subprocess.Popen(('git', 'log', '-1', '--pretty=format:%ci','--', key), env=self.e, stdout=subprocess.PIPE)
+        "_"
+        c = subprocess.Popen(('git', 'log', '-1', '--pretty=format:%ci', '--', key), env=self.e, stdout=subprocess.PIPE)
         return c.communicate()[0][:-5]
 
     def cat(self, key):
-        """ """
+        "_"
         p = subprocess.Popen(('git', 'show', 'master^{tree}:'+key), env=self.e, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = p.communicate()
         return '"Not Found!"' if err else out[:-1]
 
     def cat_blob(self, key):
-        """ """
+        "_"
         p = subprocess.Popen(('git', 'show', key), env=self.e, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = p.communicate()
         return '' if err else out[:-1]
 
     def cat_revision(self, gid):
-        """ """
-        p = subprocess.Popen(('git', 'show', 'master^{tree}:%s'%gid), env=self.e, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        "_"
+        p = subprocess.Popen(('git', 'show', 'master^{tree}:%s' % gid), env=self.e, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         content, err = p.communicate()
         c = subprocess.Popen(('git', 'log', '-1', '--pretty=format:%H', '--', gid), env=self.e, stdout=subprocess.PIPE)
         rev = c.communicate()[0]
-        return ('','[Diagram Not Found cat_revision!]') if err else (rev[:15],content[:-1])
+        return ('', '[Diagram Not Found cat_revision!]') if err else (rev[:15], content[:-1])
 
     def cat_getrev(self, rev):
-        """ """
-        c = subprocess.Popen(('git', 'log', '--pretty=oneline','-1',rev), env=self.e, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        "_"
+        c = subprocess.Popen(('git', 'log', '--pretty=oneline', '-1', rev), env=self.e, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = c.communicate()
         idd, cont = ['', ''], '[Diagram Not Found!]'
         if not err:
             if out != '':
                 idd = out.strip().split()
-                p = subprocess.Popen(('git', 'show','%s:%s'%(rev,idd[1])), env=self.e, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                p = subprocess.Popen(('git', 'show', '%s:%s' % (rev, idd[1])), env=self.e, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 cont = p.communicate()[0][:-1]
-        return idd[0][:15],idd[1],cont
+        return idd[0][:15], idd[1], cont
 
     def cat_full(self, key, arev):
-        """ """
-        c = subprocess.Popen(('git', 'log', '--pretty=format:%H','-1',arev), env=self.e, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        "_"
+        c = subprocess.Popen(('git', 'log', '--pretty=format:%H', '-1', arev), env=self.e, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = c.communicate()
         rev, cont = '', '[Diagram Not Found!]'
         if not err:
             if out != '':
                 rev = out.strip()
-                p = subprocess.Popen(('git', 'show','%s:%s'%(rev,key)), env=self.e, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                p = subprocess.Popen(('git', 'show', '%s:%s' % (rev, key)), env=self.e, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 cont = p.communicate()[0][:-1]
         return rev[:15], cont
 
     def cat_simple(self, key, rev):
-        """ """
-        p = subprocess.Popen(('git', 'show','%s:%s'%(rev,key)), env=self.e, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        "_"
+        p = subprocess.Popen(('git', 'show', '%s:%s' % (rev, key)), env=self.e, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         return p.communicate()[0][:-1]
 
     def test(self, key, rev):
-        """ """
-        c = subprocess.Popen(('git', 'log', '%s:@%s'%(rev,key)), env=self.e, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        "_"
+        c = subprocess.Popen(('git', 'log', '%s:@%s' % (rev, key)), env=self.e, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         o, e = c.communicate()
         return False if e else True 
     
     def tag(self, name, rev):
-        """ """
+        "_"
         c = subprocess.Popen(('git', 'tag', name, rev), env=self.e, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         o, e = c.communicate()
         return e if e else o
 
     def tag_list(self):
-        """ """
+        "_"
         o, e = subprocess.Popen(('git', 'tag'), env=self.e, stdout=subprocess.PIPE).communicate()
         return o
 
@@ -732,82 +918,121 @@ def reg(value):
     reg.v = value
     return value
 
+def favicon():
+    "_"
+    code = '<svg %s n="%s"><path stroke-width="4" fill="none" stroke="Dodgerblue" d="M3,1L3,14L13,14L13,1"/></svg>' % (_SVGNS, datetime.datetime.now())
+    tmp = base64.b64encode(code.encode('utf-8'))
+    return '<link %s rel="shortcut icon" type="image/svg+xml" href="data:image/svg+xml;base64,%s"/>\n' % (_XHTMLNS, tmp.decode('utf-8'))
+
+def logo(opac=1):
+    "_"
+    return '<path id="logo" stroke-width="8" fill="none" stroke="Dodgerblue" onclick="window.open(\'http://%s\');" title="on Github: [http://%s]" opacity="%s" d="M10,10L10,35L30,35L30,10"/>' % (__url__, __url__, opac)
+
+def style():
+    """h1,h3,h6,p,li,b,a,td,th{font-family:helvetica neue,helvetica,arial,sans-serif;} a{text-decoration:none;} 
+table {border: 1px solid #666;width:100%;border-collapse:collapse;} td,th {border: 1px solid #666;} 
+h1{position:absolute;top:-8;left:60;} h6{position:absolute;top:0;right:10;}"""
+    return '<style>{}</style>\n'.format(style.__doc__)
+
+def table_test():
+    "_"
+    o, uobj = '<h1>Test set</h1>\n<table>', u()
+    o += '<tr><th>#</th><th>Description</th><th>⊔ input</th><th>Nodes</th><th>Edges</th></tr>\n'
+    for x in __AST_SET__: 
+        res, d0, d1 = uobj.parse(x[1]), '', ''
+        for i in res[0]:
+            tmp = '{}'.format(res[0][i])
+            d0 += '{}: {}<br/>'.format(html.escape(i), html.escape(tmp))
+        for e in res[1]:
+            tmp = '{}'.format(e)
+            d1 += '{}<br/>'.format(html.escape(tmp))
+        o += '<tr><td><small>{:03d}</small></td><td>{}</td><td>{}</td><td>{}</td><td>{}</td></tr>\n'.format(__AST_SET__.index(x) + 1, x[0], html.escape(x[1]), d0, d1)
+    return o + '</table>'
+
 def application(environ, start_response):
     """ WSGI Web application """
-    s, mime, o, myu = urllib.unquote(environ['QUERY_STRING']), 'text/plain;charset=UTF-8', 'Error!', u()
-    host = environ['SERVER_NAME']
-    if reg(re.match(r'\s*(_?)(svg|c|)&?((\w{10})|(.*))\s*$', s, re.I)):
-        lang, gid, arg = reg.v.group(2), reg.v.group(4), reg.v.group(5) 
-    header = [('Content-type', mime),('Content-Disposition','filename=u.py')]
-    if lang:
-        o = eval('myu.headfoot(myu.gen_{}, lang, host)(myu.parse(arg))'.format(lang))
+    s, mime, o, myu, host = urllib.parse.unquote(environ['QUERY_STRING']), 'text/plain; charset=utf-8', 'Error!', u(), environ['SERVER_NAME']
+    lang, gid, arg, act, fname = None, None, None, None, 'u.py'
+    if reg(re.match(r'\s*(%s$|)(_?)(%s|)&?((\w{10})|(.*))\s*$' % ('$|'.join(__ACTIONS__), '|'.join(__OUT_LANG__)), s, re.I)):
+        act, lang, gid, arg = reg.v.group(1), reg.v.group(3), reg.v.group(5), reg.v.group(6) 
+    if act:
+        if act.lower() in ('pdf', 'paper', 'beamer'):
+            mime, name = 'application/pdf', 'beamer_u3' if act == 'beamer' else 'u3'
+            fname = '{}.pdf'.format(name)
+            f = '%s/%s.pdf' % (os.path.dirname(environ['SCRIPT_FILENAME']), name)
+            o = open(f, 'rb').read()
+        else:
+            mime, fname = 'text/html; charset=utf-8', act
+            o = '<html>' + favicon() + style() + '\n<svg %s height="64">%s</svg>\n' % (_SVGNS, logo())
+            if act.lower() in ('about', 'help', 'usage'): 
+                o += '<h1>about 您</h1>'
+            elif act.lower() in ('update',): 
+                o += 'update'
+            elif act.lower() in ('edit', 'ace', 'git'): 
+                o += 'edit' 
+            elif act.lower() in ('log',): 
+                o += 'log'
+            elif act.lower() in ('test',): 
+                o += table_test()
+            o += '<h6 title="Base64 encoded short sha1 digest">%s</h6></html>' % __digest__.decode('utf-8')
+            o = o.encode('utf-8')
     else:
         if gid:
-            mygit = gitu()
-            arg = mygit.cat(gid)
-        if arg:
-            o = myu.headfoot(myu.gen_ast, 'python', host)(myu.parse(arg))
+            arg = gitu().cat(gid)
+        elif environ['REQUEST_METHOD'].lower() == 'put':
+            arg = environ['wsgi.input'].read().decode('utf-8')
+        if lang:
+            o = eval('myu.headfoot(myu.gen_{}, lang, host)(myu.parse(arg))'.format(lang))
         else:
-            o = open(environ['SCRIPT_FILENAME']).read() 
-    start_response('200 OK', header)
-    return [(o)] 
+            if arg:
+                o = myu.headfoot(myu.gen_ast, 'python', host)(myu.parse(arg))
+            else:
+                o = open(__file__, 'r', encoding='utf-8').read() 
+        o = o.encode('utf-8')
+    start_response('200 OK', [('Content-type', mime), ('Content-Disposition', 'filename={}'.format(fname))])
+    return [o] 
 
 # (5) Command line
 
-def post_old(server, service, content):
-    B, CRLF = '----------ThIs_Is_tHe_bouNdaRY_$',  '\r\n'
-    body = CRLF.join(['--%s' % B, 'Content-Disposition: form-data; name=""; filename=""', 'Content-Type: text/html', '', content,'--%s--' % B, ''])
+def put(server, service, content):
     h = http.client.HTTPConnection(server)
-    h.putrequest('POST', service)
-    h.putheader('content-type', 'multipart/form-data; boundary=%s' % B)
-    h.putheader('content-length', str(len(body)))
-    h.endheaders()
-    h.send(body)
-    h.getreply()
-    return h.file.read().encode('utf-8')
-
-def post(server, service, content):
-    B, CRLF = '----------ThIs_Is_tHe_bouNdaRY_$',  '\r\n'
-    body = CRLF.join(['--%s' % B, 'Content-Disposition: form-data; name=""; filename=""', 'Content-Type: text/plain', '', content,'--%s--' % B, ''])
-    h = http.client.HTTPConnection(server)
-    headers = {'content-type': 'multipart/form-data; boundary=%s' % B, 'content-length': str(len(body))}
-    h.request('POST', '', service, headers)
-    print ('ici')
-    r = h.getresponse()
-    print (r.status)
-    return r.read()
+    h.request('PUT', service, content)
+    return h.getresponse().read().decode('utf-8')
 
 if __name__ == '__main__':
     " Command line"
     import getopt, http.client
-    __digest__ = base64.urlsafe_b64encode(hashlib.sha1(open(__file__).read().encode('utf-8')).digest())[:5]
-    opts, args = getopt.getopt(sys.argv[1:],'h:f:s',['host=','format=','stdin'])
-    o,host = 'raw','127.0.0.1' # use '193.84.73.209 for testing'
+    opts, args = getopt.getopt(sys.argv[1:], 'h:f:s', ['host=', 'format=', 'stdin'])
+    lang, host = '', '127.0.0.1' # use '193.84.73.209 for testing'
 
     if not opts and not args:
-        gen_test(2) 
+        gen_test(2)
         gen_doc()
-        gen_beamer()
-        print(__digest__)
+        print(__digest__.decode('utf-8'))
     
     for r in opts:
-        if r[0] in ('-h','--host'):
-            host = r[1] 
-        elif r[0] in ('-f','--format'):
-            o = r[1]
-        elif r[0] in ('-s','--stdin'):
+        if r[0] in ('-h', '--host'):
+            host = r[1]
+        elif r[0] in ('-f', '--format'):
+            lang = r[1]
+        elif r[0] in ('-s', '--stdin'):
             args.append(sys.stdin.read())
         else:
-            print (help('u')) 
+            print (help('u'))
  
     for arg in args:
-        data = open(arg).read() if os.path.isfile(arg) else arg
-        #print (post(host, '/u?%s'%o, data))
-        post('pelinquin','/u3?','A->B')
- 
-    ########## debug zone! ##############
-    MYU = u()
-    #print (MYU.gen_svg(MYU.parse('A.1->B.2')))
-    
-    
+        data = str(open(arg).read()) if os.path.isfile(arg) else arg
+        if host in ('localhost', '127.0.0.1'):
+            myu = u()
+            if lang:
+                o = eval('myu.headfoot(myu.gen_{}, lang, host)(myu.parse(arg))'.format(lang))
+            else:
+                if arg:
+                    o = myu.headfoot(myu.gen_ast, 'python', host)(myu.parse(arg))
+                else:
+                    o = open(__file__, 'r', encoding='utf-8').read()
+        else:
+            o = put(host, '/u3?%s' % o, data)
+        print (o)
+# end    
     
