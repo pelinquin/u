@@ -26,11 +26,9 @@
 # SHORT TODO LIST:
 # - nested dot layout
 # - use python compiler module
-# - wsgi with python3
 # - svg with proportional police size
-# - command line with shortcut for localhost
 # - types data in Berkeley database
-# - fix bug on {A->}
+# - add block operator
 
 r"""
 Abstract LaTeX doc here!
@@ -74,7 +72,11 @@ __RE_U__ = r'''     # RegExp
     ([<\-=>])       # Tail
 )''' % (__delimiter__, __delimiter__)
 
-__ACTIONS__ = ('update', 'about', 'help', 'usage', 'pdf', 'paper', 'beamer', 'edit', 'ace', 'git', 'log', 'test', 'parse', 'unparse')
+__EDGE_T__ = ('--', '->', '-<', '-=', '=-', '=>', '=<', '==', '<-', '<>', '<<', '<=', '>-', '>>', '><', '>=')
+__NODE_T__ = ('|',  '\'', '`',  '"',  ';',  ',',  '!',  '~',  '^',  '@',  '*',  '+',  '/',  '$',  '(',  '[' )
+ 
+__ACTIONS__ = ('download', 'source', 'update', 'about', 'help', 'usage', 'pdf', 
+               'paper', 'beamer', 'edit', 'ace', 'git', 'log', 'test', 'parse', 'unparse')
 
 __OUT_LANG__ = {'c'          :['c',    ('/*', '*/', ''), 'gcc ansi pedantic'],
                 'objectivec' :['m',    ('/*', '*/', ''), ''],
@@ -188,10 +190,29 @@ __DATA_lustre__     = ({None: (), }, {None:(), })
 __DATA_vhdl__       = ({None: (), }, {None:(), })
 __DATA_systemc__    = ({None: (), }, {None:(), })
 
-__IN_MODEL__ = ['UML', 'SysML', 'AADL-Graph', 'Marte', 'PSL', 'Xcos', 'Kaos', 'Entity-Relation-Graph', 'Tree-Diagram',
-                'Network-Graph', 'Flowchart', 'Petri-net', 'State-Machine', 'Markov-Chain', 'Behavior-Tree'] 
+__IN_MODEL__ = {
+    'UML':                   'A->B', 
+    'SysML':                 'A->B', 
+    'AADL-Graph':            'A->B', 
+    'Marte':                 'A->B', 
+    'PSL':                   'A->B', 
+    'Xcos':                  'A->B', 
+    'Kaos':                  'A->B', 
+    'Entity-Relation-Graph': 'A->B', 
+    'Tree-Diagram':          'A->B',
+    'Network-Graph':         'A->B', 
+    'Flowchart':             'A->B', 
+    'Petri-net':             'A->B', 
+    'State-Machine':         'A->B', 
+    'Markov-Chain':          'A->B', 
+    'Behavior-Tree':         'A->B',
+} 
 
 __AST_SET__ = [
+    ('OptimizedUnparse',       'A"l1"->B"l2"'),
+    ('Nested',                 'A{B C{D E} F K{I}} G C{H}'),
+    ('Cyclic',                 'A{B{A}}'),
+    ('Parent0',                'A(label A)T {B(label B)U}'),
     ('Link0',                  'A->B'),
     ('Link1',                  'A->{B}->C->D{E}->F'),
     ('Link2',                  'A{B{C->D}->E{F->G}}->H{I{J->K}->L{M->N}}'),
@@ -266,31 +287,31 @@ __AST_SET__ = [
     ('ContentTypeAcc',         'A"content" A:T'),
     ('ChildContentAcc',        'A{a} A"content"'),
     ('ContentChildAcc',        'A"content" A{a}'),
-    ('cas01',                  'A A"content1" A"content2"T'),
-    ('cas02',                  'A"content2"T A"content" A'),
-    ('cas03',                  '"content"T "content"U'),
-    ('cas04',                  'A"content" B"content"'),
-    ('cas05',                  'A{a} B{b1 b2} C{c1 c2 c3}'),
-    ('cas06',                  'A{a} B {b} {c}'),
-    ('cas07',                  ':T{a b} :U{c d}'),
-    ('cas08',                  'A{ B{c b} C{e f} }'),
-    ('cas09',                  'A{B{C{c}}}'),
-    ('cas10',                  '"x-y"'),
-    ('cas11',                  '"x+y"'),
-    ('cas12',                  '"x*y"'),
-    ('cas13',                  '"x/y"'),
-    ('cas14',                  '"x.y"'),
-    ('cas15',                  '"x,y"'),
-    ('cas16',                  '"x%y"'),
-    ('cas17',                  '"x^y"'),
-    ('cas18',                  '"x=y"'),
-    ('cas19',                  '"x:y"'),
-    ('cas20',                  '"x&y"'),
-    ('cas21',                  '"x|y"'),
-    ('cas22',                  '"x>y"'),
-    ('cas23',                  '"x<y"'),
-    ('cas24',                  '#comment\nA'),
-    ('cas25',                  '#comment1\nA\n #comment2'),
+    ('Case01',                 'A A"content1" A"content2"T'),
+    ('Case02',                 'A"content2"T A"content" A'),
+    ('Case03',                 '"content"T "content"U'),
+    ('Case04',                 'A"content" B"content"'),
+    ('Case05',                 'A{a} B{b1 b2} C{c1 c2 c3}'),
+    ('Case06',                 'A{a} B {b} {c}'),
+    ('Case07',                 ':T{a b} :U{c d}'),
+    ('Case08',                 'A{ B{c b} C{e f} }'),
+    ('Case09',                 'A{B{C{c}}}'),
+    ('Case10',                 '"x-y"'),
+    ('Case11',                 '"x+y"'),
+    ('Case12',                 '"x*y"'),
+    ('Case13',                 '"x/y"'),
+    ('Case14',                 '"x.y"'),
+    ('Case15',                 '"x,y"'),
+    ('Case16',                 '"x%y"'),
+    ('Case17',                 '"x^y"'),
+    ('Case18',                 '"x=y"'),
+    ('Case19',                 '"x:y"'),
+    ('Case20',                 '"x&y"'),
+    ('Case21',                 '"x|y"'),
+    ('Case22',                 '"x>y"'),
+    ('Case23',                 '"x<y"'),
+    ('Case24',                 '#comment\nA'),
+    ('Case25',                 '#comment1\nA\n #comment2'),
     ('Chain2',                 'A->B'),
     ('Chain3',                 'A->B->C'),
     ('Link1',                  'A>>B'), 
@@ -313,20 +334,20 @@ __AST_SET__ = [
     ('SpaceAfterEdge',         'A-> B'),
     ('Spaces',                 'A -> B'),
     ('Autoref',                'A->A'),
-    ('cas26',                  'A -(content)- B'),
-    ('cas27',                  'A -T- B'),
-    ('cas28',                  'A -T(content)- B'),
-    ('cas29',                  'A -(content)T- B'),
-    ('cas30',                  'A{a1 a2} -> B{b1 b2}'),
-    ('cas31',                  '{a1 a2} -> B{b1 b2}'),
-    ('cas32',                  'A{a1 a2} -> {b1 b2}'),
-    ('cas33',                  '{a1 a2} -> {b1 b2}'),
-    ('cas34',                  'A{a1 -> a2} B{b1 -> b2}'),
-    ('cas35',                  'A{a1 -> a2} -> B{b1 -> b2}'),
-    ('cas36',                  'A.1 -> B.2'),
-    ('cas37',                  'A.por1 -> B.por2'),
-    ('cas38',                  'A:T B:U A.1->B.2'),
-    ('cas39',                  'A.1->B.2 A:T B:U'),
+    ('Case26',                 'A -(content)- B'),
+    ('Case27',                 'A -T- B'),
+    ('Case28',                 'A -T(content)- B'),
+    ('Case29',                 'A -(content)T- B'),
+    ('Case30',                 'A{a1 a2} -> B{b1 b2}'),
+    ('Case31',                 '{a1 a2} -> B{b1 b2}'),
+    ('Case32',                 'A{a1 a2} -> {b1 b2}'),
+    ('Case33',                 '{a1 a2} -> {b1 b2}'),
+    ('Case34',                 'A{a1 -> a2} B{b1 -> b2}'),
+    ('Case35',                 'A{a1 -> a2} -> B{b1 -> b2}'),
+    ('Case36',                 'A.1 -> B.2'),
+    ('Case37',                 'A.p1 -> B.p2'),
+    ('Case38',                 'A:T B:U A.1->B.2'),
+    ('Case39',                 'A.1->B.2 A:T B:U'),
     ('Port0',                  'A.0->B.pin1->C.*->D'),
     ('Port1',                  'A:T.0->B:T.1'),
     ('Port2',                  'A:T.1->{B:T.0 C:T.0}'),
@@ -336,9 +357,9 @@ __AST_SET__ = [
     ('Port*',                  'A:T.*->B:T.*'),
     ('PortOutOfrange',         'A:T.5->B:T.pin12'),
     ('Doubledefinition',       'A{a} A{b}'),
-    ('linkBefore',             '->A{->B}'),
-    ('linkAfter',              '{A->}B->'),
-    ('linkOverload',           'A->--B'),
+    ('LinkBefore',             '->A{->B}'),
+    ('LinkAfter',              '{A->}B->'),
+    ('LinkOverload',           'A->--B'),
 ]
 
 # (0) Parser
@@ -375,7 +396,8 @@ class u:
                 ti = range(-int(i[1])) if i[1] and int(i[1]) < 0 else [i[1]]
                 for p in tc:
                     for q in ti:
-                        Edges.append(((c[0], p), cli[0], (i[0], q), cli[1], cli[2]))
+                        #Edges.append(((c[0], p), (i[0], q), cli[0], cli[1], cli[2])) 
+                        Edges.append(((c[0], p), (i[0], q)) + cli)
         return Edges
 
     def typeLabel(self, g, edge=True):
@@ -383,96 +405,13 @@ class u:
         if edge:
             lab = g[16] if g[16] else g[15] if g[15] else g[14]
             typ = g[17] if g[17] else g[11]
-            res = (g[10]+g[18], typ, lab)
+            res = (__EDGE_T__.index(g[10]+g[18]), typ, lab)
         else:
             typ = g[8] if g[8] else g[2]
             lab = g[7] if g[7] else g[6] if g[6] else g[5] 
-            nid = g[1] if g[1] else re.sub(r'\W', '', lab.lower())[:10] if lab else '__%s' % typ
+            nid = g[1] if g[1] else re.sub(r'\W', '', '_%s'%lab.lower())[:10] if lab else '__%s' % typ
             res = (nid, typ, lab)
         return res
-
-    def parse_old(self, x):
-        "kernel parser"
-        Nodes, Edges, tgt, cht, op, orig, link, bing, state, cli = {}, [], [], [], False, [None,], False, False, 0, []
-        for m in re.compile(__RE_U__, re.U|re.X|re.S).finditer(x):
-            #print(m.groups())
-            if m.group(1) == '{': # open block
-                op, tgt = True, []
-                if state == 1: 
-                    state = 2
-                orig.append(None)
-            elif m.group(1) == '}': # close block
-                if orig:
-                    orig.pop()
-                op, state = False, 0
-                if cht and bing: 
-                    Edges += self.addedge(cht, tgt, cli) # A->{B} or {A}->{B}
-                    bing = False
-            elif m.group(11): # link
-                cht, link, cli, state, bing = tgt, True, self.typeLabel(m.groups()), 0, True
-            else: # node
-                if not op: 
-                    tgt = []
-                (nid, typ, lab) = self.typeLabel(m.groups(), False)
-                if state != 2: 
-                    tgt.append((nid, self.getport(typ, m.group(10))))
-                parent = orig[-2] if state == 2 and len(orig)>1 else None
-                Nodes[nid] = (parent, typ, lab)
-                if state == 0: 
-                    state = 1
-                if not op and cht and bing: 
-                    Edges += self.addedge(cht, tgt, cli) # A->B
-                    bing, link = False, False
-                if orig:
-                    if link and orig[-1]:
-                        Edges += self.addedge([(orig[-1], None)], [(nid, None)], cli) # {A}->B
-                    link, orig[-1] = False, nid
-        return Nodes, Edges
-
-    def parse1(self, x):
-        "kernel parser"
-        Nodes, Edges, tgt, cht, op, orig, link, bing = {}, [], [], [], False, [None,], False, False
-        stk = [(None, None),] # for parent setting
-        single, drt, cli, stl, src, src1 = False, False, (), [[],], [], [] # for edge setting
-        mult = False
-        for m in re.compile(__RE_U__, re.U|re.X|re.S).finditer(x):
-            if stk:
-                if m.group(1) == '{': # open block
-                    stk.append((None, None))
-                    stl.append([])
-                    single = False
-                    drt = False
-                elif m.group(1) == '}': # close block
-                    if mult and src:
-                        print('T1{}->{}'.format(src, stl[-1]))
-                    src = src1 = stl[-1]
-                    stk.pop()
-                    stl.pop()
-                    if stk: stk[-1] = (None, None)
-                    single = False
-                elif m.group(11): # link
-                    print('LINK{}->{}'.format(stk, stl))
-                    stk[-1] = (None, None)
-                    cli = self.typeLabel(m.groups())
-                    single = True
-                    drt = True 
-                else: # node
-                    (nid, typ, lab) = self.typeLabel(m.groups(), False)
-                    prt = stk[-2][0] if len(stk)>1 else None
-                    #if drt and src:
-                    #    print('T2{}->{}'.format(src, nid))
-                    if not prt and len(stl)>1:
-                        stl[-2] = []
-                        mult = True
-                    if prt: mult = False
-                    if single and stl[-1]: 
-                        Edges += self.addedge([(stl[-1][-1], None)], [(nid, None)], cli) 
-                    single = False
-                    stk[-1] = (nid, self.getport(typ, m.group(10)))
-                    stl[-1].append(nid)
-                    Nodes[nid] = (prt, typ, lab)
-                    print('node:{}'.format(stl))
-        return Nodes, Edges
 
     def parse(self, x):
         "kernel parser"
@@ -507,19 +446,48 @@ class u:
     def unparse(self, ast):
         " returns an optimized u string from an AST"
         nodes, edges = ast
-        o = ''
-        #o += '# %s %s'%ast
-        for n in nodes:
-            lab = '(%s)'%nodes[n][2] if nodes[n][2] else ''
-            typ = ':%s'%nodes[n][1] if nodes[n][1] else ''
-            o += '{}{}{} \n'.format(n, typ, lab)
+        count = {}
         for e in edges:
-            lab = '(%s)'%e[4] if e[4] else ''
-            typ = '%s'%e[3] if e[3] else ''
-            p1 = '.%s'%e[0][1] if e[0][1] else ''
-            p2 = '.%s'%e[2][1] if e[2][1] else ''
-            o += '{}{} {}{}{}{} {}{} \n'.format(e[0][0], p1, e[1][0], typ, lab, e[1][1], e[2][0], p2)
-        return o
+            for x in (e[0][0],e[1][0]):
+                if not nodes[x][0]:
+                    count[x] = count[x] + 1 if x in count else 0
+        o, tree = '', {}
+        #o += 'count{}\n'.format(count)
+        #o += 'nodes{}\n'.format(nodes)
+        for n in nodes:
+            if n not in count or count[n] > 0:
+                prnt = nodes[n][0]
+                if prnt:
+                    if prnt in tree:
+                        tree[prnt].append(n)
+                    else:
+                        tree[prnt] = [n]
+                elif not n in tree:
+                    tree[n] = [] 
+        #o += 'tree{}\n'.format(tree)
+        for n in tree:
+            o += '{}{}{}'.format(n, ':%s'%nodes[n][1] if nodes[n][1] else '', '(%s)'%nodes[n][2] if nodes[n][2] else '')
+            if tree[n]:
+                o += '{'
+                for c in tree[n]:
+                    o += '{}{}{} '.format(c, ':%s'%nodes[c][1] if nodes[c][1] else '', '(%s)'%nodes[c][2] if nodes[c][2] else '')
+                o = o[:-1] + '}'
+            o += ' '
+        if tree:
+            o += '\n'
+        for e in edges:
+            (lab, typ) = ('(%s)'%e[4] if e[4] else '', '%s'%e[3] if e[3] else '')
+            (p0, p1, nr) = ('.%s'%e[0][1] if e[0][1] != None else '', '.%s'%e[1][1] if e[1][1] != None else '', [])
+            for n in (e[0][0], e[1][0]):
+                if n in count and count[n] == 0:
+                    nr.append('{}{}{}'.format(n, ':%s'%nodes[n][1] if nodes[n][1] else '', '(%s)'%nodes[n][2] if nodes[n][2] else ''))
+                else:
+                    nr.append(n)
+            arrow = __EDGE_T__[e[2]]
+            o += '{}{} {}{}{}{} {}{} '.format(nr[0], p0, arrow[0], typ, lab, arrow[1], nr[1], p1)
+        if edges:
+            o += '\n'
+        return o 
 
     def getport(self, typ, por):
         "_"
@@ -610,9 +578,60 @@ class u:
         return o 
 
     def gen_ada(self, ast):
-        "ada"
-        o = ''
-        return o
+        "_"
+        return ''
+    
+    def gen_aadl(self, ast):
+        "_"
+        return ''
+
+    def gen_java(self, ast):
+        "_"
+        return ''
+
+    def gen_tikz(self, ast):
+        "_"
+        return ''
+
+    def gen_vhdl(self, ast):
+        "_"
+        return ''
+
+    def gen_scala(self, ast):
+        "_"
+        return ''
+
+    def gen_lustre(self, ast):
+        "_"
+        return ''
+
+    def gen_ocaml(self, ast):
+        "_"
+        return ''
+
+    def gen_lua(self, ast):
+        "_"
+        return ''
+
+    def gen_haskell(self, ast):
+        "_"
+        return ''
+    
+    def gen_sdl(self, ast):
+        "_"
+        return ''
+
+    def gen_objectivec(self, ast):
+        "_"
+        return ''
+
+    def gen_ruby(self, ast):
+        "_"
+        return ''
+
+    def gen_systemc(self, ast):
+        "_"
+        return ''
 
 # (1) Doc generation 
 
@@ -971,9 +990,33 @@ def table_test(par):
         o += '<tr><th>#</th><th>Description</th><th>⊔ input</th><th>unparsed string</th></tr>\n'
         for x in __AST_SET__: 
             res, d0 = uobj.unparse(uobj.parse(x[1])), ''
-            d0 = html.escape(res)
+            d0 = re.sub('\n', '<br/>', html.escape(res))
             o += '<tr><td><small>{:03d}</small></td><td>{}</td><td>{}</td><td>{}</td></tr>\n'.format(__AST_SET__.index(x) + 1, x[0], html.escape(x[1]), d0)
     return o + '</table>'
+
+def table_about(host):
+    "_"
+    o, uobj = '<h1>Help</h1>\n<table>', u()
+    o += '<tr><th>#</th><th>Action</th><th>Example</th></tr>\n'
+    n = 0
+    for x in __ACTIONS__:
+        n += 1
+        o += '<tr><td><small>{:03d}</small></td><td>Keyword: \'{}\'</td><td><a href="u3?{}">http://{}/u3?{}</a></td></tr>\n'.format(n, x, x, host, x)
+    for x in __OUT_LANG__:
+        n += 1
+        o += '<tr><td><small>{:03d}</small></td><td>Output Language: {}</td><td><a href="u3?{}&A-&gt;B">http://{}/u3?{}&A-&gt;B</a></td></tr>\n'.format(n, x, x, host, x)
+    for x in __IN_MODEL__:
+        n, d = n + 1, html.escape(__IN_MODEL__[x])
+        o += '<tr><td><small>{:03d}</small></td><td>Input Model Type: {}</td><td><a href="u3?_svg&{}">http://{}/u3?_svg&{}</a></td></tr>\n'.format(n, x, d, host, d)
+    return o + '</table>'
+
+def hhead():
+    "_"
+    return '<html>' + favicon() + style() + '\n<svg %s height="64">%s</svg>\n' % (_SVGNS, logo())
+
+def htail():
+    "_"
+    return '<h6 title="Base64 encoded short sha1 digest">%s</h6></html>' % __digest__.decode('utf-8')
 
 def application(environ, start_response):
     """ WSGI Web application """
@@ -988,10 +1031,9 @@ def application(environ, start_response):
             f = '%s/%s.pdf' % (os.path.dirname(environ['SCRIPT_FILENAME']), name)
             o = open(f, 'rb').read()
         else:
-            mime, fname = 'text/html; charset=utf-8', act
-            o = '<html>' + favicon() + style() + '\n<svg %s height="64">%s</svg>\n' % (_SVGNS, logo())
+            mime, fname, o = 'text/html; charset=utf-8', act, hhead()
             if act.lower() in ('about', 'help', 'usage'): 
-                o += '<h1>about 您</h1>'
+                o += table_about(host)
             elif act.lower() in ('update',): 
                 o += 'update'
             elif act.lower() in ('edit', 'ace', 'git'): 
@@ -1002,7 +1044,10 @@ def application(environ, start_response):
                 o += table_test(True)
             elif act.lower() in ('unparse',): 
                 o += table_test(False)
-            o += '<h6 title="Base64 encoded short sha1 digest">%s</h6></html>' % __digest__.decode('utf-8')
+            elif act.lower() in ('download', 'source'): 
+                mime = 'text/plain; charset=utf-8'
+                o = open(__file__, 'r', encoding='utf-8').read()
+            o += htail()
             o = o.encode('utf-8')
     else:
         if gid:
@@ -1010,7 +1055,15 @@ def application(environ, start_response):
         elif environ['REQUEST_METHOD'].lower() == 'put':
             arg = environ['wsgi.input'].read().decode('utf-8')
         if lang:
-            o = eval('myu.headfoot(myu.gen_{}, lang, host)(myu.parse(arg))'.format(lang))
+            if arg:
+                o = eval('myu.headfoot(myu.gen_{}, lang, host)(myu.parse(arg))'.format(lang))
+            else:
+                if environ['REQUEST_METHOD'].lower() == 'post':
+                    arg = '\n'.join(environ['wsgi.input'].read().decode('utf-8').split('\n')[4:-2])
+                    o = eval('myu.headfoot(myu.gen_{}, lang, host)(myu.parse(arg))'.format(lang))
+                else:
+                    mime, fname = 'text/html; charset=utf-8', lang
+                    o = hhead() + '<form method=post enctype=multipart/form-data><input type=file name=a onchange="submit();"/>' + htail()
         else:
             if arg:
                 o = myu.headfoot(myu.gen_ast, 'python', host)(myu.parse(arg))
