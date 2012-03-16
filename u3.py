@@ -440,8 +440,16 @@ class u:
                         Edges += self.addedge([stl[-1][-1]], [(nid, por)], cli) 
                     sak[-1], sgl = (nid, por), False
                     stl[-1].append((nid, por))
-                    Nodes[nid] = (prt, typ, lab)
+                    Nodes[nid] = (prt, 0, typ, lab)
         return Nodes, Edges
+
+    def format_node(self, nodes, n):
+        "_"
+        typ = ':%s'%nodes[n][2] if nodes[n][2] else ''
+        st1, st2 = nodes[n][1], nodes[n][1]
+        #...
+        lab = '(%s)'%nodes[n][3] if nodes[n][3] else ''
+        return '{}{}{}'.format(n, typ, lab)
 
     def unparse(self, ast):
         " returns an optimized u string from an AST"
@@ -466,11 +474,12 @@ class u:
                     tree[n] = [] 
         #o += 'tree{}\n'.format(tree)
         for n in tree:
-            o += '{}{}{}'.format(n, ':%s'%nodes[n][1] if nodes[n][1] else '', '(%s)'%nodes[n][2] if nodes[n][2] else '')
+            o += self.format_node(nodes, n)
+            #o += '{}{}{}'.format(n, ':%s'%nodes[n][2] if nodes[n][2] else '', '(%s)'%nodes[n][3] if nodes[n][3] else '')
             if tree[n]:
                 o += '{'
                 for c in tree[n]:
-                    o += '{}{}{} '.format(c, ':%s'%nodes[c][1] if nodes[c][1] else '', '(%s)'%nodes[c][2] if nodes[c][2] else '')
+                    o += '{}{}{} '.format(c, ':%s'%nodes[c][2] if nodes[c][2] else '', '(%s)'%nodes[c][3] if nodes[c][3] else '')
                 o = o[:-1] + '}'
             o += ' '
         if tree:
@@ -480,7 +489,7 @@ class u:
             (p0, p1, nr) = ('.%s'%e[0][1] if e[0][1] != None else '', '.%s'%e[1][1] if e[1][1] != None else '', [])
             for n in (e[0][0], e[1][0]):
                 if n in count and count[n] == 0:
-                    nr.append('{}{}{}'.format(n, ':%s'%nodes[n][1] if nodes[n][1] else '', '(%s)'%nodes[n][2] if nodes[n][2] else ''))
+                    nr.append('{}{}{}'.format(n, ':%s'%nodes[n][2] if nodes[n][2] else '', '(%s)'%nodes[n][3] if nodes[n][3] else ''))
                 else:
                     nr.append(n)
             arrow = __EDGE_T__[e[2]]
