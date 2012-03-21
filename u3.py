@@ -50,7 +50,7 @@ _XHTMLNS  = 'xmlns="http://www.w3.org/1999/xhtml"'
 _SVGNS    = 'xmlns="http://www.w3.org/2000/svg"'
 _XLINKNS  = 'xmlns:xlink="http://www.w3.org/1999/xlink"'
 
-__separator__ = r'[|\'`";,!~^@*+/$]' # 14 chars
+__separator__ = r'[\|\'`";,!~^@*+/$]' # 14 chars
 __delimiter__ = r'%s(?:%s%s)?' % (__separator__, __separator__, __separator__) # one or three chars
 __RE_U__ = r'''     # RegExp 
    (?:              # Three basic tokens:
@@ -59,11 +59,11 @@ __RE_U__ = r'''     # RegExp
     (?:\#[^\n]*)    # or (2) Line comment
    |                # or (3) NODE:
     (?=[^\s<\-=>])  # Not empty token 
-    (?:(\w+)|)      # Name      
+    (?:(\w{1,10})|) # Name      
     (?::(\w)|)      # Type pre  
     ((%s)(.+?)\5|\[([^\]]+)\]|\(([^)]+)\)|) # Content
     (\w|)           # Type post 
-    (?:\.(\w+|\*)|) # Port      
+    (?:\.(\w{1,20}|\*)|) # Port      
    |                # or (4) EDGE:  
     ([<\-=>])       # Head      
     (?:(\w)|)       # Type pre  
@@ -89,12 +89,14 @@ __OUT_LANG__ = {'c'          :['c',    ('/*', '*/', ''), 'gcc ansi pedantic'],
                 'haskell'    :['hs',   ('{-', '-}', ''), ''],
                 'lua'        :['lua',  ('--', '', ''), ''],
                 'tikz'       :['tex',  ('%', '', ''), 'for LaTeX'],
-                'svg'        :['svg',  ('<!--', '-->', '<?xml version=\"1.0\" encoding=\"UTF-8\"?>\n'), 'Mozilla  Webkit'],
+                'svg'        :['svg',  ('<!--', '-->', '<?xml version="1.0" encoding="UTF-8"?>\n'), 'Mozilla  Webkit'],
                 'aadl'       :['adl',  ('--', '', ''), 'AADL v2'],
                 'sdl'        :['sdl',  ('--', '', ''), ''],
                 'lustre'     :['lst',  ('--', '', ''), ''],
                 'vhdl'       :['hdl',  ('--', '', ''), ''],
-                'systemc'    :['sc',   ('//', '', ''), '']}
+                'systemc'    :['sc',   ('//', '', ''), ''],
+                'xml'        :['xml',  ('<!--', '-->', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'), '⊔ serialization'],
+}
  
 __DATA_ports__ = {
     None:('p1', 'p2', 'p3', 'p4'),
@@ -123,14 +125,14 @@ __DATA_svg__ = ({
         'p': ('place','fill:black;','circle','fill:green;fill-opacity:.3;', 10, 2),
         't': ('transition','fill:white;','rect','fill:black;fill-opacity:.8;', 2, 40),
         }, {
-        '' : 'stroke:black; stroke-width:1.5; fill:none; marker-end:url(#.arrow);',
+        None:'stroke:black; stroke-width:1.5; fill:none; marker-end:url(#.arrow);',
         'r': 'stroke:black; stroke-width:1.5; fill:none; marker-start:url(#.r_arrow);',
         'I': 'stroke:green; stroke-width:2; fill:none; marker-end:url(#.arrow);',
         'L': 'stroke:red; stroke-width:3; fill:none; marker-end:url(#.arrow);',
         })
 
 __DATA_tikz__ = ({
-        '':  ('node','circle,drop shadow,draw=green!40,fill=gray!20'),
+        None:('node','circle,drop shadow,draw=green!40,fill=gray!20'),
         'S': ('component','rectangle,draw=black!40,fill=gray!10'),
         'T': ('component','circle,drop shadow,draw=green!40,fill=gray!20'), 
         'O': ('node','rectangle,drop shadow,rounded corners=3pt,draw=red!40,fill=blue!25'),
@@ -146,7 +148,7 @@ __DATA_tikz__ = ({
         'e': ('node','regular polygon,regular polygon sides=6,drop shadow,draw=gray!40,fill=blue!20'),
         'f': ('node','regular polygon,regular polygon sides=8,drop shadow,draw=gray!40,fill=blue!20'),
         }, {
-        '':  '--',
+        None:'--',
         'I': '->,>=open diamond',
         'L': '->,>=triangle 60',
         'r': '--',
@@ -189,6 +191,7 @@ __DATA_sdl__        = ({None: (), }, {None:(), })
 __DATA_lustre__     = ({None: (), }, {None:(), })
 __DATA_vhdl__       = ({None: (), }, {None:(), })
 __DATA_systemc__    = ({None: (), }, {None:(), })
+__DATA_xml__        = ({None: (), }, {None:(), })
 
 __IN_MODEL__ = {
     'UML':                   'A->B', 
@@ -247,6 +250,7 @@ __AST_SET__ = [
     ('Id+Type+Child',          'A:T{a}'),
     ('Id+Content+Type+Child',  'A"LT{}'),
     ('Id+Type+Content+Child',  'A:T"L"{}'),
+    ('Delimiter:|',            'A|content|'),
     ("Delimiter:'",            "Z'content'"),
     ('Delimiter:"',            'B"content"'),
     ('Delimiter:`',            'C`content`'),
@@ -387,7 +391,7 @@ class u:
         for l in __OUT_LANG__:
             self.m[l] = eval('__DATA_%s__' % l)
 
-    def addedge(self, child, target, cli):
+    def addedges(self, child, target, cli):
         "utils"
         Edges = []
         for c in child:
@@ -396,8 +400,17 @@ class u:
                 ti = range(-int(i[1])) if i[1] and int(i[1]) < 0 else [i[1]]
                 for p in tc:
                     for q in ti:
-                        #Edges.append(((c[0], p), (i[0], q), cli[0], cli[1], cli[2])) 
                         Edges.append(((c[0], p), (i[0], q)) + cli)
+        return Edges
+
+    def addedge(self, c, i, cli):
+        "utils"
+        Edges = []
+        tc = range(-int(c[1])) if c[1] and int(c[1]) < 0 else [c[1]]
+        ti = range(-int(i[1])) if i[1] and int(i[1]) < 0 else [i[1]]
+        for p in tc:
+            for q in ti:
+                Edges.append(((c[0], p), (i[0], q)) + cli)
         return Edges
 
     def typeLabel(self, g, edge=True):
@@ -437,16 +450,17 @@ class u:
                     por, prt = self.getport(typ, m.group(10)), sak[-2][0] if len(sak)>1 else None
                     if not prt and len(stl)>1: stl[-2] = []
                     if sgl and stl[-1]: 
-                        Edges += self.addedge([stl[-1][-1]], [(nid, por)], cli) 
+                        Edges += self.addedge(stl[-1][-1], (nid, por), cli) 
                     sak[-1], sgl = (nid, por), False
                     stl[-1].append((nid, por))
-                    Nodes[nid] = (prt, 0, typ, lab)
+                    sep = __NODE_T__.index(m.group(4)[0]) if m.group(4) else None
+                    Nodes[nid] = (prt, typ, sep, lab)
         return Nodes, Edges
 
     def format_node(self, nodes, n):
         "_"
-        typ = ':%s'%nodes[n][2] if nodes[n][2] else ''
-        st1, st2 = nodes[n][1], nodes[n][1]
+        typ = ':%s'%nodes[n][1] if nodes[n][1] else ''
+        st1, st2 = nodes[n][2], nodes[n][2]
         #...
         lab = '(%s)'%nodes[n][3] if nodes[n][3] else ''
         return '{}{}{}'.format(n, typ, lab)
@@ -475,11 +489,10 @@ class u:
         #o += 'tree{}\n'.format(tree)
         for n in tree:
             o += self.format_node(nodes, n)
-            #o += '{}{}{}'.format(n, ':%s'%nodes[n][2] if nodes[n][2] else '', '(%s)'%nodes[n][3] if nodes[n][3] else '')
             if tree[n]:
                 o += '{'
                 for c in tree[n]:
-                    o += '{}{}{} '.format(c, ':%s'%nodes[c][2] if nodes[c][2] else '', '(%s)'%nodes[c][3] if nodes[c][3] else '')
+                    o += self.format_node(nodes, c) + ' '
                 o = o[:-1] + '}'
             o += ' '
         if tree:
@@ -488,10 +501,7 @@ class u:
             (lab, typ) = ('(%s)'%e[4] if e[4] else '', '%s'%e[3] if e[3] else '')
             (p0, p1, nr) = ('.%s'%e[0][1] if e[0][1] != None else '', '.%s'%e[1][1] if e[1][1] != None else '', [])
             for n in (e[0][0], e[1][0]):
-                if n in count and count[n] == 0:
-                    nr.append('{}{}{}'.format(n, ':%s'%nodes[n][2] if nodes[n][2] else '', '(%s)'%nodes[n][3] if nodes[n][3] else ''))
-                else:
-                    nr.append(n)
+                nr.append(self.format_node(nodes, n) if n in count and count[n] == 0 else n)                     
             arrow = __EDGE_T__[e[2]]
             o += '{}{} {}{}{}{} {}{} '.format(nr[0], p0, arrow[0], typ, lab, arrow[1], nr[1], p1)
         if edges:
@@ -509,17 +519,6 @@ class u:
             elif por == '*':
                 vpo = - len(__DATA_ports__[typ])
         return vpo
-
-    def layout(self, ast, rankdir = 'TB'):
-        "dot"
-        pos, d = {}, 'digraph G { rankdir=%s ' % rankdir
-        Nodes, Edges = ast
-        for n in Nodes:
-            label = n
-            d += ' %s[label="%s"];' % (n, label)
-        for e in Edges:
-            pass
-        return pos
 
     def headfoot(self, appli, lang='python', host='127.0.0.1'):
         " Print header "
@@ -556,16 +555,152 @@ class u:
             o += ' {},\n'.format(e)
         return o + ']\n'
 
-    def gen_svg(self, ast):
-        "svg"
+    def layout(self, ast, rankdir='TB'):
+        "Computes 2D automatic layout for graphics (tikz and svg) generation"
         nodes, edges = ast
-        o = ''
-        pos = self.layout(ast)
+        bbx, bby, pos, d = None, None, {}, 'digraph G { rankdir=%s ' % rankdir
         for n in nodes:
-            o += ' \'{}\': {},\n'.format(n, nodes[n])
+            d += ' %s[label="%s"];'%(n, n)
         for e in edges:
-            o += ' {},\n'.format(e)
-        return '<svg>{}</svg>\n'.format(o)
+            d += ' %s->%s %s'%(e[0][0], e[1][0], '') 
+        d += '}' 
+        #print (d) # for debug
+        p = subprocess.Popen(('dot'), stdout=subprocess.PIPE, stdin=subprocess.PIPE)
+        for l in p.communicate(input=d.encode('utf-8'))[0].decode('utf-8').split('\n'):
+            #print (l) for debug
+            if reg(re.search('bb="0,0,([\.\d]+),([\.\d]+)"', l)):
+                bbx, bby = float(reg.v.group(1)), float(reg.v.group(2))
+            elif reg(re.search('^\s*(\w+)\s*\[label=[^,]*, pos="([\.\d]+),([\.\d]+)"', l)) and bbx and bby:
+                pos[reg.v.group(1)] = (int(float(reg.v.group(2))*100/bbx), int(float(reg.v.group(3))*100/bby))
+        return pos
+
+    def include_js(self):
+        r"""
+function submitURL(data) { 
+  var f = document.createElement('form');
+  f.setAttribute('method','post');
+  h = document.createElement('input');
+  h.setAttribute('type','hidden');
+  h.setAttribute('name','a');
+  h.setAttribute('value',JSON.stringify(data));
+  f.appendChild(h);
+  document.documentElement.appendChild(f);
+  f.submit();
+}
+window.onload = function () { 
+  var box = {};
+  var t = document.documentElement.childNodes;
+  for (var n = 0; n < t.length; n++) {
+    if (t[n].nodeName == 'text') { 
+      var b = t[n].getBBox();
+      var tx = parseInt(t[n].getAttribute('x'));
+      var ty = parseInt(t[n].getAttribute('y'));      
+      box[t[n].id] = [b.x, b.y, b.width, b.height, tx, ty]; 
+    }
+  }
+  if (Object.keys(box).length != 0) { submitURL(box); }
+}"""
+        o = '<script %s type="text/ecmascript">\n/*<![CDATA[*//*---->*/\n'%_XLINKNS
+        return o + self.include_js.__doc__  + '\n/*--*//*]]>*/</script>\n'
+
+    def include_js_zoom_pan(self):
+        r"""var pan = false, stO, stF;document.documentElement.setAttributeNS(null,"onmouseup","hMouseUp(evt)"); document.documentElement.setAttributeNS(null,"onmousedown", "hMouseDown(evt)");document.documentElement.setAttributeNS(null,"onmousemove","hMouseMove(evt)");window.addEventListener('DOMMouseScroll', hMouseWheel, false); 
+function getP(evt) { var p = document.documentElement.createSVGPoint(); p.x = evt.clientX; p.y = evt.clientY; return p; }
+function setCTM(ele,m) { ele.setAttribute("transform", "matrix(" + m.a + "," + m.b + "," + m.c + "," + m.d + "," + m.e + "," + m.f + ")"); }
+function hMouseMove(evt) { if (pan) { var p = getP(evt).matrixTransform(stF); setCTM(document.getElementById('.graph'), stF.inverse().translate(p.x-stO.x,p.y-stO.y)); }}
+function hMouseDown(evt) { 
+document.documentElement.setAttribute('cursor','-moz-grabbing'); // for FF only //document.documentElement.setAttribute('cursor','move');
+pan = true; stF = document.getElementById('.graph').getCTM().inverse(); stO = getP(evt).matrixTransform(stF);}
+function hMouseUp(evt) { pan = false; document.getElementById('zoom').firstChild.nodeValue = stO.x.toFixed(0) + ',' + stO.y.toFixed(0); document.documentElement.setAttribute('cursor','default');}
+function hMouseWheel(evt) { var g = document.getElementById('.graph'); do_zoom(evt.detail,getP(evt));}
+function zoom(delta) { var q = document.documentElement.createSVGPoint(); q.x = window.innerWidth/2; q.y = window.innerHeight/2; do_zoom(delta,q);}
+function do_zoom(delta,q) {
+  var g = document.getElementById('.graph'); 
+  var p = q.matrixTransform(g.getCTM().inverse()); 
+  var tg = document.getElementById('target');
+  if (delta<0) { tg.firstChild.setAttribute('display','inline'); } else { tg.firstChild.nextSibling.setAttribute('display','inline'); }
+  tg.setAttribute('transform','translate(' + q.x + ',' + q.y + ')');
+  var k = document.documentElement.createSVGMatrix().translate(p.x,p.y).scale(1+delta/-90).translate(-p.x,-p.y); 
+  setCTM(g, g.getCTM().multiply(k)); 
+  if(typeof(stF) == "undefined") stF = g.getCTM().inverse(); 
+  stF = stF.multiply(k.inverse()); 
+  document.getElementById('zoom').firstChild.nodeValue = (100.0/stF.a).toFixed(0)+ '%';
+  setTimeout('hidetarget()',400);
+}
+function hidetarget() {var tg = document.getElementById('target'); tg.firstChild.setAttribute('display','none'); tg.firstChild.nextSibling.setAttribute('display','none');}"""
+        o = '<script %s type="text/ecmascript">\n/*<![CDATA[*//*---->*/\n'%_XLINKNS
+        return o + self.include_js_zoom_pan.__doc__  + '\n/*--*//*]]>*/</script>\n'
+
+    def user_interface(self):
+        "_"
+        o = '<text id="zoom"  x="99%" y="12" title="zoom factor">100%</text>\n'
+        o += '<svg id="zoomin" title="zoom in" onclick="zoom(-10);" viewBox="0 0 20 20" y="18" width="99%" height="20" preserveAspectRatio="xMaxYMin meet"><rect height="100%" width="20" fill="lightgray" stroke-width="0"/><rect x="3" y="8" height="20%" width="14" fill="white"/><rect x="8" y="3" height="70%" width="4" fill="white"/></svg>'
+        o += '<svg id="zoomout" title="zoom out" onclick="zoom(10);" viewBox="0 0 20 20" y="40" width="99%" height="20" preserveAspectRatio="xMaxYMin meet"><rect height="100%" width="20" fill="lightgray" stroke-width="0"/><rect x="3" y="8" height="20%" width="14" fill="white"/></svg>'
+        o += '<g id="target" transform="translate(0,0)" fill="none" stroke-width="1" stroke="red"><path display="none" d="M-50,-40L-50,-50L-40,-50M40,-50L50,-50L50,-40M50,40L50,50L40,50M-40,50L-50,50L-50,40"/><path display="none" d="M-60,-50L-50,-50L-50,-60M50,-60L50,-50L60,-50M60,50L50,50L50,60M-50,60L-50,50L-60,50"/></g>'
+        return o
+
+    def gen_svg(self, ast, box={}):
+        "svg"
+        #seq = self.toposort(edges,allT)
+        o = '<svg %s>\n'%_SVGNS + self.gen_svg_header(True if box else False)
+        if box: 
+            nodes, edges = ast
+            o += '<title id=".title">%s</title>\n'%__title__ + favicon() + logo(.02) + '\n' + self.include_js_zoom_pan() + self.user_interface()
+            o += '<g id=".graph">\n'
+            for n in box:
+                t = nodes[n][1]
+                mx, my = __DATA_svg__[0][t][4], __DATA_svg__[0][t][5]
+                box[n][:4] = [sum(p) for p in zip(box[n][:4],(-mx, -my, 2*mx, 2*my))]
+                o += '<rect stroke="red" stroke-width="2" fill="none" x="%s" y="%s" width="%s" height="%s"/>'%tuple(box[n][:4])
+                o += '<text class="node" id="{}" x="{}" y="{}">{}</text>\n'.format(n, box[n][4], box[n][5], n) 
+            o += ' <g id=".connectors" >\n'
+            for e in edges:
+                d = npath(box[e[0][0]],box[e[1][0]])
+                o += '  <path d="{}"/>'.format(d)
+            o += ' </g>\n' # connectors
+            o += '</g>\n' # graph
+        else:
+            o += self.include_js()
+            pos, ratio = self.layout(ast), 4
+            for n in pos:
+                x, y, content = pos[n][0]*ratio, pos[n][1]*ratio, n
+                o += '<text id="{}" x="{}" y="{}">{}</text>\n'.format(n, x, y, content) 
+        return o + '</svg>\n'
+
+    def toposort(self, edges):
+        "returns topologic sort"
+        def tsort(d):
+            while True:
+                ordered = set(item for item, dep in d.items() if not dep)
+                if not ordered: break
+                yield ','.join(sorted(ordered))
+                d = { item: (dep - ordered) for item,dep in d.items() if item not in ordered }
+            if d: # cycle!
+                yield 
+        data = {}
+        for e in edges:
+            n1,n2 = e[0][0],e[1][0]
+            data.setdefault(n1,[]).append(n2)
+            if not data.has_key(n2): data[n2] = []
+        res = [z for z in tsort({i:set(data[i]) for i in data})]
+        res.reverse()
+        return res
+
+    def gen_svg_header(self, full=False):
+        "_"
+        o = '<style type="text/css">\n'
+        o += '@font-face{font-family:Graublau; src: url(\'./fonts/GraublauWeb.otf\') format("opentype");}\n'
+        o += '@font-face{font-family:vag; src: url(\'./fonts/VAG-HandWritten.otf\') format("opentype");}\n'
+        o += 'text{font-family:helvetica neue,helvetica,arial,sans-serif;}\n'
+        o += 'text.tiny,tspan.tiny{font-family:helvetica neue,helvetica,arial,sans-serif;font-size: 4px;fill:DarkSlateGray;}\n'
+        o += 'tspan.body{font-family:helvetica neue,helvetica,arial,sans-serif;font-size: .5em;fill:DarkSlateGray;}\n'
+        o += 'text.node{font-size: 1em;}\ntext#zoom{font-size: .8em;fill:lightgray;text-anchor:end;}\n'
+        if full:
+            o += 'svg#zoomin,svg#zoomout{cursor:pointer;}\n'
+            o += 'path{stroke:black;}\n'
+            o += 'g#target path{stroke:red;}\n'
+        o += '</style>'
+        return o + '\n'
 
     def gen_c(self, ast):
         "c"
@@ -641,6 +776,89 @@ class u:
     def gen_systemc(self, ast):
         "_"
         return ''
+
+    def gen_xml(self, ast):
+        """u,node,edge{display:block;} node{color:blue;} edge{color:green;}
+u:before{display:block;text-align:center;font-size:20pt;content: '⊔ XML serialization';}
+u:after{display:block;font-size:8pt;text-align:right;content: '[' attr(digest) ']';}
+node{display:block;font-size:10pt;} 
+node:before{display:block;font-size:12pt;content: 'Node: 'attr(id)' Parent: ('attr(parent)') Type: ['attr(type)'] Separator:'attr(separator)} 
+edge{display:block;font-size:10pt;} 
+edge:before{display:block;font-size:12pt;content: 'Edge: 'attr(src)' port:('attr(src_port)') -> 'attr(dst)' port:('attr(dst_port)') Type: [' attr(type)']'}
+"""
+        nodes, edges = ast
+        o = '<?xml-stylesheet type="text/css" href="data:text/css,{}"?>\n'.format(self.gen_xml.__doc__)
+        o += '<u digest="{}">\n<nodes>\n'.format(__digest__.decode('utf-8'))
+        for n in nodes: 
+            par = ' parent="{}"'.format(nodes[n][0]) if nodes[n][0] else ''
+            sep = ' separator="{}"'.format(nodes[n][2]) if nodes[n][2] else ''
+            typ = ' type="{}"'.format(nodes[n][1]) if nodes[n][1] else ''
+            o += '  <node id="{}"{}{}{}'.format(n, par, typ, sep)
+            o += '>\n   {}\n </node'.format(nodes[n][3]) if nodes[n][3] else '/'
+            o += '>\n'
+        o += '</nodes>\n<edges>\n'
+        for e in edges: 
+            typ = ' type="{}"'.format(e[3]) if e[3] else ''
+            arr = ' arrow="{}"'.format(e[2]) if e[2] else ''
+            psrc = ' src_port="{}"'.format(__DATA_ports__[e[3]][e[0][1]]) if e[0][1] != None else ''
+            pdst = ' dst_port="{}"'.format(__DATA_ports__[e[3]][e[1][1]]) if e[1][1] != None else ''       
+            o += '  <edge src="{}"{} dst="{}"{}{}{}'.format(e[0][0], psrc, e[1][0], pdst, typ, arr)
+            o += '>\n   {}\n </edge'.format(e[4]) if e[4] else '/' 
+            o += '>\n'
+        return o + '</edges>\n</u>' 
+
+# utilities
+
+def npath(b1, b2):
+    "computes svg path for linking two boxes edges"
+    x1, y1, x2, y2 = b1[0] + b1[2]/2, b1[1] + b1[3]/2, b2[0] + b2[2]/2, b2[1] + b2[3]/2
+    h1, l1, h2, l2 = 1 + b1[3]/2, 1 + b1[2]/2, 1 + b2[3]/2, 1 + b2[2]/2
+    if x1 == x2:
+        if y1 < y2:  
+            y1 += h1
+            y2 -= h2
+        else: 
+            y1 -= h1
+            y2 += h2
+    elif y1 == y2:
+        if x1 < x2: 
+            x1 += l1
+            x2 -= l2
+        else: 
+            x1 -= l1
+            x2 += l2
+    else:
+        Q, R = x1-x2,y1-y2
+        P = Q/R
+        if abs(P) < l1/h1:
+            if R < 0: 
+                y1 += h1 
+                x1 += h1*P
+            else: 
+                y1 -= h1
+                x1 -= h1*P
+        else:
+            if Q < 0:
+                x1 += l1
+                y1 += l1/P
+            else:
+                x1 -= l1
+                y1 -= l1/P
+        if abs(P) < l2/h2:
+            if R>0: 
+                y2 += h2 
+                x2 += h2*P
+            else: 
+                y2 -= h2
+                x2 -= h2*P
+        else:
+            if Q>0:
+                x2 += l2
+                y2 += l2/P
+            else:
+                x2 -= l2
+                y2 -= l2/P
+    return 'M%s,%sL%s,%s'%(x1, y1, x2, y2)
 
 # (1) Doc generation 
 
@@ -1030,9 +1248,9 @@ def htail():
 def application(environ, start_response):
     """ WSGI Web application """
     s, mime, o, myu, host = urllib.parse.unquote(environ['QUERY_STRING']), 'text/plain; charset=utf-8', 'Error!', u(), environ['SERVER_NAME']
-    lang, gid, arg, act, fname = None, None, None, None, 'u.py'
+    lang, mod, gid, arg, act, fname = None, None, None, None, None, 'u.py'
     if reg(re.match(r'\s*(%s$|)(_?)(%s|)&?((\w{10})|(.*))\s*$' % ('$|'.join(__ACTIONS__), '|'.join(__OUT_LANG__)), s, re.I)):
-        act, lang, gid, arg = reg.v.group(1), reg.v.group(3), reg.v.group(5), reg.v.group(6) 
+        act, mod, lang, gid, arg = reg.v.group(1), reg.v.group(2), reg.v.group(3), reg.v.group(5), reg.v.group(6) 
     if act:
         if act.lower() in ('pdf', 'paper', 'beamer'):
             mime, name = 'application/pdf', 'beamer_u3' if act == 'beamer' else 'u3'
@@ -1064,8 +1282,14 @@ def application(environ, start_response):
         elif environ['REQUEST_METHOD'].lower() == 'put':
             arg = environ['wsgi.input'].read().decode('utf-8')
         if lang:
+            if lang in ('xml','svg') and mod: mime = 'application/xhtml+xml; charset=utf-8'
             if arg:
-                o = eval('myu.headfoot(myu.gen_{}, lang, host)(myu.parse(arg))'.format(lang))
+                if lang == 'svg' and environ['REQUEST_METHOD'].lower() == 'post': 
+                    raw = environ['wsgi.input'].read().decode('utf-8')
+                    o = myu.gen_svg(myu.parse(arg), eval(urllib.parse.unquote(raw[2:])))
+                    #o += '<!-- %s -->'%urllib.parse.unquote(raw[2:])
+                else:
+                    o = eval('myu.headfoot(myu.gen_{}, lang, host)(myu.parse(arg))'.format(lang))
             else:
                 if environ['REQUEST_METHOD'].lower() == 'post':
                     arg = '\n'.join(environ['wsgi.input'].read().decode('utf-8').split('\n')[4:-2])
@@ -1089,7 +1313,7 @@ def put(server, service, content):
     h.request('PUT', service, content)
     return h.getresponse().read().decode('utf-8')
 
-if __name__ == '__main__':
+def command_line():
     " Command line"
     import getopt, http.client
     opts, args = getopt.getopt(sys.argv[1:], 'h:f:s', ['host=', 'format=', 'stdin'])
@@ -1125,5 +1349,8 @@ if __name__ == '__main__':
             o = put(host, '/u3?%s' % o, data)
         print (o)
 
+if __name__ == '__main__':
+    " Command line"
+    command_line()
 # end    
     

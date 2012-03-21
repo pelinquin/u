@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+  <xs:element name="node">
+    <xs:complexType mixed="true">
+      <xs:sequence minOccurs="0" maxOccurs="unbounded">
+	<xs:element ref="node" minOccurs="0"/> 
+      </xs:sequence>
+      <xs:attribute name="id" type="xs:ID" use="required"/> 
+      <xs:attribute name="type" type="xs:string"/> 
+    </xs:complexType>
+  </xs:element> 
+  <xs:element name="edge">
+    <xs:complexType>
+      <xs:simpleContent>
+	<xs:extension base="xs:string">
+	  <xs:attribute name="src" type="xs:IDREF" use="required"/> 
+	  <xs:attribute name="dst" type="xs:IDREF" use="required"/> 
+	  <xs:attribute name="src_port" type="xs:integer"/>  
+	  <xs:attribute name="dst_port" type="xs:integer"/> 
+	  <xs:attribute name="type" type="xs:string"/> 
+	</xs:extension>
+      </xs:simpleContent>
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="nodes">
+    <xs:complexType>
+      <xs:sequence minOccurs="0" maxOccurs="unbounded">
+	<xs:element ref="node" minOccurs="0"/> 
+      </xs:sequence>
+      <xs:attribute name="nb" type="xs:integer"/> 
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="edges">
+    <xs:complexType>
+      <xs:sequence minOccurs="0" maxOccurs="unbounded">
+	<xs:element ref="edge" minOccurs="0"/> 
+      </xs:sequence>
+      <xs:attribute name="nb" type="xs:integer"/> 
+    </xs:complexType>
+  </xs:element>
+  <xs:element name="u">
+    <xs:complexType>
+      <xs:sequence>
+	<xs:element ref="nodes" minOccurs="1" maxOccurs="1"/> 
+	<xs:element ref="edges" minOccurs="1" maxOccurs="1"/> 
+      </xs:sequence>
+      <xs:attribute name="digest" type="xs:string" use="required"/>   
+    </xs:complexType>
+    <xs:key name="myId">
+      <xs:selector xpath="./nodes/node"/>
+      <xs:field xpath="@id"/>
+    </xs:key>
+    <xs:keyref name="mySrc" refer="myId">
+      <xs:selector xpath="./edges/edge"/>
+      <xs:field xpath="@src"/>
+    </xs:keyref>
+    <xs:keyref name="myDst" refer="myId">
+      <xs:selector xpath="./edges/edge"/>
+      <xs:field xpath="@dst"/>
+    </xs:keyref>
+  </xs:element>
+</xs:schema>
