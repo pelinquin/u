@@ -194,7 +194,7 @@ __DATA_systemc__    = ({None: (), }, {None:(), })
 __DATA_xml__        = ({None: (), }, {None:(), })
 
 __IN_MODEL__ = {
-    'UML':                   'A->B', 
+    'UML':                   'myc:C', 
     'SysML':                 'A->B', 
     'AADL-Graph':            'A->B', 
     'Marte':                 'A->B', 
@@ -266,6 +266,11 @@ __AST_SET__ = [
     ('Delimiter:$',            'M$content$'),
     ('Delimiter:()',           'N(content)'),
     ('Delimiter:[]',           'N[content]'),
+    ('CustomDelimiter1',       'O*/@ content */@'),
+    ('CustomDelimiter2',       'P*/* content */*'),
+    ('CustomDelimiter3',       'Q/*/ content /*/'),
+    ('CustomDelimiter4',       'R+++ content +++'),
+    ('CustomDelimiter5',       'S**/ content **/'),
     ('WordId',                 'Aaa'),
     ('NotFirstDigit',          'A1'),
     ('FirstDigit',             '1A'),
@@ -371,11 +376,11 @@ __AST_SET__ = [
 def gettypes(ast):
     "_"
     nl, el = {'':True}, {'':True}
-    Nodes, Edges = ast
-    for n in Nodes:
-        if len(Nodes[n]) > 1:
-            nl[Nodes[n][1]] = True 
-    for e in Edges:
+    nodes, edges = ast
+    for n in nodes:
+        if len(nodes[n]) > 1:
+            nl[nodes[n][1]] = True 
+    for e in edges:
         if len(e) > 3:
             el[e[3]] = True 
     return nl, el
@@ -392,43 +397,45 @@ class u:
             self.m[l] = eval('__DATA_%s__' % l)
 
     def addedges(self, child, target, cli):
-        "utils"
-        Edges = []
+        "not used!"
+        edges = []
         for c in child:
             tc = range(-int(c[1])) if c[1] and int(c[1]) < 0 else [c[1]]
             for i in target:
                 ti = range(-int(i[1])) if i[1] and int(i[1]) < 0 else [i[1]]
                 for p in tc:
                     for q in ti:
-                        Edges.append(((c[0], p), (i[0], q)) + cli)
-        return Edges
+                        edges.append(((c[0], p), (i[0], q)) + cli)
+        return edges
 
     def addedge(self, c, i, cli):
         "utils"
-        Edges = []
+        edges = []
         tc = range(-int(c[1])) if c[1] and int(c[1]) < 0 else [c[1]]
         ti = range(-int(i[1])) if i[1] and int(i[1]) < 0 else [i[1]]
         for p in tc:
             for q in ti:
-                Edges.append(((c[0], p), (i[0], q)) + cli)
-        return Edges
+                edges.append(((c[0], p), (i[0], q)) + cli)
+        return edges
 
     def typeLabel(self, g, edge=True):
         "_"
         if edge:
             lab = g[16] if g[16] else g[15] if g[15] else g[14]
             typ = g[17] if g[17] else g[11]
-            res = (__EDGE_T__.index(g[10]+g[18]), typ, lab)
+            sep = g[13] if g[13] else g[12][0] + g[12][-1] if g[12] else None 
+            res = (__EDGE_T__.index(g[10]+g[18]), typ, sep, lab)
         else:
             typ = g[8] if g[8] else g[2]
-            lab = g[7] if g[7] else g[6] if g[6] else g[5] 
-            nid = g[1] if g[1] else re.sub(r'\W', '', '_%s'%lab.lower())[:10] if lab else '__%s' % typ
-            res = (nid, typ, lab)
+            lab = g[7] if g[7] else g[6] if g[6] else g[5]
+            sep = g[4] if g[4] else g[3][0] + g[3][-1] if g[3] else None 
+            nid = g[1] if g[1] else re.sub(r'\W', '', '_%s' % lab.lower())[:9] if lab else '__%s' % typ
+            res = (nid, typ, sep, lab)
         return res
 
     def parse(self, x):
         "kernel parser"
-        Nodes, Edges, = {}, []
+        nodes, edges, = {}, []
         sak = [(None, None),] # for parent setting
         sgl, cli, stl = False, (), [[],] # for edge setting
         for m in re.compile(__RE_U__, re.U|re.X|re.S).finditer(x):
@@ -446,31 +453,35 @@ class u:
                     sak[-1] = (None, None)
                     cli, sgl = self.typeLabel(m.groups()), True
                 else: # node
-                    (nid, typ, lab) = self.typeLabel(m.groups(), False)
+                    (nid, typ, sep, lab) = self.typeLabel(m.groups(), False)
                     por, prt = self.getport(typ, m.group(10)), sak[-2][0] if len(sak)>1 else None
                     if not prt and len(stl)>1: stl[-2] = []
                     if sgl and stl[-1]: 
-                        Edges += self.addedge(stl[-1][-1], (nid, por), cli) 
+                        edges += self.addedge(stl[-1][-1], (nid, por), cli) 
                     sak[-1], sgl = (nid, por), False
                     stl[-1].append((nid, por))
-                    sep = __NODE_T__.index(m.group(4)[0]) if m.group(4) else None
-                    Nodes[nid] = (prt, typ, sep, lab)
-        return Nodes, Edges
+                    nodes[nid] = (prt, typ, sep, lab)
+        return nodes, edges
 
-    def format_node(self, nodes, n):
+    def format_node(self, n, nod):
         "_"
-        typ = ':%s'%nodes[n][1] if nodes[n][1] else ''
-        st1, st2 = nodes[n][2], nodes[n][2]
-        #...
-        lab = '(%s)'%nodes[n][3] if nodes[n][3] else ''
+        typ = ':%s' % nod[1] if nod[1] else ''
+        [st1, st2] = nod[2] if nod[2] and len(nod[2]) == 2 else [nod[2], nod[2]]
+        lab = '%s%s%s' % (st1, nod[3], st2) if nod[3] else ''
         return '{}{}{}'.format(n, typ, lab)
+
+    def format_edge(self, e):
+        "_"
+        [st1, st2] = e[4] if e[4] and len(e[4]) == 2 else [e[4], e[4]]
+        lab, typ = '%s%s%s' % (st1, e[5], st2) if e[5] else '', '%s' % e[3] if e[3] else ''
+        return '{}{}'.format(typ, lab)
 
     def unparse(self, ast):
         " returns an optimized u string from an AST"
         nodes, edges = ast
         count = {}
         for e in edges:
-            for x in (e[0][0],e[1][0]):
+            for x in (e[0][0], e[1][0]):
                 if not nodes[x][0]:
                     count[x] = count[x] + 1 if x in count else 0
         o, tree = '', {}
@@ -488,22 +499,21 @@ class u:
                     tree[n] = [] 
         #o += 'tree{}\n'.format(tree)
         for n in tree:
-            o += self.format_node(nodes, n)
+            o += self.format_node(n, nodes[n])
             if tree[n]:
                 o += '{'
                 for c in tree[n]:
-                    o += self.format_node(nodes, c) + ' '
+                    o += self.format_node(c, nodes[c]) + ' '
                 o = o[:-1] + '}'
             o += ' '
         if tree:
             o += '\n'
         for e in edges:
-            (lab, typ) = ('(%s)'%e[4] if e[4] else '', '%s'%e[3] if e[3] else '')
-            (p0, p1, nr) = ('.%s'%e[0][1] if e[0][1] != None else '', '.%s'%e[1][1] if e[1][1] != None else '', [])
+            (p0, p1, nr) = ('.%s'%e[0][1] if e[0][1] != None else '', '.%s' % e[1][1] if e[1][1] != None else '', [])
             for n in (e[0][0], e[1][0]):
-                nr.append(self.format_node(nodes, n) if n in count and count[n] == 0 else n)                     
+                nr.append(self.format_node(n, nodes[n]) if n in count and count[n] == 0 else n)                     
             arrow = __EDGE_T__[e[2]]
-            o += '{}{} {}{}{}{} {}{} '.format(nr[0], p0, arrow[0], typ, lab, arrow[1], nr[1], p1)
+            o += '{}{} {}{}{} {}{} '.format(nr[0], p0, arrow[0], self.format_edge(e), arrow[1], nr[1], p1)
         if edges:
             o += '\n'
         return o 
@@ -521,7 +531,7 @@ class u:
         return vpo
 
     def headfoot(self, appli, lang='python', host='127.0.0.1'):
-        " Print header "
+        "Print header"
         def app(ast):
             (sc, ec, head) = __OUT_LANG__[lang][1]
             nodes, edges = ast
@@ -540,6 +550,8 @@ class u:
                 if n in __DATA_ports__:
                     o += '%s Node type:"%s" Ports: %s %s\n' % (sc, n, __DATA_ports__[n], ec)
             o += '\n'
+            for e in et:
+                pass
             return o + appli(ast) + '\n{} {} Nodes {} Edges {: >30} {}'.format(sc, len(nodes), len(edges), 'the end of file.', ec)
         return app
 
@@ -560,9 +572,9 @@ class u:
         nodes, edges = ast
         bbx, bby, pos, d = None, None, {}, 'digraph G { rankdir=%s ' % rankdir
         for n in nodes:
-            d += ' %s[label="%s"];'%(n, n)
+            d += ' %s[label="%s"];' % (n, n)
         for e in edges:
-            d += ' %s->%s %s'%(e[0][0], e[1][0], '') 
+            d += ' %s->%s %s' % (e[0][0], e[1][0], '') 
         d += '}' 
         #print (d) # for debug
         p = subprocess.Popen(('dot'), stdout=subprocess.PIPE, stdin=subprocess.PIPE)
@@ -600,7 +612,7 @@ window.onload = function () {
   }
   if (Object.keys(box).length != 0) { submitURL(box); }
 }"""
-        o = '<script %s type="text/ecmascript">\n/*<![CDATA[*//*---->*/\n'%_XLINKNS
+        o = '<script %s type="text/ecmascript">\n/*<![CDATA[*//*---->*/\n' % _XLINKNS
         return o + self.include_js.__doc__  + '\n/*--*//*]]>*/</script>\n'
 
     def include_js_zoom_pan(self):
@@ -628,7 +640,7 @@ function do_zoom(delta,q) {
   setTimeout('hidetarget()',400);
 }
 function hidetarget() {var tg = document.getElementById('target'); tg.firstChild.setAttribute('display','none'); tg.firstChild.nextSibling.setAttribute('display','none');}"""
-        o = '<script %s type="text/ecmascript">\n/*<![CDATA[*//*---->*/\n'%_XLINKNS
+        o = '<script %s type="text/ecmascript">\n/*<![CDATA[*//*---->*/\n' % _XLINKNS
         return o + self.include_js_zoom_pan.__doc__  + '\n/*--*//*]]>*/</script>\n'
 
     def user_interface(self):
@@ -642,20 +654,20 @@ function hidetarget() {var tg = document.getElementById('target'); tg.firstChild
     def gen_svg(self, ast, box={}):
         "svg"
         #seq = self.toposort(edges,allT)
-        o = '<svg %s>\n'%_SVGNS + self.gen_svg_header(True if box else False)
+        o = '<svg %s>\n' % _SVGNS + self.gen_svg_header(True if box else False)
         if box: 
             nodes, edges = ast
-            o += '<title id=".title">%s</title>\n'%__title__ + favicon() + logo(.02) + '\n' + self.include_js_zoom_pan() + self.user_interface()
+            o += '<title id=".title">%s</title>\n' % __title__ + favicon() + logo(.02) + '\n' + self.include_js_zoom_pan() + self.user_interface()
             o += '<g id=".graph">\n'
             for n in box:
                 t = nodes[n][1]
                 mx, my = __DATA_svg__[0][t][4], __DATA_svg__[0][t][5]
                 box[n][:4] = [sum(p) for p in zip(box[n][:4],(-mx, -my, 2*mx, 2*my))]
-                o += '<rect stroke="red" stroke-width="2" fill="none" x="%s" y="%s" width="%s" height="%s"/>'%tuple(box[n][:4])
+                o += '<rect stroke="red" stroke-width="2" fill="none" x="%s" y="%s" width="%s" height="%s"/>' % tuple(box[n][:4])
                 o += '<text class="node" id="{}" x="{}" y="{}">{}</text>\n'.format(n, box[n][4], box[n][5], n) 
             o += ' <g id=".connectors" >\n'
             for e in edges:
-                d = npath(box[e[0][0]],box[e[1][0]])
+                d = npath(box[e[0][0]], box[e[1][0]])
                 o += '  <path d="{}"/>'.format(d)
             o += ' </g>\n' # connectors
             o += '</g>\n' # graph
@@ -674,13 +686,13 @@ function hidetarget() {var tg = document.getElementById('target'); tg.firstChild
                 ordered = set(item for item, dep in d.items() if not dep)
                 if not ordered: break
                 yield ','.join(sorted(ordered))
-                d = { item: (dep - ordered) for item,dep in d.items() if item not in ordered }
+                d = { item: (dep - ordered) for item, dep in d.items() if item not in ordered }
             if d: # cycle!
                 yield 
         data = {}
         for e in edges:
-            n1,n2 = e[0][0],e[1][0]
-            data.setdefault(n1,[]).append(n2)
+            n1, n2 = e[0][0], e[1][0]
+            data.setdefault(n1, []).append(n2)
             if not data.has_key(n2): data[n2] = []
         res = [z for z in tsort({i:set(data[i]) for i in data})]
         res.reverse()
@@ -784,28 +796,25 @@ u:after{display:block;font-size:8pt;text-align:right;content: '[' attr(digest) '
 node{display:block;font-size:10pt;} 
 node:before{display:block;font-size:12pt;content: 'Node: 'attr(id)' Parent: ('attr(parent)') Type: ['attr(type)'] Separator:'attr(separator)} 
 edge{display:block;font-size:10pt;} 
-edge:before{display:block;font-size:12pt;content: 'Edge: 'attr(src)' port:('attr(src_port)') -> 'attr(dst)' port:('attr(dst_port)') Type: [' attr(type)']'}
-"""
+edge:before{display:block;font-size:12pt;content: 'Edge: 'attr(src)' port:('attr(src_port)') -> 'attr(dst)' port:('attr(dst_port)') Type: [' attr(type)']'}"""
         nodes, edges = ast
-        o = '<?xml-stylesheet type="text/css" href="data:text/css,{}"?>\n'.format(self.gen_xml.__doc__)
-        o += '<u digest="{}">\n<nodes>\n'.format(__digest__.decode('utf-8'))
+        o = '<?xml-stylesheet type="text/css" href="data:text/css,{}"?>\n\n'.format(self.gen_xml.__doc__)
+        o += '<u digest="{}">\n <nodes nb="{}">\n'.format(__digest__.decode('utf-8'), len(nodes))
         for n in nodes: 
             par = ' parent="{}"'.format(nodes[n][0]) if nodes[n][0] else ''
-            sep = ' separator="{}"'.format(nodes[n][2]) if nodes[n][2] else ''
-            typ = ' type="{}"'.format(nodes[n][1]) if nodes[n][1] else ''
-            o += '  <node id="{}"{}{}{}'.format(n, par, typ, sep)
-            o += '>\n   {}\n </node'.format(nodes[n][3]) if nodes[n][3] else '/'
+            typ = ' type="{}{}"'.format(nodes[n][1], html.escape(nodes[n][2]) if nodes[n][2] else '') if nodes[n][1] or nodes[n][2] else ''
+            o += '  <node id="{}"{}{}'.format(n, par, typ)
+            o += '>\n   {}\n  </node'.format(nodes[n][3]) if nodes[n][3] else '/'
             o += '>\n'
-        o += '</nodes>\n<edges>\n'
+        o += ' </nodes>\n <edges nb="%s">\n' % len(edges)
         for e in edges: 
-            typ = ' type="{}"'.format(e[3]) if e[3] else ''
-            arr = ' arrow="{}"'.format(e[2]) if e[2] else ''
+            typ = ' type="{}{}{}"'.format(e[3] if e[3] else '', e[2], html.escape(e[4]) if e[4] else '') 
             psrc = ' src_port="{}"'.format(__DATA_ports__[e[3]][e[0][1]]) if e[0][1] != None else ''
             pdst = ' dst_port="{}"'.format(__DATA_ports__[e[3]][e[1][1]]) if e[1][1] != None else ''       
-            o += '  <edge src="{}"{} dst="{}"{}{}{}'.format(e[0][0], psrc, e[1][0], pdst, typ, arr)
-            o += '>\n   {}\n </edge'.format(e[4]) if e[4] else '/' 
+            o += '  <edge src="{}"{} dst="{}"{}{}'.format(e[0][0], psrc, e[1][0], pdst, typ)
+            o += '>\n   {}\n  </edge'.format(html.escape(e[5])) if e[5] else '/' 
             o += '>\n'
-        return o + '</edges>\n</u>' 
+        return o + ' </edges>\n</u>\n' 
 
 # utilities
 
@@ -828,7 +837,7 @@ def npath(b1, b2):
             x1 -= l1
             x2 += l2
     else:
-        Q, R = x1-x2,y1-y2
+        Q, R = x1-x2, y1-y2
         P = Q/R
         if abs(P) < l1/h1:
             if R < 0: 
@@ -845,20 +854,20 @@ def npath(b1, b2):
                 x1 -= l1
                 y1 -= l1/P
         if abs(P) < l2/h2:
-            if R>0: 
+            if R > 0: 
                 y2 += h2 
                 x2 += h2*P
             else: 
                 y2 -= h2
                 x2 -= h2*P
         else:
-            if Q>0:
+            if Q > 0:
                 x2 += l2
                 y2 += l2/P
             else:
                 x2 -= l2
                 y2 -= l2/P
-    return 'M%s,%sL%s,%s'%(x1, y1, x2, y2)
+    return 'M%s,%sL%s,%s' % (x1, y1, x2, y2)
 
 # (1) Doc generation 
 
@@ -885,7 +894,7 @@ class latex:
         if beam:
             self.tex += r'\title[%s]{%s}' % (self.digest, title) + '\n'
             self.tex += r'\author{%s\inst{*}}\institute{*%s}' % (author, email) + '\n'
-            self.tex += r'\pgfdeclareimage[height=.6cm]{logo}{/home/laurent/u/rcf.png}' + r'\logo{\pgfuseimage{logo}}' + '\n'
+            self.tex += r'\pgfdeclareimage[height=.6cm]{logo}{%s/rcf.png}\logo{\pgfuseimage{logo}}' % os.path.dirname(os.path.abspath(__file__)) + '\n'
         else:
             self.tex += r'\title{\bf %s}' % title + '\n'
             self.tex += r'\author{%s -- \url{%s} \\' % (author, email) + '\n'
@@ -903,8 +912,9 @@ class latex:
         r"""\end{document}"""
         self.tex += latex.gen_pdf.__doc__ + '\n'
         open('%s.tex' % name, 'w').write(self.tex)
-        subprocess.Popen(('cd /tmp; pdflatex -interaction=batchmode /home/laurent/u/%s.tex 1>/dev/null' % name), shell=True).communicate()
-        shutil.move('/tmp/%s.pdf' % name, '/home/laurent/u/%s.pdf' % name)
+        here = os.path.dirname(os.path.abspath(__file__))
+        subprocess.Popen(('cd /tmp; pdflatex -interaction=batchmode %s/%s.tex 1>/dev/null' % (here, name)), shell=True).communicate()
+        shutil.move('/tmp/%s.pdf' % name, '%s/%s.pdf' % (here, name))
 
 class article (latex):
     r"\documentclass[a4paper,10pt]{article}"
@@ -916,6 +926,7 @@ class article (latex):
         self.tex += r'\begin{abstract}' + __doc__ + r'\end{abstract}' + '\n'
         
     def section(self, title, content):
+        "_"
         self.tex += r'\section{%s}' % title + '\n'
         self.tex += content + '\n'
 
@@ -946,8 +957,7 @@ class beamer (latex):
     
 def gen_doc():
     "article and beamer"
-    art = article(r'The $\sqcup$ Language', __author__, __email__)
-    sli = beamer(r'The $\sqcup$ Language', __author__, __email__)
+    art, sli = article(__title__, __author__, __email__), beamer(__title__, __author__, __email__)
     #
     art.section('chapitre', 'blabla')
     art.tex += art.insert_code('__RE_U__') 
@@ -960,8 +970,9 @@ The $\sqcup$ language is a {\bf Universal Graph Language};\\
 \item Symbol: $\bigsqcup$ \\
 \end{itemize} 
 """)
-    art.gen_pdf('u3')
-    sli.gen_pdf('beamer_u3')
+    name = os.path.basename(__file__)
+    art.gen_pdf(name)
+    sli.gen_pdf('beamer_' + name)
 
 # (2) Tests
 
@@ -1201,7 +1212,7 @@ h1{position:absolute;top:-8;left:60;} h6{position:absolute;top:0;right:10;}"""
 def table_test(par):
     "_"
     title = 'Parsing' if par else 'Unparsing'
-    o, uobj = '<h1>%s Test set</h1>\n<table>'%title, u()
+    o, uobj = '<h1>%s Test set</h1>\n<table>' % title, u()
     if par:
         o += '<tr><th>#</th><th>Description</th><th>⊔ input</th><th>Nodes</th><th>Edges</th></tr>\n'
         for x in __AST_SET__: 
@@ -1223,7 +1234,7 @@ def table_test(par):
 
 def table_about(host):
     "_"
-    o, uobj = '<h1>Help</h1>\n<table>', u()
+    o = '<h1>Help</h1>\n<table>'
     o += '<tr><th>#</th><th>Action</th><th>Example</th></tr>\n'
     n = 0
     for x in __ACTIONS__:
@@ -1234,7 +1245,7 @@ def table_about(host):
         o += '<tr><td><small>{:03d}</small></td><td>Output Language: {}</td><td><a href="u3?{}&A-&gt;B">http://{}/u3?{}&A-&gt;B</a></td></tr>\n'.format(n, x, x, host, x)
     for x in __IN_MODEL__:
         n, d = n + 1, html.escape(__IN_MODEL__[x])
-        o += '<tr><td><small>{:03d}</small></td><td>Input Model Type: {}</td><td><a href="u3?_svg&{}">http://{}/u3?_svg&{}</a></td></tr>\n'.format(n, x, d, host, d)
+        o += '<tr><td><small>{:03d}</small></td><td>Input Model Type: {}</td><td><a target="_blank" href="u3?_svg&{}">http://{}/u3?_svg&{}</a></td></tr>\n'.format(n, x, d, host, d)
     return o + '</table>'
 
 def hhead():
@@ -1309,6 +1320,7 @@ def application(environ, start_response):
 # (5) Command line
 
 def put(server, service, content):
+    "_"
     h = http.client.HTTPConnection(server)
     h.request('PUT', service, content)
     return h.getresponse().read().decode('utf-8')
@@ -1335,14 +1347,16 @@ def command_line():
             print (help('u'))
  
     for arg in args:
+        print ('ici'+arg)
         data = str(open(arg).read()) if os.path.isfile(arg) else arg
+        print (data)
         if host in ('localhost', '127.0.0.1'):
             myu = u()
             if lang:
                 o = eval('myu.headfoot(myu.gen_{}, lang, host)(myu.parse(arg))'.format(lang))
             else:
                 if arg:
-                    o = myu.headfoot(myu.gen_ast, 'python', host)(myu.parse(arg))
+                    o = myu.headfoot(myu.gen_ast, 'python', host)(myu.parse(data))
                 else:
                     o = open(__file__, 'r', encoding='utf-8').read()
         else:
