@@ -9,7 +9,7 @@
       <xs:attribute name="type" type="xs:string"/> 
     </xs:complexType>
   </xs:element> 
-  <xs:element name="edge">
+  <xs:element name="arc">
     <xs:complexType>
       <xs:simpleContent>
 	<xs:extension base="xs:string">
@@ -30,10 +30,10 @@
       <xs:attribute name="nb" type="xs:integer"/> 
     </xs:complexType>
   </xs:element>
-  <xs:element name="edges">
+  <xs:element name="arcs">
     <xs:complexType>
       <xs:sequence minOccurs="0" maxOccurs="unbounded">
-	<xs:element ref="edge" minOccurs="0"/> 
+	<xs:element ref="arc" minOccurs="0"/> 
       </xs:sequence>
       <xs:attribute name="nb" type="xs:integer"/> 
     </xs:complexType>
@@ -42,7 +42,7 @@
     <xs:complexType>
       <xs:sequence>
 	<xs:element ref="nodes" minOccurs="1" maxOccurs="1"/> 
-	<xs:element ref="edges" minOccurs="1" maxOccurs="1"/> 
+	<xs:element ref="arcs" minOccurs="1" maxOccurs="1"/> 
       </xs:sequence>
       <xs:attribute name="digest" type="xs:string" use="required"/>   
     </xs:complexType>
@@ -51,11 +51,11 @@
       <xs:field xpath="@id"/>
     </xs:key>
     <xs:keyref name="mySrc" refer="myId">
-      <xs:selector xpath="./edges/edge"/>
+      <xs:selector xpath="./arcs/arc"/>
       <xs:field xpath="@src"/>
     </xs:keyref>
     <xs:keyref name="myDst" refer="myId">
-      <xs:selector xpath="./edges/edge"/>
+      <xs:selector xpath="./arcs/arc"/>
       <xs:field xpath="@dst"/>
     </xs:keyref>
   </xs:element>

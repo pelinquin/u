@@ -23,7 +23,7 @@
 # Warning! Small bug in Emacs editor default font: 
 # swap ⊔ 'squarecap' (U+2293) and ⊓ 'squarecup' (U+2294) char!   
 
-# SHORT TODO LIST:
+# SHORT TO DO LIST:
 # - nested dot layout
 # - use python compiler module
 # - svg with proportional police size
@@ -125,10 +125,10 @@ __DATA_svg__ = ({
         'p': ('place','fill:black;','circle','fill:green;fill-opacity:.3;', 10, 2),
         't': ('transition','fill:white;','rect','fill:black;fill-opacity:.8;', 2, 40),
         }, {
-        None:'stroke:black; stroke-width:1.5; fill:none; marker-end:url(#.arrow);',
+        None:'stroke:red;   stroke-width:1;   fill:none; marker-end:url(#.arrow);',
         'r': 'stroke:black; stroke-width:1.5; fill:none; marker-start:url(#.r_arrow);',
-        'I': 'stroke:green; stroke-width:2; fill:none; marker-end:url(#.arrow);',
-        'L': 'stroke:red; stroke-width:3; fill:none; marker-end:url(#.arrow);',
+        'I': 'stroke:green; stroke-width:2;   fill:none; marker-end:url(#.arrow);',
+        'L': 'stroke:blue;  stroke-width:3;   fill:none; marker-end:url(#.arrow);',
         })
 
 __DATA_tikz__ = ({
@@ -200,7 +200,7 @@ __IN_MODEL__ = {
     'AADL-Graph':            'A->B', 
     'Marte':                 'A->B', 
     'PSL':                   'A->B', 
-    'Xcos':                  'A->B', 
+    'Xcos':                  '#pid controller\nP->S.0 I->S.1 D->S.2 S.3->Sys.in Sys.out->E.1 E.0->P E.0->I E.O->D', 
     'Kaos':                  'A->B', 
     'Entity-Relation-Graph': 'A->B', 
     'Tree-Diagram':          'A->B',
@@ -208,11 +208,12 @@ __IN_MODEL__ = {
     'Flowchart':             'A->B', 
     'Petri-net':             'A->B', 
     'State-Machine':         'A->B', 
-    'Markov-Chain':          'A->B', 
+    'Markov-Chain':          ':M{A B} A-[.6]>A B-[.3]>B A-[.4]>B-[.7]>A}', 
     'Behavior-Tree':         'A->B',
 } 
 
 __AST_SET__ = [
+    ('TypePropagation',        'A:T {B C:X}'),
     ('OptimizedUnparse',       'A"l1"->B"l2"'),
     ('Multidef',               'A"label" A:T A'),
     ('Nested',                 'A{B C{D E} F K{I}} G C{H}'),
@@ -375,10 +376,10 @@ __AST_SET__ = [
 
 # (0) Parser
 
-def gettypes(ast):
+def gettypes(uast):
     "_"
-    nl, el = {'':True}, {'':True}
-    nodes, arcs = ast
+    nl, el = {'':True}, {None:True}
+    nodes, arcs = uast
     for n in nodes:
         if len(nodes[n]) > 1:
             nl[nodes[n][1]] = True 
@@ -395,7 +396,7 @@ class u:
     def __init__(self):
         "Load types mapping"
         self.m = {}
-        def gen_x(self, ast):
+        def gen_x(self, uast):
             return 'TODO!'
         for l in __OUT_LANG__:
             self.m[l] = eval('__DATA_%s__' % l)
@@ -442,6 +443,8 @@ class u:
 
     def merge_attr(self, nid, nodes, prt, typ, sep, lab):
         "_"
+        if prt and typ == None:
+            typ = nodes[prt][1]
         if nid in nodes:
             tmp, i = list(nodes[nid]), 0
             for elt in (prt, typ, sep, lab):
@@ -495,9 +498,9 @@ class u:
         lab, typ = '%s%s%s' % (st1, e[5], st2) if e[5] else '', '%s' % e[3] if e[3] else ''
         return '{}{}'.format(typ, lab)
 
-    def unparse(self, ast):
+    def unparse(self, uast):
         " returns an optimized u string from an AST"
-        nodes, arcs = ast
+        nodes, arcs = uast
         count = {}
         for e in arcs:
             for x in (e[0][0], e[1][0]):
@@ -551,9 +554,9 @@ class u:
 
     def headfoot(self, appli, lang='python', host='127.0.0.1'):
         "Print header"
-        def app(ast):
+        def app(uast):
             (sc, ec, head) = __OUT_LANG__[lang][1]
-            nodes, arcs = ast
+            nodes, arcs = uast
             d = '{}'.format(datetime.datetime.now())
             o = '{}{} ⊔ Generated Code [{}] {}\n'.format(head, sc, d[:19], ec)
             o += '{} ******** Do not edit by hand! ******** {}\n'.format(sc, ec)
@@ -563,8 +566,9 @@ class u:
             o += '{} © Copyright 2012 Rockwell Collins, Inc {}\n'.format(sc, ec)
             o += '{} ** GNU General Public License  (v3) ** {}\n'.format(sc, ec) 
             o += '{} Output language: {} [{}] {}\n'.format(sc, lang, __OUT_LANG__[lang][2], ec)
-            o += '\n%s AST = %s %s\n\n' % (sc, re.sub(r'\-\-', '__', '%s %s' % ast), ec)
-            nt, et = gettypes(ast)
+            o += '\n%s AST = %s %s\n\n' % (sc, re.sub(r'\-\-', '__', '%s %s' % uast), ec)
+
+            nt, et = gettypes(uast)
             for n in nt:
                 if n in __DATA_ports__:
                     o += '%s Node type:"%s" Ports: %s %s\n' % (sc, n, __DATA_ports__[n], ec)
@@ -573,12 +577,29 @@ class u:
                 o += '' # language dependent!
                 #o += '%s Arc type:"%s" %s\n' % (sc, 'tmp', ec)
             o += '%s Topologic sort:%s %s\n' % (sc, self.toposort(arcs), ec)
-            return o + appli(ast) + '\n{} {} Nodes {} Arcs {: >30} {}'.format(sc, len(nodes), len(arcs), 'the end of file.', ec)
+
+            for n in nodes:
+                nod = nodes[n]
+                [st1, st2] = nod[2] if nod[2] and len(nod[2]) == 2 else [nod[2], nod[2]]
+                lab = '%s%s%s' % (st1, nod[3], st2) if nod[3] else ''
+                if lab:
+                    try:
+                        disp = ast.dump(ast.parse(nod[3]))
+                    except:
+                        try:
+                            disp = ast.dump(ast.parse(lab))
+                        except:
+                            try:
+                                disp = ast.dump(ast.parse('{%s}'%nod[3]))
+                            except:
+                                disp = 'Error in \'%s\'' % (nod[3])
+                    o += '%s \'%s\': %s %s\n' % (sc, n, disp, ec)
+            return o + appli(uast) + '\n{} {} Nodes {} Arcs {: >30} {}'.format(sc, len(nodes), len(arcs), 'the end of file.', ec)
         return app
 
-    def gen_ast(self, ast):
-        " ast "
-        nodes, arcs = ast
+    def gen_ast(self, uast):
+        " uast "
+        nodes, arcs = uast
         o = '# ⊔ Python Abstract Syntax Structure:\n\n'
         o += 'Nodes = {\n'
         for n in nodes:
@@ -588,9 +609,9 @@ class u:
             o += ' {},\n'.format(e)
         return o + ']\n'
 
-    def layout(self, ast, rankdir='TB'):
+    def layout(self, uast, rankdir='LR'):
         "Computes 2D automatic layout for graphics (tikz and svg) generation"
-        nodes, arcs = ast
+        nodes, arcs = uast
         bbx, bby, pos, d = None, None, {}, 'digraph G { rankdir=%s ' % rankdir
         for n in nodes:
             d += ' %s[label="%s"];' % (n, n)
@@ -672,35 +693,57 @@ function hidetarget() {var tg = document.getElementById('target'); tg.firstChild
         o += '<g id="target" transform="translate(0,0)" fill="none" stroke-width="1" stroke="red"><path display="none" d="M-50,-40L-50,-50L-40,-50M40,-50L50,-50L50,-40M50,40L50,50L40,50M-40,50L-50,50L-50,40"/><path display="none" d="M-60,-50L-50,-50L-50,-60M50,-60L50,-50L60,-50M60,50L50,50L50,60M-50,60L-50,50L-60,50"/></g>\n'
         return o
 
-    def gen_svg(self, ast, box={}):
+    def node_text(self, n, x, y , txt):
+        "_"
+        o, dy = ' <text class="node" id="{}" x="{}" y="{}">'.format(n, x, y), ''
+        for l in txt.split('\n'):
+            o += '<tspan x="{}" {}>{}</tspan>'.format(x, dy, l)
+            dy = 'dy="1em"'
+        return o + '</text>'
+
+    def node_ports(self, n, b , tab):
+        "_"
+        o = ''
+        for p in tab:
+            d = 200*(.5 + tab.index(p))/len(tab) - 100
+            x, y, anchor = (b[0]+1, b[1] + (d+100)*b[3]/100, 'start') if d<0 else (b[0] + b[2]-1, b[1] + (100-d)*b[3]/100, 'end')
+            o += ' <text class="port" x="{}" y="{}" dominant-baseline="middle" text-anchor="{}">{}</text>'.format(x, y, anchor, p)
+        return o 
+
+    def gen_svg(self, uast, box={}):
         "svg"
-        o = '<svg %s>\n' % _SVGNS + self.gen_svg_header(True if box else False)
+        nt, et = gettypes(uast)
+        o = '<svg %s>\n' % _SVGNS + self.gen_svg_header(nt, et, True if box else False) 
         if box: 
-            nodes, arcs = ast
+            nodes, arcs = uast
             seq = self.toposort(arcs)            
             o += '<title id=".title">%s</title>\n' % __title__ + favicon() + logo(.02) + '\n' + self.include_js_zoom_pan() + self.user_interface()
             o += '<g id=".graph">\n'
             for n in box:
                 t = nodes[n][1]
-                mx, my = __DATA_svg__[0][t][4], __DATA_svg__[0][t][5]
+                mx, my = __DATA_svg__[0][t][4] if t in __DATA_svg__[0] else 0, __DATA_svg__[0][t][5] if t in __DATA_svg__[0] else 0
                 box[n][:4] = [sum(p) for p in zip(box[n][:4],(-mx, -my, 2*mx, 2*my))]
                 o += ' <rect stroke="red" stroke-width="2" fill="none" x="%s" y="%s" width="%s" height="%s"/>\n' % tuple(box[n][:4])
-                lab = nodes[n][3] if nodes[n][3] != None else n
-                o += ' <text class="node" id="{}" x="{}" y="{}">{}</text>\n'.format(n, box[n][4], box[n][5], lab) 
+                o += self.node_ports(n, box[n], __DATA_ports__[t])
+                o += self.node_text(n, box[n][4], box[n][5], nodes[n][3] if nodes[n][3] != None else n)
             o += ' <g id=".arcs" >\n'
+            ne = 0
             for e in arcs:
-                d = npath(box[e[0][0]], box[e[1][0]])
-                o += '  <path d="{}"/>\n'.format(d)
+                ne += 1
+                l0 = (e[0][1], len(__DATA_ports__[nodes[e[0][0]][1]])) if e[0][1] != None else None
+                l1 = (e[1][1], len(__DATA_ports__[nodes[e[1][0]][1]])) if e[1][1] != None else None
+                o += '  <path id="e_{}" class="arc{}" d="{}"/>\n'.format(ne, e[3], npath(box[e[0][0]], box[e[1][0]], l0, l1))
+                if e[5] != None:
+                    o += '<text><textPath {} xlink:href="#e_{}" startOffset="50%">{}</textPath></text>'.format(_XLINKNS, ne, e[5]) 
             o += ' </g> <!--arcs -->\n'
             o += '</g> <!-- graph -->\n' 
         else:
-            nodes, arcs = ast # temporary use pos instead!
+            nodes, arcs = uast # temporary use pos instead!
             o += self.include_js()
-            pos, ratio = self.layout(ast), 4
+            pos, ratio = self.layout(uast, 'LR'), 4
             for n in pos:
                 x, y = pos[n][0]*ratio, pos[n][1]*ratio
-                lab = nodes[n][3] if nodes[n][3] != None else n
-                o += '<text id="{}" x="{}" y="{}">{}</text>\n'.format(n, x, y, lab) 
+                o += self.node_text(n, x, y, nodes[n][3] if nodes[n][3] != None else n) 
         return o + '</svg>\n'
 
     def toposort(self, arcs):
@@ -722,42 +765,65 @@ function hidetarget() {var tg = document.getElementById('target'); tg.firstChild
         res.reverse()
         return res
 
-    def gen_svg_header(self, full=False):
+    def svg_defs(self):
+        "_"
+        o = '<defs>'
+        o += '<marker id=".arrow" viewBox="0 0 500 500" refX="80" refY="50" markerUnits="strokeWidth" orient="auto" markerWidth="40" markerHeight="30"><polyline points="0,0 100,50 0,100 20,50" fill="#555"/></marker>'
+        o += '<marker id=".r_arrow" viewBox="0 0 500 500" refX="70" refY="50" markerUnits="strokeWidth" orient="auto" markerWidth="40" markerHeight="30"><polyline points="150,0 50,50 150,100 130,50" fill="#555"/></marker>'
+        o += '<radialGradient id=".grad" cx="0%" cy="0%" r="90%"><stop offset="0%" stop-color="#FFF"/><stop offset="100%" stop-color="#DDD" class="end"/></radialGradient>'
+        o += '<filter id=".shadow" filterUnits="userSpaceOnUse"><feGaussianBlur in="SourceAlpha" result="blur" stdDeviation="2"/><feOffset dy="3" dx="2" in="blur" result="offsetBlur"/><feMerge><feMergeNode in="offsetBlur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>'
+        return o + '</defs>\n'
+    
+    def gen_svg_header(self, ln, le, full=False):
         "_"
         o = '<style type="text/css">\n'
         o += '@font-face{font-family:Graublau; src: url(\'./fonts/GraublauWeb.otf\') format("opentype");}\n'
         o += '@font-face{font-family:vag; src: url(\'./fonts/VAG-HandWritten.otf\') format("opentype");}\n'
-        o += 'text{font-family:helvetica neue,helvetica,arial,sans-serif;}\n'
+        o += 'text,tspan{font-family:helvetica neue,helvetica,arial,sans-serif;}\n'
+        o += 'text,tspan{stroke:black; stroke-width:0;}\n'
         o += 'text.tiny,tspan.tiny{font-family:helvetica neue,helvetica,arial,sans-serif;font-size: 4px;fill:DarkSlateGray;}\n'
         o += 'tspan.body{font-family:helvetica neue,helvetica,arial,sans-serif;font-size: .5em;fill:DarkSlateGray;}\n'
-        o += 'text.node{font-size: 1em;}\ntext#zoom{font-size: .8em;fill:lightgray;text-anchor:end;}\n'
+        o += 'text.node tspan{font-size: 1em;}'
+        o += '\ntext#zoom{font-size: .8em;fill:lightgray;text-anchor:end;}\n'
         if full:
             o += 'svg#zoomin,svg#zoomout{cursor:pointer;}\n'
             o += 'path{stroke:black;}\n'
-            o += 'g#target path{stroke:red;}\n'
-        o += '</style>'
+            o += 'textPath {font-size: .6em; dominant-baseline:text-after-edge;}\n'
+            o += 'g#target path{stroke:red;}\n' 
+            o += 'text.port{font-size: .3em;}'
+            for e in le:
+                if e in __DATA_svg__[1]:
+                    o += 'path.arc%s { %s }\n' % (e, __DATA_svg__[1][e]) 
+        o += '</style>\n'
+        if full:
+            o += self.svg_defs()
         return o + '\n'
 
-    def gen_c(self, ast):
+    def gen_c(self, uast):
         "c"
-        nodes, arcs = ast
+        nodes, arcs = uast
         o = ''
-        pos = self.layout(ast)
         for n in nodes:
             o += ' \'{}\': {},\n'.format(n, nodes[n])
         for e in arcs:
             o += ' {},\n'.format(e)
         return o
 
-    def gen_python(self, ast):
+    def gen_python(self, uast):
         "python"
-        #nodes, arcs = ast
-        o = ''
-        #for n in nodes: o += ' \'{}\': {},\n'.format(n, nodes[n])
-        #for e in arcs: o += ' {},\n'.format(e)
+        nodes, arcs = uast 
+        seq = self.toposort(arcs) 
+        o = '\nif __name__ == \'__main__\':\n'
+        if seq != [None]:
+            for u in seq:
+                for i in u.split(','):
+                    if nodes[i][3]:
+                        o += '\t# node {}:\n'.format(i)
+                        for x in ast.parse(nodes[i][3]).body:
+                            o += '\t{} = {}\n'.format(x.targets[0].id, x.value.n)
         return o 
 
-    def gen_xml(self, ast):
+    def gen_xml(self, uast):
         """u,node,arc{display:block;} node{color:blue;} arc{color:green;}
 u:before{display:block;text-align:center;font-size:20pt;content: '⊔ XML serialization';}
 u:after{display:block;font-size:8pt;text-align:right;content: '[' attr(digest) ']';}
@@ -765,7 +831,7 @@ node{display:block;font-size:10pt;}
 node:before{display:block;font-size:12pt;content: 'Node: 'attr(id)' Parent: ('attr(parent)') Type: ['attr(type)'] Separator:'attr(separator)} 
 arc{display:block;font-size:10pt;} 
 arc:before{display:block;font-size:12pt;content: 'Arc: 'attr(src)' port:('attr(src_port)') -> 'attr(dst)' port:('attr(dst_port)') Type: [' attr(type)']'}"""
-        nodes, arcs = ast
+        nodes, arcs = uast
         o = '<?xml-stylesheet type="text/css" href="data:text/css,{}"?>\n\n'.format(self.gen_xml.__doc__)
         o += '<u digest="{}">\n <nodes nb="{}">\n'.format(__digest__.decode('utf-8'), len(nodes))
         for n in nodes: 
@@ -774,7 +840,8 @@ arc:before{display:block;font-size:12pt;content: 'Arc: 'attr(src)' port:('attr(s
             o += '  <node id="{}"{}{}'.format(n, par, typ)
             o += '>\n   {}\n  </node'.format(nodes[n][3]) if nodes[n][3] else '/'
             o += '>\n'
-        o += ' </nodes>\n <arcs nb="%s">\n' % len(arcs)
+        o += ' </nodes>\n' 
+        o += '<arcs nb="%s">\n' % len(arcs)
         for e in arcs: 
             typ = ' type="{}{}{}"'.format(e[3] if e[3] else '', e[2], html.escape(e[4]) if e[4] else '') 
             psrc = ' src_port="{}"'.format(__DATA_ports__[e[3]][e[0][1]]) if e[0][1] != None else ''
@@ -786,7 +853,7 @@ arc:before{display:block;font-size:12pt;content: 'Arc: 'attr(src)' port:('attr(s
 
 # utilities
 
-def npath(b1, b2):
+def npath(b1, b2, p1=None, p2=None):
     "computes svg path for linking two boxes arcs"
     x1, y1, x2, y2 = b1[0] + b1[2]/2, b1[1] + b1[3]/2, b2[0] + b2[2]/2, b2[1] + b2[3]/2
     h1, l1, h2, l2 = 1 + b1[3]/2, 1 + b1[2]/2, 1 + b2[3]/2, 1 + b2[2]/2
@@ -835,6 +902,12 @@ def npath(b1, b2):
             else:
                 x2 -= l2
                 y2 -= l2/P
+    if p1:
+        d = 200*(.5 + p1[0])/p1[1] - 100
+        (x1, y1) = (b1[0]+1, b1[1] + (d+100)*b1[3]/100) if d<0 else (b1[0] + b1[2]-1, b1[1] + (100-d)*b1[3]/100)
+    if p2:
+        d = 200*(.5 + p2[0])/p2[1] - 100
+        (x2, y2) = (b2[0]+1, b2[1] + (d+100)*b2[3]/100) if d<0 else (b2[0] + b2[2]-1, b2[1] + (100-d)*b2[3]/100)
     return 'M%s,%sL%s,%s' % (x1, y1, x2, y2)
 
 # (1) Doc generation 
@@ -1228,7 +1301,7 @@ def application(environ, start_response):
     s, mime, o, myu, host = urllib.parse.unquote(environ['QUERY_STRING']), 'text/plain; charset=utf-8', 'Error!', u(), environ['SERVER_NAME']
     lang, mod, gid, arg, act, fname = None, None, None, None, None, 'u.py'
     if reg(re.match(r'\s*(%s$|)(_?)(%s|)&?((\w{10})|(.*))\s*$' % ('$|'.join(__ACTIONS__), '|'.join(__OUT_LANG__)), s, re.I)):
-        act, mod, lang, gid, arg = reg.v.group(1), reg.v.group(2), reg.v.group(3), reg.v.group(5), reg.v.group(6) 
+        act, mod, lang, gid, arg = reg.v.group(1), reg.v.group(2), reg.v.group(3), reg.v.group(5), re.sub(r'\\n', '\n', reg.v.group(6)) 
     if act:
         if act.lower() in ('pdf', 'paper', 'beamer'):
             mime, name = 'application/pdf', 'beamer_u3' if act == 'beamer' else 'u3'
@@ -1316,13 +1389,11 @@ def command_line():
             print (help('u'))
  
     for arg in args:
-        print ('ici'+arg)
         data = str(open(arg).read()) if os.path.isfile(arg) else arg
-        print (data)
         if host in ('localhost', '127.0.0.1'):
             myu = u()
             if lang:
-                o = eval('myu.headfoot(myu.gen_{}, lang, host)(myu.parse(arg))'.format(lang))
+                o = eval('myu.headfoot(myu.gen_{}, lang, host)(myu.parse(data))'.format(lang))
             else:
                 if arg:
                     o = myu.headfoot(myu.gen_ast, 'python', host)(myu.parse(data))
@@ -1345,20 +1416,14 @@ def iter_child_nodes(node):
 if __name__ == '__main__':
     " Command line"
     command_line()
-    prg = "def foo():return 'hello'"
-    p = ast.parse(open(__file__).read())
-    #print(p.body[0].body[0].value.s[0])
-    #print (ast.dump(p))
-    #a = 2; b= 3; print (a)
 
     # define user's class
-    class useu(u):  
-        def gen_ada(self, ast):
-            return 'My ADA code generator'
-    myu = useu()
+    #class useu(u):  
+    #    def gen_ada(self, ast):
+    #        return 'My ADA code generator'
+    #myu = useu()
     #print (myu.gen_ada(myu.parse('A')))
     #print (myu.gen_c(myu.parse('A')))
-
 
 # end    
     
