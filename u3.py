@@ -66,9 +66,9 @@ __RE_U__ = r'''     # RegExp
     (?:\.(\w{1,20}|\*)|) # Port      
    |                # or (4) ARC:  
     ([<\-=>])       # Head      
-    (?:(\w)|)       # Type pre  
+    (?:([^\W\d_])|) # Type pre  
     ((%s)(.+?)\14|\[([^\]]+)\]|\(([^)]+)\)|) # Content
-    (\w|)           # Type post
+    (?:([^\W\d_])|) # Type post  
     ([<\-=>])       # Tail
 )''' % (__delimiter__, __delimiter__)
 
@@ -126,9 +126,11 @@ __DATA_svg__ = ({
         't': ('transition','fill:white;','rect','fill:black;fill-opacity:.8;', 2, 40),
         }, {
         None:'stroke:red;   stroke-width:1;   fill:none; marker-end:url(#.arrow);',
-        'r': 'stroke:black; stroke-width:1.5; fill:none; marker-start:url(#.r_arrow);',
-        'I': 'stroke:green; stroke-width:2;   fill:none; marker-end:url(#.arrow);',
-        'L': 'stroke:blue;  stroke-width:3;   fill:none; marker-end:url(#.arrow);',
+        '1'  : 'stroke:green; stroke-width:2;   fill:none; marker-end:url(#.arrow);',
+        '0_J': 'stroke:brown; stroke-width:3;   fill:none; marker-end:url(#.arrow);',
+        'r'  : 'stroke:black; stroke-width:1.5; fill:none; marker-start:url(#.r_arrow);',
+        '4_I': 'stroke:green; stroke-width:2;   fill:none; marker-end:url(#.arrow);',
+        'L'  : 'stroke:blue;  stroke-width:3;   fill:none; marker-end:url(#.arrow);',
         })
 
 __DATA_tikz__ = ({
@@ -200,7 +202,7 @@ __IN_MODEL__ = {
     'AADL-Graph':            'A->B', 
     'Marte':                 'A->B', 
     'PSL':                   'A->B', 
-    'Xcos':                  '#pid controller\nP->S.0 I->S.1 D->S.2 S.3->Sys.in Sys.out->E.1 E.0->P E.0->I E.O->D', 
+    'Xcos':                  'P->S.0 I->S.1 D->S.2 S.3->Y.0 Y.1->E.1 E.0->P E.0->I E.O->D #PID controler', 
     'Kaos':                  'A->B', 
     'Entity-Relation-Graph': 'A->B', 
     'Tree-Diagram':          'A->B',
@@ -378,14 +380,12 @@ __AST_SET__ = [
 
 def gettypes(uast):
     "_"
-    nl, el = {'':True}, {None:True}
+    nl, el = {None:True}, {None:True}
     nodes, arcs = uast
     for n in nodes:
-        if len(nodes[n]) > 1:
-            nl[nodes[n][1]] = True 
+        nl[nodes[n][1]] = True 
     for e in arcs:
-        if len(e) > 3:
-            el[e[3]] = True 
+        el['{}_{}'.format(e[2],e[3])] = True 
     return nl, el
 
 class u:
@@ -460,7 +460,7 @@ class u:
         nodes, arcs, = {}, []
         sak = [(None, None),] # for parent setting
         sgl, cli, stl = False, (), [[],] # for arc setting
-        for m in re.compile(__RE_U__, re.U|re.X|re.S).finditer(x):
+        for m in re.compile(__RE_U__, re.X|re.S).finditer(x):
             if sak:
                 if m.group(1) == '{': # open block
                     sak.append((None, None))
@@ -712,8 +712,8 @@ function hidetarget() {var tg = document.getElementById('target'); tg.firstChild
 
     def gen_svg(self, uast, box={}):
         "svg"
-        nt, et = gettypes(uast)
-        o = '<svg %s>\n' % _SVGNS + self.gen_svg_header(nt, et, True if box else False) 
+        nt, at = gettypes(uast)
+        o = '<svg %s>\n' % _SVGNS + self.gen_svg_header(nt, at, True if box else False) 
         if box: 
             nodes, arcs = uast
             seq = self.toposort(arcs)            
@@ -732,7 +732,8 @@ function hidetarget() {var tg = document.getElementById('target'); tg.firstChild
                 ne += 1
                 l0 = (e[0][1], len(__DATA_ports__[nodes[e[0][0]][1]])) if e[0][1] != None else None
                 l1 = (e[1][1], len(__DATA_ports__[nodes[e[1][0]][1]])) if e[1][1] != None else None
-                o += '  <path id="e_{}" class="arc{}" d="{}"/>\n'.format(ne, e[3], npath(box[e[0][0]], box[e[1][0]], l0, l1))
+                cla = ' class="arc{}_{}"'.format(e[2], e[3])
+                o += '  <path id="e_{}"{} d="{}"/>\n'.format(ne, cla, npath(box[e[0][0]], box[e[1][0]], l0, l1))
                 if e[5] != None:
                     o += '<text><textPath {} xlink:href="#e_{}" startOffset="50%">{}</textPath></text>'.format(_XLINKNS, ne, e[5]) 
             o += ' </g> <!--arcs -->\n'
@@ -790,10 +791,19 @@ function hidetarget() {var tg = document.getElementById('target'); tg.firstChild
             o += 'path{stroke:black;}\n'
             o += 'textPath {font-size: .6em; dominant-baseline:text-after-edge;}\n'
             o += 'g#target path{stroke:red;}\n' 
-            o += 'text.port{font-size: .3em;}'
+            o += 'text.port{font-size: .3em;}\n'
+            found = {None:True}
             for e in le:
                 if e in __DATA_svg__[1]:
-                    o += 'path.arc%s { %s }\n' % (e, __DATA_svg__[1][e]) 
+                    found[e] = True
+                else:
+                    a,b = e.split('_')
+                    if a in __DATA_svg__[1]:
+                        found[a] = True
+                    elif b in __DATA_svg__[1]:
+                        found[b] = True
+            for x in found:
+                o += 'path.arc%s { %s }\n' % (x, __DATA_svg__[1][x]) 
         o += '</style>\n'
         if full:
             o += self.svg_defs()
@@ -857,58 +867,34 @@ def npath(b1, b2, p1=None, p2=None):
     "computes svg path for linking two boxes arcs"
     x1, y1, x2, y2 = b1[0] + b1[2]/2, b1[1] + b1[3]/2, b2[0] + b2[2]/2, b2[1] + b2[3]/2
     h1, l1, h2, l2 = 1 + b1[3]/2, 1 + b1[2]/2, 1 + b2[3]/2, 1 + b2[2]/2
+    xo1, yo1, xo2, yo2 = x1, y1, x2, y2
     if x1 == x2:
-        if y1 < y2:  
-            y1 += h1
-            y2 -= h2
-        else: 
-            y1 -= h1
-            y2 += h2
+        (y1, y2) = (y1 + h1, y2 - h2) if y1 < y2 else (y1 - h1, y2 + h2)
     elif y1 == y2:
-        if x1 < x2: 
-            x1 += l1
-            x2 -= l2
-        else: 
-            x1 -= l1
-            x2 += l2
+        (x1, x2) = (x1 + l1, x2 - l2) if x1 < x2 else (x1 - l1, x2 + l2)
     else:
         Q, R = x1-x2, y1-y2
         P = Q/R
         if abs(P) < l1/h1:
-            if R < 0: 
-                y1 += h1 
-                x1 += h1*P
-            else: 
-                y1 -= h1
-                x1 -= h1*P
+            (x1, y1) = (x1 + h1*P, y1 + h1) if R < 0 else (x1 - h1*P, y1 - h1) 
         else:
-            if Q < 0:
-                x1 += l1
-                y1 += l1/P
-            else:
-                x1 -= l1
-                y1 -= l1/P
+            (x1, y1) = (x1 + l1, y1 + l1/P) if Q < 0 else (x1 - l1, y1 - l1/P)
         if abs(P) < l2/h2:
-            if R > 0: 
-                y2 += h2 
-                x2 += h2*P
-            else: 
-                y2 -= h2
-                x2 -= h2*P
+            (x2, y2) = (x2 + h2*P, y2 + h2) if R > 0 else (x2 - h2*P, y2 - h2)
         else:
-            if Q > 0:
-                x2 += l2
-                y2 += l2/P
-            else:
-                x2 -= l2
-                y2 -= l2/P
+            (x2, y2) = (x2 + l2, y2 + l2/P) if Q > 0 else (x2 - l2, y2 - l2/P)
     if p1:
         d = 200*(.5 + p1[0])/p1[1] - 100
         (x1, y1) = (b1[0]+1, b1[1] + (d+100)*b1[3]/100) if d<0 else (b1[0] + b1[2]-1, b1[1] + (100-d)*b1[3]/100)
     if p2:
         d = 200*(.5 + p2[0])/p2[1] - 100
         (x2, y2) = (b2[0]+1, b2[1] + (d+100)*b2[3]/100) if d<0 else (b2[0] + b2[2]-1, b2[1] + (100-d)*b2[3]/100)
-    return 'M%s,%sL%s,%s' % (x1, y1, x2, y2)
+    r = abs(x1-x2)/50
+    cx1, cy1 = x1 + r*(x1-xo1), y1 + r*(y1-yo1)
+    cx2, cy2 = x2 + r*(x2-xo2), y2 + r*(y2-yo2)
+    if (y1-yo1)*(y1-y2) > 0: cy1 = y1 
+    if (y2-yo2)*(y2-y1) > 0: cy2 = y2 
+    return 'M%s,%sC%s,%s %s,%s %s,%s' % (x1, y1, cx1, cy1, cx2, cy2, x2, y2)
 
 # (1) Doc generation 
 
@@ -1412,11 +1398,22 @@ def iter_child_nodes(node):
             for item in field:                                                 
                 if isinstance(item, AST):                                      
                     yield item                                                 
+_TEST_ = {
+    None    :'case1',
+    'r'     :'case2',
+    (2, 'x'):'case3',
+    5       :'case4',    
+    'I'     :'case5',
+    (4, 'I'):'case6',
+    (5, 'I'):'case7',
+    }
 
 if __name__ == '__main__':
     " Command line"
     command_line()
+    code = """def hello(): "doc"; return 56"""
 
+    #print (ast.dump(ast.parse(code)))
     # define user's class
     #class useu(u):  
     #    def gen_ada(self, ast):
