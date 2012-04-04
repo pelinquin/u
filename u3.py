@@ -513,10 +513,7 @@ class u:
             if n not in count or count[n] > 0:
                 prnt = nodes[n][0]
                 if prnt:
-                    if prnt in tree:
-                        tree[prnt].append(n)
-                    else:
-                        tree[prnt] = [n]
+                    tree.setdefault(prnt, []).append(n)
                 elif not n in tree:
                     tree[n] = [] 
         #o += 'tree{}\n'.format(tree)
@@ -609,14 +606,24 @@ class u:
             o += ' {},\n'.format(e)
         return o + ']\n'
 
+    def getchild(self, nodes):
+        child = {}
+        for n in nodes:
+            if nodes[n][0]:
+                child.setdefault(nodes[n][0], []).append(n)
+        return child
+
     def layout(self, uast, rankdir='LR'):
         "Computes 2D automatic layout for graphics (tikz and svg) generation"
         nodes, arcs = uast
-        bbx, bby, pos, d = None, None, {}, 'digraph G { rankdir=%s ' % rankdir
+        bbx, bby, pos, d = None, None, {}, 'digraph G { rankdir=%s ' % rankdir 
+        child = self.getchild(nodes)
         for n in nodes:
-            d += ' %s[label="%s"];' % (n, n)
+            if n not in child:
+                d += ' %s[label="%s"];' % (n, n)
         for e in arcs:
-            d += ' %s->%s %s' % (e[0][0], e[1][0], '') 
+            if (e[0][0] not in child) and (e[1][0] not in child):
+                d += ' %s->%s %s' % (e[0][0], e[1][0], '') 
         d += '}' 
         #print (d) # for debug
         p = subprocess.Popen(('dot'), stdout=subprocess.PIPE, stdin=subprocess.PIPE)
@@ -626,6 +633,15 @@ class u:
                 bbx, bby = float(reg.v.group(1)), float(reg.v.group(2))
             elif reg(re.search('^\s*(\w+)\s*\[label=[^,]*, pos="([\.\d]+),([\.\d]+)"', l)) and bbx and bby:
                 pos[reg.v.group(1)] = (int(float(reg.v.group(2))*100/bbx), int(float(reg.v.group(3))*100/bby))
+        for item in child:
+            x, y, n = 0, 0, 0
+            for c in child[item]:
+                if c in pos:
+                    n +=1
+                    x += pos[c][0]
+                    y += pos[c][1]
+            if n:
+                pos[item] = (int(x/n),int(y/n))
         return pos
 
     def include_js(self):
@@ -716,6 +732,20 @@ function hidetarget() {var tg = document.getElementById('target'); tg.firstChild
         o = '<svg %s>\n' % _SVGNS + self.gen_svg_header(nt, at, True if box else False) 
         if box: 
             nodes, arcs = uast
+            #o += '<!--g %s -->\n' % self.getchild(nodes)
+            prt = self.getchild(nodes)
+            for n in prt:
+                x, y, w, h = 10000, 10000, 0, 0
+                for i in prt[n]:
+                    if box[i][0] < x: x = box[i][0]
+                    if box[i][1] < y: y = box[i][1]
+                for i in prt[n]:
+                    if box[i][0] + box[i][2] - x > w: w = box[i][0] + box[i][2] - x
+                    if box[i][1] + box[i][3] - y > h: h = box[i][1] + box[i][3] - y
+                box[n][:4] = [x, y, w, h]
+                t = nodes[n][1]
+                mx, my = __DATA_svg__[0][t][4] if t in __DATA_svg__[0] else 0, __DATA_svg__[0][t][5] if t in __DATA_svg__[0] else 0
+                box[n][:4] = [sum(p) for p in zip(box[n][:4],(-mx, -my, 2*mx, 2*my))]
             seq = self.toposort(arcs)            
             o += '<title id=".title">%s</title>\n' % __title__ + favicon() + logo(.02) + '\n' + self.include_js_zoom_pan() + self.user_interface()
             o += '<g id=".graph">\n'
@@ -788,7 +818,7 @@ function hidetarget() {var tg = document.getElementById('target'); tg.firstChild
         o += '\ntext#zoom{font-size: .8em;fill:lightgray;text-anchor:end;}\n'
         if full:
             o += 'svg#zoomin,svg#zoomout{cursor:pointer;}\n'
-            o += 'path{stroke:black;}\n'
+            o += 'path{stroke:black;fill:none;}\n'
             o += 'textPath {font-size: .6em; dominant-baseline:text-after-edge;}\n'
             o += 'g#target path{stroke:red;}\n' 
             o += 'text.port{font-size: .3em;}\n'
