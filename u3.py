@@ -103,7 +103,7 @@ __DATA_ports__ = {
     'T': ('i', 'o'),
     'O': ('in1', 'in2', 'out1', 'out2'),
     'V': ('in1', 'in2', 'out1', 'out2'),
-    'C': ('p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8', 'p9', 'p10', 'p11', 'p12', 'p13', 'p14', 'p15', 'p16'),
+    'a': ('p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8', 'p9', 'p10', 'p11', 'p12', 'p13', 'p14', 'p15', 'p16'),
     'D': ('pin1', 'pin2', 'pin3', 'pin4', 'pin5', 'pin6'),
     'x': ('pin1', 'pin2', 'pin3', 'pin4', 'pin5', 'pin6'),
     }
@@ -118,7 +118,7 @@ __DATA_svg__ = ({
         'R': ('node','fill:red;font-family:helvetica,arial,sans-serif;','rect','fill:none;stroke:black;stroke-width:1;',0,0),
         'O': ('node','fill:blue;','rect','filter:url(#.shadow);fill-opacity:.1;', 30, 30),
         'C': ('class','fill:blue;','rect','filter:url(#.shadow);fill-opacity:.1;', 30, 60),
-        'c': ('class','fill:blue;','rect|0,4,4','fill-opacity:.1;stroke:gray;stroke-width:.5;', 2, 0),
+        'c': ('class','fill:blue;','class|0,4,4','fill-opacity:.1;stroke:gray;stroke-width:.5;', 2, 0),
         'D': ('node','fill:blue;','rect','filter:url(#.shadow);fill-opacity:.1;', 10, 50),
         'x': ('node','fill:blue;','rect','fill:blue;fill-opacity:.2;', 10, 50),
         'd': ('node','fill:blue;','rect','filter:url(#.shadow);fill-opacity:.1;', 10, 50),
@@ -564,7 +564,6 @@ class u:
             o += '{} ** GNU General Public License  (v3) ** {}\n'.format(sc, ec) 
             o += '{} Output language: {} [{}] {}\n'.format(sc, lang, __OUT_LANG__[lang][2], ec)
             o += '\n%s AST = %s %s\n\n' % (sc, re.sub(r'\-\-', '__', '%s %s' % uast), ec)
-
             nt, et = gettypes(uast)
             for n in nt:
                 if n in __DATA_ports__:
@@ -574,25 +573,28 @@ class u:
                 o += '' # language dependent!
                 #o += '%s Arc type:"%s" %s\n' % (sc, 'tmp', ec)
             o += '%s Topologic sort:%s %s\n' % (sc, self.toposort(arcs), ec)
-
             for n in nodes:
-                nod = nodes[n]
-                [st1, st2] = nod[2] if nod[2] and len(nod[2]) == 2 else [nod[2], nod[2]]
-                lab = '%s%s%s' % (st1, nod[3], st2) if nod[3] else ''
-                if lab:
-                    try:
-                        disp = ast.dump(ast.parse(nod[3]))
-                    except:
-                        try:
-                            disp = ast.dump(ast.parse(lab))
-                        except:
-                            try:
-                                disp = ast.dump(ast.parse('{%s}'%nod[3]))
-                            except:
-                                disp = 'Error in \'%s\'' % (nod[3])
-                    o += '%s \'%s\': %s %s\n' % (sc, n, disp, ec)
+                o += '%s \'%s\': %s %s\n' % (sc, n, ast.dump(self.gast(nodes[n])), ec)
             return o + appli(uast) + '\n{} {} Nodes {} Arcs {: >30} {}'.format(sc, len(nodes), len(arcs), 'the end of file.', ec)
         return app
+
+    def gast(self, nod):
+        "get node Python ast"
+        [st1, st2] = nod[2] if nod[2] and len(nod[2]) == 2 else [nod[2], nod[2]]
+        lab = '%s%s%s' % (st1, nod[3], st2) if nod[3] else ''
+        a = None
+        if lab:
+            try:
+                a = ast.parse(nod[3])
+            except:
+                try:
+                    a = ast.parse(lab)
+                except:
+                    try:
+                        a = ast.parse('{%s}'%nod[3])
+                    except:
+                        a = None
+        return a
 
     def gen_ast(self, uast):
         " uast "
@@ -709,12 +711,18 @@ function hidetarget() {var tg = document.getElementById('target'); tg.firstChild
         o += '<g id="target" transform="translate(0,0)" fill="none" stroke-width="1" stroke="red"><path display="none" d="M-50,-40L-50,-50L-40,-50M40,-50L50,-50L50,-40M50,40L50,50L40,50M-40,50L-50,50L-50,40"/><path display="none" d="M-60,-50L-50,-50L-50,-60M50,-60L50,-50L60,-50M60,50L50,50L50,60M-50,60L-50,50L-60,50"/></g>\n'
         return o
 
-    def node_text(self, n, x, y , txt):
+    def node_text(self, n, nod, x, y):
         "_"
-        o, dy = ' <text class="node" id="{}" x="{}" y="{}">'.format(n, x, y), ''
+        t, txt = nod[1], nod[3] if nod[3] != None else n
+        o, dy, size = ' <text class="node{}" id="{}" x="{}" y="{}">'.format(t, n, x, y), '', ''
+        a = self.gast(nod)
+        o += '<!-- TOTO {} -->\n'.format(ast.dump(a))
+        if t == 'c':
+            o += '<tspan x="{}" dx="10" dy="2em" {}>{}</tspan>'.format(x, dy, n)
+            size = ' font-size=".5em"'
         for l in txt.split('\n'):
-            o += '<tspan x="{}" {}>{}</tspan>'.format(x, dy, l)
-            dy = 'dy="1em"'
+            o += '<tspan x="{}"{}{}>{}</tspan>'.format(x, dy, size, l)
+            dy = ' dy="1em"'
         return o + '</text>'
 
     def node_ports(self, n, b , tab):
@@ -726,6 +734,41 @@ function hidetarget() {var tg = document.getElementById('target'); tg.firstChild
             o += ' <text class="port" x="{}" y="{}" dominant-baseline="middle" text-anchor="{}">{}</text>'.format(x, y, anchor, p)
         return o 
 
+    def setbox(self, prt, box, nodes):
+        "set box"
+        for n in box:
+            t = nodes[n][1]
+            mx, my = __DATA_svg__[0][t][4] if t in __DATA_svg__[0] else 0, __DATA_svg__[0][t][5] if t in __DATA_svg__[0] else 0
+            if n in prt:
+                x, y, w, h = 10000, 10000, 0, 0
+                for i in prt[n]:
+                    if box[i][0] < x: x = box[i][0]
+                    if box[i][1] < y: y = box[i][1]
+                for i in prt[n]:
+                    if box[i][0] + box[i][2] - x > w: w = box[i][0] + box[i][2] - x
+                    if box[i][1] + box[i][3] - y > h: h = box[i][1] + box[i][3] - y
+                box[n][:4] = [x-mx, y-my, w+2*mx, h+2*my]
+            box[n][:4] = [sum(p) for p in zip(box[n][:4],(-mx, -my, 2*mx, 2*my))]
+
+    def shape(self, t, a):
+        "_"
+        sty = __DATA_svg__[0][t][2] if t in __DATA_svg__[0] else ""
+        args = sty.split('|')
+        (skewx, rx, ry) = args[1].split(',') if len(args)>1 else (0, 0, 0)
+        o = ' <g class="node%s" transform="translate(%s,%s) skewX(%s)">' % (t, a[0]+a[2]/2, a[1]+a[3]/2, skewx)
+        if re.match('rect', sty):
+            o += '<rect  x="%s" y="%s" width="%s" height="%s" rx="%s" ry="%s"/>' % (-a[2]/2, -a[3]/2, a[2], a[3], rx, ry)
+        elif re.match('class', sty):
+            o += '<text class="body" x="%s" y="%s">Class:</text>' % (-a[2]/2, -a[3]/2) 
+            o += '<rect x="%s" y="%s" width="%s" height="%s" rx="%s" ry="%s"/>' % (-a[2]/2, -a[3]/2, a[2], a[3], rx, ry)
+        elif re.match('ellipse', sty):
+            o += '<ellipse rx="%s" ry="%s"/>' % (a[2]/2, a[3]/2)
+        elif re.match('circle', sty):
+            o += '<circle r="%s"/>' % (a[2]/2)
+        else:
+            o += '<rect width="%s" height="%s"/>' % (-a[2]/2, -a[3]/2, a[2], a[3])
+        return o + '</g>\n'
+
     def gen_svg(self, uast, box={}):
         "svg"
         nt, at = gettypes(uast)
@@ -734,28 +777,14 @@ function hidetarget() {var tg = document.getElementById('target'); tg.firstChild
             nodes, arcs = uast
             #o += '<!--g %s -->\n' % self.getchild(nodes)
             prt = self.getchild(nodes)
-            for n in prt:
-                x, y, w, h = 10000, 10000, 0, 0
-                for i in prt[n]:
-                    if box[i][0] < x: x = box[i][0]
-                    if box[i][1] < y: y = box[i][1]
-                for i in prt[n]:
-                    if box[i][0] + box[i][2] - x > w: w = box[i][0] + box[i][2] - x
-                    if box[i][1] + box[i][3] - y > h: h = box[i][1] + box[i][3] - y
-                box[n][:4] = [x, y, w, h]
-                t = nodes[n][1]
-                mx, my = __DATA_svg__[0][t][4] if t in __DATA_svg__[0] else 0, __DATA_svg__[0][t][5] if t in __DATA_svg__[0] else 0
-                box[n][:4] = [sum(p) for p in zip(box[n][:4],(-mx, -my, 2*mx, 2*my))]
+            self.setbox(prt, box, nodes)
             seq = self.toposort(arcs)            
             o += '<title id=".title">%s</title>\n' % __title__ + favicon() + logo(.02) + '\n' + self.include_js_zoom_pan() + self.user_interface()
             o += '<g id=".graph">\n'
             for n in box:
-                t = nodes[n][1]
-                mx, my = __DATA_svg__[0][t][4] if t in __DATA_svg__[0] else 0, __DATA_svg__[0][t][5] if t in __DATA_svg__[0] else 0
-                box[n][:4] = [sum(p) for p in zip(box[n][:4],(-mx, -my, 2*mx, 2*my))]
-                o += ' <rect stroke="red" stroke-width="2" fill="none" x="%s" y="%s" width="%s" height="%s"/>\n' % tuple(box[n][:4])
-                o += self.node_ports(n, box[n], __DATA_ports__[t])
-                o += self.node_text(n, box[n][4], box[n][5], nodes[n][3] if nodes[n][3] != None else n)
+                o += self.shape(nodes[n][1], box[n])
+                o += self.node_ports(n, box[n], __DATA_ports__[nodes[n][1]] if nodes[n][1] in __DATA_ports__ else ())
+                o += self.node_text(n, nodes[n], box[n][4], box[n][5])
             o += ' <g id=".arcs" >\n'
             ne = 0
             for e in arcs:
@@ -774,7 +803,7 @@ function hidetarget() {var tg = document.getElementById('target'); tg.firstChild
             pos, ratio = self.layout(uast, 'LR'), 4
             for n in pos:
                 x, y = pos[n][0]*ratio, pos[n][1]*ratio
-                o += self.node_text(n, x, y, nodes[n][3] if nodes[n][3] != None else n) 
+                o += self.node_text(n, nodes[n], x, y) 
         return o + '</svg>\n'
 
     def toposort(self, arcs):
@@ -813,21 +842,23 @@ function hidetarget() {var tg = document.getElementById('target'); tg.firstChild
         o += 'text,tspan{font-family:helvetica neue,helvetica,arial,sans-serif;}\n'
         o += 'text,tspan{stroke:black; stroke-width:0;}\n'
         o += 'text.tiny,tspan.tiny{font-family:helvetica neue,helvetica,arial,sans-serif;font-size: 4px;fill:DarkSlateGray;}\n'
-        o += 'tspan.body{font-family:helvetica neue,helvetica,arial,sans-serif;font-size: .5em;fill:DarkSlateGray;}\n'
-        o += 'text.node tspan{font-size: 1em;}'
+        o += 'text.body{font-family:helvetica neue,helvetica,arial,sans-serif;font-size: .5em;fill:DarkSlateGray;}\n'
         o += '\ntext#zoom{font-size: .8em;fill:lightgray;text-anchor:end;}\n'
         if full:
             o += 'svg#zoomin,svg#zoomout{cursor:pointer;}\n'
             o += 'path{stroke:black;fill:none;}\n'
-            o += 'textPath {font-size: .6em; dominant-baseline:text-after-edge;}\n'
+            o += 'textPath{font-size: .6em; dominant-baseline:text-after-edge;}\n'
             o += 'g#target path{stroke:red;}\n' 
             o += 'text.port{font-size: .3em;}\n'
+            for n in ln:
+                o += 'g.node%s{ %s }\n' % (n, __DATA_svg__[0][n][3]) 
+                o += 'text.node%s tspan{ %s }\n' % (n, __DATA_svg__[0][n][1]) 
             found = {None:True}
             for e in le:
                 if e in __DATA_svg__[1]:
                     found[e] = True
                 else:
-                    a,b = e.split('_')
+                    a, b = e.split('_')
                     if a in __DATA_svg__[1]:
                         found[a] = True
                     elif b in __DATA_svg__[1]:
@@ -924,6 +955,8 @@ def npath(b1, b2, p1=None, p2=None):
     cx2, cy2 = x2 + r*(x2-xo2), y2 + r*(y2-yo2)
     if (y1-yo1)*(y1-y2) > 0: cy1 = y1 
     if (y2-yo2)*(y2-y1) > 0: cy2 = y2 
+    if b1[0] > b2[0] and b1[1] > b2[0] and b1[0]+b1[2] < b2[0]+b2[2] and b1[1]+b1[3] < b2[1]+b2[3]: cx2, cy2 = x1, y1
+    if b2[0] > b1[0] and b2[1] > b1[0] and b2[0]+b2[2] < b1[0]+b1[2] and b2[1]+b2[3] < b1[1]+b1[3]: cx1, cy1 = x2, y2
     return 'M%s,%sC%s,%s %s,%s %s,%s' % (x1, y1, cx1, cy1, cx2, cy2, x2, y2)
 
 # (1) Doc generation 
@@ -1428,22 +1461,11 @@ def iter_child_nodes(node):
             for item in field:                                                 
                 if isinstance(item, AST):                                      
                     yield item                                                 
-_TEST_ = {
-    None    :'case1',
-    'r'     :'case2',
-    (2, 'x'):'case3',
-    5       :'case4',    
-    'I'     :'case5',
-    (4, 'I'):'case6',
-    (5, 'I'):'case7',
-    }
 
 if __name__ == '__main__':
     " Command line"
     command_line()
-    code = """def hello(): "doc"; return 56"""
 
-    #print (ast.dump(ast.parse(code)))
     # define user's class
     #class useu(u):  
     #    def gen_ada(self, ast):
