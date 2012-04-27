@@ -41,8 +41,8 @@
   <xs:element name="u">
     <xs:complexType>
       <xs:sequence>
-	<xs:element ref="nodes" minOccurs="1" maxOccurs="1"/> 
-	<xs:element ref="arcs" minOccurs="1" maxOccurs="1"/> 
+	<xs:element ref="nodes" minOccurs="0" maxOccurs="1"/> 
+	<xs:element ref="arcs" minOccurs="0" maxOccurs="1"/> 
       </xs:sequence>
       <xs:attribute name="digest" type="xs:string" use="required"/>   
     </xs:complexType>

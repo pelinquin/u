@@ -24,8 +24,6 @@
 # swap ⊔ 'squarecap' (U+2293) and ⊓ 'squarecup' (U+2294) char!   
 
 # SHORT TO DO LIST:
-# - nested dot layout
-# - use python compiler module
 # - svg with proportional police size
 # - types data in Berkeley database
 # - add block operator
@@ -574,15 +572,15 @@ class u:
                 #o += '%s Arc type:"%s" %s\n' % (sc, 'tmp', ec)
             o += '%s Topologic sort:%s %s\n' % (sc, self.toposort(arcs), ec)
             for n in nodes:
-                o += '%s \'%s\': %s %s\n' % (sc, n, ast.dump(self.gast(nodes[n])), ec)
+                o += '%s \'%s\': %s %s\n' % (sc, n, ast.dump(self.gast(n, nodes[n])), ec)
             return o + appli(uast) + '\n{} {} Nodes {} Arcs {: >30} {}'.format(sc, len(nodes), len(arcs), 'the end of file.', ec)
         return app
 
-    def gast(self, nod):
+    def gast(self, n, nod):
         "get node Python ast"
         [st1, st2] = nod[2] if nod[2] and len(nod[2]) == 2 else [nod[2], nod[2]]
         lab = '%s%s%s' % (st1, nod[3], st2) if nod[3] else ''
-        a = None
+        a = ast.parse(n)
         if lab:
             try:
                 a = ast.parse(nod[3])
@@ -593,7 +591,7 @@ class u:
                     try:
                         a = ast.parse('{%s}'%nod[3])
                     except:
-                        a = None
+                        pass
         return a
 
     def gen_ast(self, uast):
@@ -622,7 +620,8 @@ class u:
         child = self.getchild(nodes)
         for n in nodes:
             if n not in child:
-                d += ' %s[label="%s"];' % (n, n)
+                #d += ' %s[label="%s"];' % (n, n)
+                d += ' %s[label="%s"];' % (n, self.node_raw(n, nodes[n]))
         for e in arcs:
             if (e[0][0] not in child) and (e[1][0] not in child):
                 d += ' %s->%s %s' % (e[0][0], e[1][0], '') 
@@ -713,17 +712,61 @@ function hidetarget() {var tg = document.getElementById('target'); tg.firstChild
 
     def node_text(self, n, nod, x, y):
         "_"
-        t, txt = nod[1], nod[3] if nod[3] != None else n
-        o, dy, size = ' <text class="node{}" id="{}" x="{}" y="{}">'.format(t, n, x, y), '', ''
-        a = self.gast(nod)
-        o += '<!-- TOTO {} -->\n'.format(ast.dump(a))
-        if t == 'c':
-            o += '<tspan x="{}" dx="10" dy="2em" {}>{}</tspan>'.format(x, dy, n)
-            size = ' font-size=".5em"'
-        for l in txt.split('\n'):
-            o += '<tspan x="{}"{}{}>{}</tspan>'.format(x, dy, size, l)
-            dy = ' dy="1em"'
+        o = ' <text class="node{}" id="{}" x="{}" y="{}">'.format(nod[1], n, x, y)
+        clas, attr, meth = '', {}, {}
+        for e in self.gast(n, nod).body:
+            if type(e).__name__ == 'ClassDef':
+                clas = e.name
+                for i in e.body:
+                    if type(i).__name__ == 'Expr':
+                        if type(i.value).__name__ == 'Name': attr[i.value.id] = True
+                    elif type(i).__name__ == 'Assign':
+                        if type(i.targets[0]).__name__ == 'Name': attr[i.targets[0].id] = True 
+                        if type(i.value).__name__ == 'Num': attr[i.targets[0].id] = i.value.n
+                    elif type(i).__name__ == 'FunctionDef': meth[i.name] = True
+        if clas:
+            o += '<tspan font-size=".3em" opacity=".5" x="{}">Class:</tspan>'.format(x)
+            o += '<tspan dx="10">{}</tspan>'.format(clas)
+            if attr:
+                o += '<tspan font-size=".3em" opacity=".5" dy="1.6em" x="{}">Attributes:</tspan>'.format(x)
+            for i in attr:
+                o += '<tspan x="{}" dy="1em" font-size=".6em">{}</tspan>'.format(x, i)
+                if attr[i] != True:
+                    o += '<tspan dx="6" font-size=".6em"> : {}</tspan>'.format(attr[i])
+            if meth:
+                o += '<tspan font-size=".3em" opacity=".5" dy="1.6em" x="{}">Methods:</tspan>'.format(x)
+            for m in meth:
+                o += '<tspan x="{}" dy="1em" font-size=".6em">+{}()</tspan>'.format(x, m)
+        else:
+            txt = nod[3] if nod[3] != None else n
+            o += '<tspan x="{}">{}</tspan>'.format(x, txt)
         return o + '</text>'
+
+    def node_raw(self, n, nod):
+        " for dot positionning"
+        clas, attr, meth, o = '', {}, {}, ''
+        for e in self.gast(n, nod).body:
+            if type(e).__name__ == 'ClassDef':
+                clas = e.name
+                for i in e.body:
+                    if type(i).__name__ == 'Expr':
+                        if type(i.value).__name__ == 'Name': attr[i.value.id] = True
+                    elif type(i).__name__ == 'Assign':
+                        if type(i.targets[0]).__name__ == 'Name': attr[i.targets[0].id] = True 
+                        if type(i.value).__name__ == 'Num': attr[i.targets[0].id] = i.value.n
+                    elif type(i).__name__ == 'FunctionDef': meth[i.name] = True
+        if clas:
+            o += '{}'.format(clas)
+            for i in attr:
+                o += '\\n{}'.format(i)
+                if attr[i] != True:
+                    o += '{}'.format(attr[i])
+            for m in meth:
+                o += '\\n{}'.format(m)
+        else:
+            txt = nod[3] if nod[3] != None else n
+            o += '{}'.format(txt)
+        return re.sub(r'[,;\$]','_',o)
 
     def node_ports(self, n, b , tab):
         "_"
@@ -759,7 +802,6 @@ function hidetarget() {var tg = document.getElementById('target'); tg.firstChild
         if re.match('rect', sty):
             o += '<rect  x="%s" y="%s" width="%s" height="%s" rx="%s" ry="%s"/>' % (-a[2]/2, -a[3]/2, a[2], a[3], rx, ry)
         elif re.match('class', sty):
-            o += '<text class="body" x="%s" y="%s">Class:</text>' % (-a[2]/2, -a[3]/2) 
             o += '<rect x="%s" y="%s" width="%s" height="%s" rx="%s" ry="%s"/>' % (-a[2]/2, -a[3]/2, a[2], a[3], rx, ry)
         elif re.match('ellipse', sty):
             o += '<ellipse rx="%s" ry="%s"/>' % (a[2]/2, a[3]/2)
@@ -874,10 +916,31 @@ function hidetarget() {var tg = document.getElementById('target'); tg.firstChild
         "c"
         nodes, arcs = uast
         o = ''
-        for n in nodes:
-            o += ' \'{}\': {},\n'.format(n, nodes[n])
-        for e in arcs:
-            o += ' {},\n'.format(e)
+        #for n in nodes: o += ' \'{}\': {},\n'.format(n, nodes[n])
+        #for e in arcs: o += ' {},\n'.format(e)
+        seq = self.toposort(arcs)     
+        if seq != [None]:  
+            o += 'int main(void) {\n'  
+            for e in arcs: 
+                o += ' {},\n'.format(e) 
+            for j in seq:
+                for i in j.split(','):
+                    typ, ports = nodes[i][1], []
+                    if typ in __DATA_ports__:
+                        ports = __DATA_ports__[typ]
+                    for e in self.gast(i, nodes[i]).body:
+                        if type(e).__name__ == 'Assign':
+                            name = '_'
+                            if type(e.targets[0]).__name__ == 'Name':
+                                name = '_{}'.format(e.targets[0].id) if e.targets[0].id in ports else e.targets[0].id
+                                o += '  int {};\n'.format(name)
+                            if type(e.value).__name__ == 'Num':
+                                o += '  {} = {};\n'.format(name, e.value.n)
+                            elif type(e.value).__name__ == 'Name':
+                                name1 = '_{}'.format(e.value.id) if e.value.id in ports else e.value.id
+                                o += '  {} = {};\n'.format(name, name1)
+
+            o += '  return(0)\n}\n'
         return o
 
     def gen_python(self, uast):
@@ -886,8 +949,8 @@ function hidetarget() {var tg = document.getElementById('target'); tg.firstChild
         seq = self.toposort(arcs) 
         o = '\nif __name__ == \'__main__\':\n'
         if seq != [None]:
-            for u in seq:
-                for i in u.split(','):
+            for j in seq:
+                for i in j.split(','):
                     if nodes[i][3]:
                         o += '\t# node {}:\n'.format(i)
                         for x in ast.parse(nodes[i][3]).body:
@@ -1046,7 +1109,7 @@ class beamer (latex):
         self.tex += '}\n'
     
 def gen_doc():
-    "article and beamer"
+    "weave article and beamer"
     art, sli = article(__title__, __author__, __email__), beamer(__title__, __author__, __email__)
     #
     art.section('chapitre', 'blabla')
@@ -1350,7 +1413,7 @@ def application(environ, start_response):
     s, mime, o, myu, host = urllib.parse.unquote(environ['QUERY_STRING']), 'text/plain; charset=utf-8', 'Error!', u(), environ['SERVER_NAME']
     lang, mod, gid, arg, act, fname = None, None, None, None, None, 'u.py'
     if reg(re.match(r'\s*(%s$|)(_?)(%s|)&?((\w{10})|(.*))\s*$' % ('$|'.join(__ACTIONS__), '|'.join(__OUT_LANG__)), s, re.I)):
-        act, mod, lang, gid, arg = reg.v.group(1), reg.v.group(2), reg.v.group(3), reg.v.group(5), re.sub(r'\\n', '\n', reg.v.group(6)) 
+        act, mod, lang, gid, arg = reg.v.group(1), reg.v.group(2), reg.v.group(3), reg.v.group(5), bytes(reg.v.group(6),'utf-8').decode('unicode_escape')
     if act:
         if act.lower() in ('pdf', 'paper', 'beamer'):
             mime, name = 'application/pdf', 'beamer_u3' if act == 'beamer' else 'u3'
@@ -1452,18 +1515,47 @@ def command_line():
             o = put(host, '/u3?%s' % o, data)
         print (o)
 
-def iter_child_nodes(node):                                                    
-    "Yield all direct child nodes of *node*, that is, all fields that are nodes and all items of fields that are lists of nodes."                           
-    for name, field in iter_fields(node):                                      
-        if isinstance(field, AST):                                             
-            yield field                                                        
-        elif isinstance(field, list):                                          
-            for item in field:                                                 
-                if isinstance(item, AST):                                      
-                    yield item                                                 
+r"""
+literate programming comment here!
+"""
+
+def browse_ast(a):
+    '_'
+    o = ''
+    for i in a.body:
+        print (i._fields)
+    return o
+
+class v(ast.NodeVisitor):
+    "_"
+    o, lvl = '',0
+    def visit_Name(self, node):
+        self.o += '\t'*self.lvl + '{}\n'.format(node.id)
+    def visit_ClassDef(self, node):
+        self.o += 'class {}:\n'.format(node.name)
+        self.lvl += 1
+        ast.NodeVisitor.generic_visit(self, node)
+    def visit_FunctionDef(self, node):
+        self.o += '\t'*self.lvl + 'def {}:pass\n'.format(node.name) 
+        ast.NodeVisitor.generic_visit(self, node)
+    #def visit_Num(self, node):
+    #    self.o += '{}\n'.format(node.n) 
+    def visit_BinOp(self, node):
+        #if type(node.op).__name__ == 'Add':
+        #    self.o += '+'
+        #elif type(node.op).__name__ == 'Sub':
+        #    self.o += '-'
+        ast.NodeVisitor.generic_visit(self, node)
+    def visit_Assign(self, node):
+        #self.o += '=' 
+        #for z in node.targets:
+        #    self.o += 'Assign:{}\n'.format(z._fields) 
+        ast.NodeVisitor.generic_visit(self, node)
+    def out(self):
+        return self.o
 
 if __name__ == '__main__':
-    " Command line"
+    "Tangle Command line"
     command_line()
 
     # define user's class
@@ -1474,5 +1566,24 @@ if __name__ == '__main__':
     #print (myu.gen_ada(myu.parse('A')))
     #print (myu.gen_c(myu.parse('A')))
 
-# end    
-    
+    myu = u()
+    code = 'class toto:\n\te;z=7\n\tdef met(s,r):pass' 
+    code = 'class toto:z=7;e;k()'
+    code = 'tata=3;toto=tata+5-7;' 
+    code = 'B"toto=5; p4=toto" C"tata=p1" B.p4->C.p1'
+    code = 'B"class F:\n\traw=5\n\tdef toto(p):pass\n\tdef to(p):pass"->F'
+    code = """
+tata=3;toto=tata+5-7
+class F:
+    raw=5
+    def toto(p):pass
+    def to(p):pass
+zz=4
+""" 
+    #print (browse_ast(ast.parse(code)))
+    print (code)
+    e = v()
+    e.visit(ast.parse(code))
+    print (e.out())
+    print (ast.dump(ast.parse(code)))
+# end
