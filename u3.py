@@ -395,6 +395,8 @@ class u:
         "Load types mapping"
         self.m = {}
         def gen_x(self, uast):
+            #(sc, ec, head) = __OUT_LANG__[l][1]
+            #return '{} TODO! {}'.format(sc, ec)
             return 'TODO!'
         for l in __OUT_LANG__:
             self.m[l] = eval('__DATA_%s__' % l)
@@ -620,8 +622,7 @@ class u:
         child = self.getchild(nodes)
         for n in nodes:
             if n not in child:
-                #d += ' %s[label="%s"];' % (n, n)
-                d += ' %s[label="%s"];' % (n, self.node_raw(n, nodes[n]))
+                d += ' %s[label="%s"];' % (n, nodeCodeGen(self.gast(n, nodes[n])).out)
         for e in arcs:
             if (e[0][0] not in child) and (e[1][0] not in child):
                 d += ' %s->%s %s' % (e[0][0], e[1][0], '') 
@@ -741,13 +742,6 @@ function hidetarget() {var tg = document.getElementById('target'); tg.firstChild
             txt = nod[3] if nod[3] != None else n
             o += '<tspan x="{}">{}</tspan>'.format(x, txt)
         return o + '</text>'
-
-    def node_raw(self, n, nod):
-        " for dot positionning"
-        res = (nodeCodeGen(self.gast(n, nod)).out)
-        o = """toto\\ntata"""
-        #re.sub(r'[,;\$]','_',o)
-        return re.sub(r'[,;\$]','_',o)
 
     def node_ports(self, n, b , tab):
         "_"
@@ -909,18 +903,7 @@ function hidetarget() {var tg = document.getElementById('target'); tg.firstChild
                     typ, ports = nodes[i][1], []
                     if typ in __DATA_ports__:
                         ports = __DATA_ports__[typ]
-                    for e in self.gast(i, nodes[i]).body:
-                        if type(e).__name__ == 'Assign':
-                            name = '_'
-                            if type(e.targets[0]).__name__ == 'Name':
-                                name = '_{}'.format(e.targets[0].id) if e.targets[0].id in ports else e.targets[0].id
-                                o += '  int {};\n'.format(name)
-                            if type(e.value).__name__ == 'Num':
-                                o += '  {} = {};\n'.format(name, e.value.n)
-                            elif type(e.value).__name__ == 'Name':
-                                name1 = '_{}'.format(e.value.id) if e.value.id in ports else e.value.id
-                                o += '  {} = {};\n'.format(name, name1)
-
+                    o += nodeCodeGen(self.gast(i, nodes[i]), 'c').out
             o += '  return(0)\n}\n'
         return o
 
@@ -932,10 +915,7 @@ function hidetarget() {var tg = document.getElementById('target'); tg.firstChild
         if seq != [None]:
             for j in seq:
                 for i in j.split(','):
-                    if nodes[i][3]:
-                        o += '\t# node {}:\n'.format(i)
-                        for x in ast.parse(nodes[i][3]).body:
-                            o += '\t{} = {}\n'.format(x.targets[0].id, x.value.n)
+                    o += nodeCodeGen(self.gast(i, nodes[i]), 'python').out
         return o 
 
     def gen_xml(self, uast):
@@ -1020,10 +1000,11 @@ class nodeCodeGen(ast.NodeVisitor):
 
     def w(self, x):
         "_"
+        cr = '\n' if self.lang else r'\n'
+        indent_with = ' '*4 if self.lang else ''
         if self.nlines:
             if self.out:
-                self.out += '\n' * self.nlines
-            indent_with = ' ' * 4
+                self.out += cr * self.nlines
             self.out += indent_with * self.indent
             self.nlines = 0
         self.out += x
