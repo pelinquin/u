@@ -731,7 +731,7 @@ function hidetarget() {var tg = document.getElementById('target'); tg.firstChild
                 o += '<tspan font-size=".3em" opacity=".5" dy="1.6em" x="{}">Attributes:</tspan>'.format(x)
             for i in attr:
                 o += '<tspan x="{}" dy="1em" font-size=".6em">{}</tspan>'.format(x, i)
-                if attr[i] != True:
+                if attr[i] is not True:
                     o += '<tspan dx="6" font-size=".6em"> : {}</tspan>'.format(attr[i])
             if meth:
                 o += '<tspan font-size=".3em" opacity=".5" dy="1.6em" x="{}">Methods:</tspan>'.format(x)
@@ -744,28 +744,9 @@ function hidetarget() {var tg = document.getElementById('target'); tg.firstChild
 
     def node_raw(self, n, nod):
         " for dot positionning"
-        clas, attr, meth, o = '', {}, {}, ''
-        for e in self.gast(n, nod).body:
-            if type(e).__name__ == 'ClassDef':
-                clas = e.name
-                for i in e.body:
-                    if type(i).__name__ == 'Expr':
-                        if type(i.value).__name__ == 'Name': attr[i.value.id] = True
-                    elif type(i).__name__ == 'Assign':
-                        if type(i.targets[0]).__name__ == 'Name': attr[i.targets[0].id] = True 
-                        if type(i.value).__name__ == 'Num': attr[i.targets[0].id] = i.value.n
-                    elif type(i).__name__ == 'FunctionDef': meth[i.name] = True
-        if clas:
-            o += '{}'.format(clas)
-            for i in attr:
-                o += '\\n{}'.format(i)
-                if attr[i] != True:
-                    o += '{}'.format(attr[i])
-            for m in meth:
-                o += '\\n{}'.format(m)
-        else:
-            txt = nod[3] if nod[3] != None else n
-            o += '{}'.format(txt)
+        res = (nodeCodeGen(self.gast(n, nod)).out)
+        o = """toto\\ntata"""
+        #re.sub(r'[,;\$]','_',o)
         return re.sub(r'[,;\$]','_',o)
 
     def node_ports(self, n, b , tab):
@@ -985,7 +966,7 @@ arc:before{display:block;font-size:12pt;content: 'Arc: 'attr(src)' port:('attr(s
             o += '>\n'
         return o + ' </arcs>\n</u>\n' 
 
-# utilities
+# (1) utilities
 
 def npath(b1, b2, p1=None, p2=None):
     "computes svg path for linking two boxes arcs"
@@ -1022,7 +1003,316 @@ def npath(b1, b2, p1=None, p2=None):
     if b2[0] > b1[0] and b2[1] > b1[0] and b2[0]+b2[2] < b1[0]+b1[2] and b2[1]+b2[3] < b1[1]+b1[3]: cx1, cy1 = x2, y2
     return 'M%s,%sC%s,%s %s,%s %s,%s' % (x1, y1, cx1, cy1, cx2, cy2, x2, y2)
 
-# (1) Doc generation 
+# (2) Node Code generation
+
+class nodeCodeGen(ast.NodeVisitor):
+    "_"
+    BOOLOP_SYM = { ast.And:'and', ast.Or:'or'}
+    BINOP_SYM = { ast.Add:'+', ast.Sub:'-'}
+    CMPOP_SYM = {ast.Eq:'==', ast.Gt:'>', ast.GtE:'>=', ast.Lt:'<', ast.LtE:'<=', ast.NotEq:'!=',}
+    UNARYOP_SYM = { ast.Invert: '~', ast.Not: 'not', ast.UAdd: '+', ast.USub: '-'} 
+    out, indent, nlines = '', 0, 0
+
+    def __init__(self, node_ast, lang=''):
+        "_"
+        self.lang = lang
+        ast.NodeVisitor.visit(self, node_ast)
+
+    def w(self, x):
+        "_"
+        if self.nlines:
+            if self.out:
+                self.out += '\n' * self.nlines
+            indent_with = ' ' * 4
+            self.out += indent_with * self.indent
+            self.nlines = 0
+        self.out += x
+ 
+    def newline(self, node=None, extra=0):
+        "_"
+        self.nlines = max(self.nlines, 1 + extra)
+ 
+    def body(self, statements):
+        "_"
+        self.new_line = True
+        self.indent += 1
+        for stmt in statements: self.visit(stmt)
+        self.indent -= 1
+ 
+    def signature(self, node):
+        "_"
+        want_comma = []
+        def write_comma():
+            if want_comma:
+                self.w(', ')
+            else:
+                want_comma.append(True)
+        padding = [None] * (len(node.args) - len(node.defaults))
+        for arg, default in zip(node.args, padding + node.defaults):
+            write_comma()
+            self.visit(arg)
+            if default is not None:
+                self.w('=')
+                self.visit(default)
+
+    def visit_Assign(self, node):
+        "_"
+        self.newline(node)
+        for idx, target in enumerate(node.targets):
+            if idx:
+                self.w(', ')
+            self.visit(target)
+        self.w(' = ')
+        self.visit(node.value)
+        if self.lang == 'c':
+            self.w(';')
+ 
+    def visit_AugAssign(self, node):
+        "_"
+        self.newline(node)
+        self.visit(node.target)
+        self.w(self.BINOP_SYM[type(node.op)] + '=')
+        self.visit(node.value)
+ 
+    def visit_Expr(self, node):
+        "_"
+        self.newline(node)
+        self.generic_visit(node)
+ 
+    def visit_FunctionDef(self, node):
+        "_"
+        #self.newline(extra=1)
+        self.newline(node)
+        if self.lang == 'python':
+            self.w('def %s(' % node.name)
+        elif self.lang == 'c':
+            self.w('void %s(' % node.name)
+        else:
+            self.w('%s(' % node.name)
+        self.signature(node.args)
+        
+        if self.lang == 'python':
+            self.w('):')
+        elif self.lang == 'c':
+            self.w(');')
+        else:
+            self.w(')')
+        self.body(node.body)
+ 
+    def visit_ClassDef(self, node):
+        "_"
+        have_args = []
+        def paren_or_comma():
+            if have_args:
+                self.w(', ')
+            else:
+                have_args.append(True)
+                self.w('(')
+        #self.newline(extra=2)
+        self.newline(node)
+        if self.lang == 'c':
+            self.w('typdef struct %s' % node.name)
+        else:
+            self.w('class %s' % node.name)
+        for base in node.bases:
+            paren_or_comma()
+            self.visit(base)
+        if self.lang == 'c':
+            self.w(have_args and '):' or ' {')
+        else:
+            self.w(have_args and '):' or ':')
+        self.body(node.body)
+        if self.lang == 'c':
+            self.newline(node)
+            self.w('};')
+ 
+    def visit_Pass(self, node):
+        "_"
+        if self.lang == 'python':
+            self.newline(node)
+            self.w('pass')
+ 
+    def visit_Attribute(self, node):
+        "_"
+        self.visit(node.value)
+        self.w('.' + node.attr)
+ 
+    def visit_Call(self, node):
+        "_"
+        want_comma = []
+        def write_comma():
+            if want_comma:
+                self.w(', ')
+            else:
+                want_comma.append(True)
+        self.visit(node.func)
+        self.w('(')
+        for arg in node.args:
+            write_comma()
+            self.visit(arg)
+        for keyword in node.keywords:
+            write_comma()
+            self.w(keyword.arg + '=')
+            self.visit(keyword.value)
+        if node.starargs is not None:
+            write_comma()
+            self.w('*')
+            self.visit(node.starargs)
+        if node.kwargs is not None:
+            write_comma()
+            self.w('**')
+            self.visit(node.kwargs)
+        self.w(')')
+ 
+    def visit_Name(self, node):
+        "_"
+        self.w(node.id)
+ 
+    def visit_Str(self, node):
+        "_"
+        self.w(repr(node.s))
+ 
+    def visit_Bytes(self, node):
+        "_"
+        self.w(repr(node.s))
+ 
+    def visit_Num(self, node):
+        "_"
+        self.w(repr(node.n))
+ 
+    def visit_Tuple(self, node):
+        "_"
+        self.w('(')
+        idx = -1
+        for idx, item in enumerate(node.elts):
+            if idx:
+                self.w(', ')
+            self.visit(item)
+        self.w(idx and ')' or ',)')
+ 
+    def sequence_visit(left, right):
+        def visit(self, node):
+            self.w(left)
+            for idx, item in enumerate(node.elts):
+                if idx:
+                    self.w(', ')
+                self.visit(item)
+            self.w(right)
+        return visit
+ 
+    visit_List = sequence_visit('[', ']')
+    visit_Set = sequence_visit('{', '}')
+    del sequence_visit
+ 
+    def visit_Dict(self, node):
+        "_"
+        self.w('{')
+        for idx, (key, value) in enumerate(zip(node.keys, node.values)):
+            if idx:
+                self.w(', ')
+            self.visit(key)
+            self.w(': ')
+            self.visit(value)
+        self.w('}')
+ 
+    def visit_BinOp(self, node):
+        "_"
+        self.visit(node.left)
+        self.w(' %s ' % self.BINOP_SYM[type(node.op)])
+        self.visit(node.right)
+ 
+    def visit_BoolOp(self, node):
+        "_"
+        self.w('(')
+        for idx, value in enumerate(node.values):
+            if idx:
+                self.w(' %s ' % self.BOOLOP_SYM[type(node.op)])
+            self.visit(value)
+        self.w(')')
+ 
+    def visit_Compare(self, node):
+        "_"
+        self.w('(')
+        self.w(node.left)
+        for op, right in zip(node.ops, node.comparators):
+            self.w(' %s %%' % self.CMPOP_SYM[type(op)])
+            self.visit(right)
+        self.w(')')
+ 
+    def visit_UnaryOp(self, node):
+        "_"
+        self.w('(')
+        op = self.UNARYOP_SYM[type(node.op)]
+        self.w(op)
+        if op == 'not':
+            self.w(' ')
+        self.visit(node.operand)
+        self.w(')')
+ 
+    def visit_Subscript(self, node):
+        "_"
+        self.visit(node.value)
+        self.w('[')
+        self.visit(node.slice)
+        self.w(']')
+ 
+    def visit_ExtSlice(self, node):
+        "_"
+        for idx, item in node.dims:
+            if idx:
+                self.w(', ')
+            self.visit(item)
+ 
+    def generator_visit(left, right):
+        "_"
+        def visit(self, node):
+            self.w(left)
+            self.visit(node.elt)
+            for comprehension in node.generators:
+                self.visit(comprehension)
+            self.w(right)
+        return visit
+ 
+    visit_ListComp = generator_visit('[', ']')
+    visit_GeneratorExp = generator_visit('(', ')')
+    visit_SetComp = generator_visit('{', '}')
+    del generator_visit
+ 
+    def visit_DictComp(self, node):
+        "_"
+        self.w('{')
+        self.visit(node.key)
+        self.w(': ')
+        self.visit(node.value)
+        for comprehension in node.generators:
+            self.visit(comprehension)
+        self.w('}')
+ 
+    def visit_IfExp(self, node):
+        "_"
+        self.visit(node.body)
+        self.w(' if ')
+        self.visit(node.test)
+        self.w(' else ')
+        self.visit(node.orelse)
+ 
+    def visit_Starred(self, node):
+        "_"
+        self.w('*')
+        self.visit(node.value)
+ 
+    def visit_comprehension(self, node):
+        "_"
+        self.w(' for ')
+        self.visit(node.target)
+        self.w(' in ')
+        self.visit(node.iter)
+        if node.ifs:
+            for if_ in node.ifs:
+                self.w(' if ')
+                self.visit(if_)
+ 
+# (3) Doc generation 
 
 class latex:
     "% This is generated, do not edit by hands!\n"
@@ -1106,7 +1396,13 @@ class beamer (latex):
         "frame"
         self.tex += r'\frame{\frametitle{%s}' % title + '\n'
         self.tex += content + '\n'
-        self.tex += '}\n'
+        self.tex += '}\n' 
+
+    def itemize(self, title, head, tab, tail=''):
+        "_"
+        self.tex += r'\frame{\frametitle{%s}'%title + '\n' + head
+        self.tex += functools.reduce(lambda y,k: y+r'\item %s'%k+ '\n',tab,r'\begin{itemize}') + r'\end{itemize}' + '%s\n}\n' % tail
+
     
 def gen_doc():
     "weave article and beamer"
@@ -1127,7 +1423,7 @@ The $\sqcup$ language is a {\bf Universal Graph Language};\\
     art.gen_pdf(name)
     sli.gen_pdf('beamer_' + name)
 
-# (2) Tests
+# (4) Tests
 
 def get_random_set():
     "_"
@@ -1165,7 +1461,7 @@ def gen_test():
     else:
         shutil.move(cmpname, refname)
 
-# (3) Git storage
+# (5) Git storage
 
 def register(content=''):
     """ If the same content is requested, then id does not change """
@@ -1339,7 +1635,7 @@ class gitu:
         o, e = subprocess.Popen(('git', 'tag'), env=self.e, stdout=subprocess.PIPE).communicate()
         return o
 
-# (4) Web application 
+# (6) Web application 
 
 def reg(value):
     " function attribute is a way to access matching group in one line test "
@@ -1471,7 +1767,7 @@ def application(environ, start_response):
     start_response('200 OK', [('Content-type', mime), ('Content-Disposition', 'filename={}'.format(fname))])
     return [o] 
 
-# (5) Command line
+# (7) Command line
 
 def put(server, service, content):
     "_"
@@ -1515,45 +1811,6 @@ def command_line():
             o = put(host, '/u3?%s' % o, data)
         print (o)
 
-r"""
-literate programming comment here!
-"""
-
-def browse_ast(a):
-    '_'
-    o = ''
-    for i in a.body:
-        print (i._fields)
-    return o
-
-class v(ast.NodeVisitor):
-    "_"
-    o, lvl = '',0
-    def visit_Name(self, node):
-        self.o += '\t'*self.lvl + '{}\n'.format(node.id)
-    def visit_ClassDef(self, node):
-        self.o += 'class {}:\n'.format(node.name)
-        self.lvl += 1
-        ast.NodeVisitor.generic_visit(self, node)
-    def visit_FunctionDef(self, node):
-        self.o += '\t'*self.lvl + 'def {}:pass\n'.format(node.name) 
-        ast.NodeVisitor.generic_visit(self, node)
-    #def visit_Num(self, node):
-    #    self.o += '{}\n'.format(node.n) 
-    def visit_BinOp(self, node):
-        #if type(node.op).__name__ == 'Add':
-        #    self.o += '+'
-        #elif type(node.op).__name__ == 'Sub':
-        #    self.o += '-'
-        ast.NodeVisitor.generic_visit(self, node)
-    def visit_Assign(self, node):
-        #self.o += '=' 
-        #for z in node.targets:
-        #    self.o += 'Assign:{}\n'.format(z._fields) 
-        ast.NodeVisitor.generic_visit(self, node)
-    def out(self):
-        return self.o
-
 if __name__ == '__main__':
     "Tangle Command line"
     command_line()
@@ -1567,11 +1824,6 @@ if __name__ == '__main__':
     #print (myu.gen_c(myu.parse('A')))
 
     myu = u()
-    code = 'class toto:\n\te;z=7\n\tdef met(s,r):pass' 
-    code = 'class toto:z=7;e;k()'
-    code = 'tata=3;toto=tata+5-7;' 
-    code = 'B"toto=5; p4=toto" C"tata=p1" B.p4->C.p1'
-    code = 'B"class F:\n\traw=5\n\tdef toto(p):pass\n\tdef to(p):pass"->F'
     code = """
 tata=3;toto=tata+5-7
 class F:
@@ -1579,11 +1831,11 @@ class F:
     def toto(p):pass
     def to(p):pass
 zz=4
+y=zz
 """ 
-    #print (browse_ast(ast.parse(code)))
-    print (code)
-    e = v()
-    e.visit(ast.parse(code))
-    print (e.out())
-    print (ast.dump(ast.parse(code)))
+    #print (code)
+    print ('>c')
+    print (nodeCodeGen(ast.parse(code),'c').out)
+    print ('>raw')
+    print (nodeCodeGen(ast.parse(code)).out)
 # end
