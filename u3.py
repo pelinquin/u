@@ -35,6 +35,7 @@ Abstract LaTeX doc here!
 __author__   = 'Laurent Fournier'
 __email__    = 'lfournie@rockwellcollins.com'
 __title__    = 'The Universal Short Graph Language'
+__subtitle__ = 'Introducing the $\sqcup$ language'
 __version__  = '0.3'
 __license__  = 'GPLv3'
 __url__      = 'github.com/pelinquin/u'
@@ -625,7 +626,8 @@ class u:
                 d += ' %s[label="%s"];' % (n, nodeCodeGen(self.gast(n, nodes[n])).out)
         for e in arcs:
             if (e[0][0] not in child) and (e[1][0] not in child):
-                d += ' %s->%s %s' % (e[0][0], e[1][0], '') 
+                label = re.sub(r' ','_', '' if e[5] == None else '[label="%s"];'%e[5])
+                d += ' %s->%s %s' % (e[0][0], e[1][0], label) 
         d += '}' 
         #print (d) # for debug
         p = subprocess.Popen(('dot'), stdout=subprocess.PIPE, stdin=subprocess.PIPE)
@@ -645,6 +647,34 @@ class u:
             if n:
                 pos[item] = (int(x/n),int(y/n))
         return pos
+
+    def gen_tikz_header(self):
+        r"""\usetikzlibrary{shapes,fit,arrows,shadows,backgrounds}
+        """
+        return self.gen_tikz_header.__doc__ + '\n'
+        
+    def gen_tikz(self, uast, standalone=True):
+        "latex tikz"
+        nt, at = gettypes(uast)
+        o = ''
+        if standalone:
+            o += r'\documentclass[a4paper]{article} \usepackage{tikz}' + '\n' + r'\begin{document}' + '\n'
+        o += self.gen_tikz_header() 
+        o += r'\begin{tikzpicture}[auto,node distance=15mm,semithick]'+ '\n'
+        nodes, arcs = uast 
+        pos, ratio = self.layout(uast, 'LR'), .04
+        for n in pos:
+            x, y = pos[n][0]*ratio, pos[n][1]*ratio
+            styl = 'rectangle,drop shadow,draw=gray!40,fill=blue!20'
+            o += r'\node[%s](%s) at (%0.3f,%0.3f){%s};'% (styl, n, x, y, nodeCodeGen(self.gast(n, nodes[n])).out) +'\n'
+        for a in arcs:
+            boucle = '[loop right]' if a[0][0] == a[1][0] else ''  
+            label = '' if a[5] == None else r'node[sloped,above,font=\scriptsize]{%s}'%a[5] 
+            o += r'\draw[->,>=latex] -- (%s) to%s %s(%s);'% (a[0][0], boucle, label, a[1][0]) +'\n'            
+        o += r'\end{tikzpicture}' + '\n'
+        if standalone:
+            o +=  r'\end{document}'
+        return o 
 
     def include_js(self):
         r"""
@@ -1151,7 +1181,10 @@ class nodeCodeGen(ast.NodeVisitor):
  
     def visit_Str(self, node):
         "_"
-        self.w(repr(node.s))
+        if self.lang == 'c':
+            self.w(repr(node.s))
+        else:
+            self.w(node.s)
  
     def visit_Bytes(self, node):
         "_"
@@ -1297,13 +1330,19 @@ class nodeCodeGen(ast.NodeVisitor):
 
 class latex:
     "% This is generated, do not edit by hands!\n"
-    def __init__(self):
+    def __init__(self, userfile='__file__'):
         r"\begin{document}"
         self.src = os.path.basename(sys.argv[0])
         self.tex = latex.__doc__ + '\n'
-        self.digest = re.sub('_', '\_', r'\texttt{%s}' % __digest__.decode('utf-8'))
-        
-    def head(self, lpkg, hcmd, title, author, email, beam=False):
+        digest = base64.urlsafe_b64encode(hashlib.sha1(open(userfile, 'r', encoding='utf-8').read().encode('utf-8')).digest())[:5]
+        self.digest = re.sub('_', '\_', r'\texttt{%s}' % digest.decode('utf-8'))
+        self.embeds = ['u3.py', 'rcf.png']
+        for l in open(userfile).readlines():
+            m = re.search(r'/(\w+\.png)', l) 
+            if m:
+                self.embeds.append(m.group(1))
+
+    def head(self, lpkg, hcmd, title, subtitle, author, email, beam=False):
         "_"
         for p in ('draftwatermark', 'listings', 'embedfile', 'graphicx', 'tikz', 'url') + lpkg:
             a = p.split('|')
@@ -1311,27 +1350,49 @@ class latex:
                 self.tex += r'\usepackage[%s]{%s}' % (a[1], a[0]) + '\n'
             else:
                 self.tex += r'\usepackage{%s}' % a[0] + '\n'
-        base = {'pyt':r'\emph{Python}', 'pdf':r'\textsc{pdf}'}
+        base = {'pyt':r'\emph{Python}', 
+                'pdf':r'\textsc{pdf}', 
+                'wsg':r'\textsc{wysiwyg}', 
+                'hmi':r'\textsc{hmi}',
+                'mde':r'\textsc{mde}'}
         base.update(hcmd)
         for c in base:
             self.tex += r'\newcommand{\%s}{%s}' % (c, base[c]) + '\n'
-        if beam:
+            self.tex += r"""
+\def\wordsloop#1{\wordsloopiter#1 \nil}
+\def\wordsloopiter#1 #2\nil{
+  \langle #1 \rangle
+  \ifx&#2&
+    \let\next\relax
+  \else
+    \def\next{\wordsloopiter#2\nil}
+  \fi
+  \next}"""
+        self.tex += r'\newcommand{\req}[3]{\paragraph{{\sc Requirement} {\scriptsize \langle #1 \rangle} }  {\em #2 \cdot{} } \hfill {\scriptsize \wordsloop{#3} }  \\ }' + '\n'
+        if beam: 
             self.tex += r'\title[%s]{%s}' % (self.digest, title) + '\n'
+            if subtitle:
+                self.tex += r'\subtitle{%s}' % (subtitle) + '\n'
             self.tex += r'\author{%s\inst{*}}\institute{*%s}' % (author, email) + '\n'
             self.tex += r'\pgfdeclareimage[height=.6cm]{logo}{%s/rcf.png}\logo{\pgfuseimage{logo}}' % os.path.dirname(os.path.abspath(__file__)) + '\n'
         else:
-            self.tex += r'\title{\bf %s}' % title + '\n'
+            ti = r'%s \\ {\large %s}' % (title, subtitle) if subtitle else title
+            self.tex += r'\title{\bf %s}' % ti + '\n'
             self.tex += r'\author{%s -- \url{%s} \\' % (author, email) + '\n'
             self.tex += r'\tiny{[%s]}\footnote{the first five characters of the base64 encoding of the \textsc{sha1} digest of the attached source file.}}}' % self.digest
             self.tex += r'\pagestyle{myheadings} \markright{\tiny{%s}\hfill}' % self.digest + '\n'
         self.tex += latex.__init__.__doc__ + '\n'
         self.tex += r'\lstset{language=Python, breaklines=true}'
         self.tex += r'\embedfile[filespec=%s]{%s}' % (self.src, os.path.abspath(self.src)) + '\n'
+        for x in self.embeds:
+            self.tex += r'\embedfile[filespec=%s]{%s}' % (x, os.path.abspath(x)) + '\n'
         if beam:
             self.tex += r"\frame{\titlepage}" + '\n'
+            #self.tex += r"\setbeamertemplate{footline}{\insertframenumber}" + '\n'
+            #self.tex += r'\setbeamertemplate{footline}[frame number]' + '\n'
         else:
             self.tex += r'\maketitle' + '\n'
-        
+
     def gen_pdf(self, name):
         r"""\end{document}"""
         self.tex += latex.gen_pdf.__doc__ + '\n'
@@ -1342,11 +1403,11 @@ class latex:
 
 class article (latex):
     r"\documentclass[a4paper,10pt]{article}"
-    def __init__(self, title, author, email):
+    def __init__(self, userfile, title, author, email, subtitle=''):
         "_"
-        latex.__init__(self)
+        latex.__init__(self, userfile)
         self.tex += article.__doc__ + '\n'
-        self.head(('geometry|margin=2cm', 'inputenc|utf8', 'lmodern', 'color', 'longtable', 'array'), {}, title, author, email)
+        self.head(('geometry|margin=2cm', 'inputenc|utf8', 'lmodern', 'color', 'longtable', 'array'), {}, title, subtitle, author, email)
         self.tex += r'\begin{abstract}' + __doc__ + r'\end{abstract}' + '\n'
         
     def section(self, title, content):
@@ -1354,45 +1415,75 @@ class article (latex):
         self.tex += r'\section{%s}' % title + '\n'
         self.tex += content + '\n'
 
-    def insert_code(self, pat):
-        " ....in LaTeX "
-        o, d = r'\lstset{basicstyle=\ttfamily, numbers=left, numberstyle=\tiny, stepnumber=5, numbersep=5pt}', False
-        o += r'\begin{lstlisting}[texcl]' + '\n'
-        for l in open(__file__).readlines():
-            if re.match(r'(if|\s*def|class|__)', l): d = False
-            if re.match(pat, l): d = True
-            if d: o += l
-        return o + r'\end{lstlisting}' + '\n'
+    def subsection(self, title, content):
+        "_"
+        self.tex += r'\subsection{%s}' % title + '\n'
+        self.tex += content + '\n'
+
+    def biblio(self, hbib):
+        "_"
+        self.tex += r'\begin{thebibliography}{99}' 
+        for i in hbib: self.tex += r'\bibitem{%s} %s.'%(i, hbib[i]) + '\n'
+        self.tex += r'\end{thebibliography}'
+
+def tikz(ustr):
+    "_"
+    myu = u()
+    return myu.gen_tikz(myu.parse(ustr), False)
+
+def insert_code(pat, sli=None):
+    " ....in LaTeX "
+    o, x, d = r'\lstset{basicstyle=\ttfamily, numbers=left, numberstyle=\tiny, stepnumber=5, numbersep=5pt}', [], False
+    o += r'\begin{lstlisting}[texcl]' + '\n'
+    for l in open(__file__).readlines():
+        if re.match(r'(if|\s*def|class|__)', l): d = False
+        if re.match(pat, l): d = True
+        if d: x.append(l)
+    z = eval('x[%s]'%sli) if sli else x
+    return o + '\n'.join(z) + r'\end{lstlisting}' + '\n'
 
 class beamer (latex):
     r"\documentclass{beamer}"
-    def __init__(self, title, author, email):
+    def __init__(self, userfile, title, author, email, subtitle=''):
         "_"
-        latex.__init__(self)
+        latex.__init__(self, userfile)
         self.tex += beamer.__doc__ + '\n'
-        self.head(('beamerthemeshadow', ), {}, title, author, email, True)
+        self.head(('beamerthemeshadow', ), {}, title, subtitle, author, email, True)
         self.tex += r'\note{%s}' % __doc__ + '\n'
+        self.header = r'\frame{\frametitle{%s \hfill {\tiny \insertframenumber/\inserttotalframenumber } }'
 
     def frame(self, title, content):
-        "frame"
-        self.tex += r'\frame{\frametitle{%s}' % title + '\n'
+        "basic frame"
+        self.tex += self.header % title + '\n'
         self.tex += content + '\n'
-        self.tex += '}\n' 
+        self.tex += '}\n'
+
+    def frame2(self, title, c1, c2):
+        "2 columns"
+        self.tex += self.header % title + '\n'
+        self.tex += r'\begin{columns}[c]' + '\n'
+        self.tex += r'\column{2.1in}' + '\n' + c1 + '\n' + r'\column{2.1in}' + '\n' + c2 + '\n'
+        self.tex += r'\end{columns}' + '\n'
+        self.tex += '}\n'
 
     def itemize(self, title, head, tab, tail=''):
         "_"
-        self.tex += r'\frame{\frametitle{%s}'%title + '\n' + head
-        self.tex += functools.reduce(lambda y,k: y+r'\item %s'%k+ '\n',tab,r'\begin{itemize}') + r'\end{itemize}' + '%s\n}\n' % tail
-
+        self.tex += self.header % title + '\n' + head
+        self.tex += functools.reduce(lambda y,k: y+r'\item %s.'%k+ '\n',tab,r'\begin{itemize}') + r'\end{itemize}' + '%s\n}\n' % tail
+    
+    def enum(self, title, head, tab, tail=''):
+        "_"
+        self.tex += self.header % title + '\n' + head
+        self.tex += functools.reduce(lambda y,k: y+r'\item %s.'%k+ '\n',tab,r'\begin{enumerate}') + r'\end{enumerate}' + '%s\n}\n' % tail
     
 def gen_doc():
     "weave article and beamer"
-    art, sli = article(__title__, __author__, __email__), beamer(__title__, __author__, __email__)
+    art, sli = article(__file__, __title__, __author__, __email__, __subtitle__), beamer(__file__, __title__, __author__, __email__, __subtitle__)
     #
     art.section('chapitre', 'blabla')
-    art.tex += art.insert_code('__RE_U__') 
+    art.tex += insert_code('__RE_U__') 
     art.section('Parser', 'blabla')
-    art.tex += art.insert_code(r'\s*def\s+parse\(') 
+    art.tex += insert_code(r'\s*def\s+parse\(') 
     #
     sli.frame(r'What $\sqcup$ is?', r""" 
 The $\sqcup$ language is a {\bf Universal Graph Language};\\
@@ -1400,7 +1491,7 @@ The $\sqcup$ language is a {\bf Universal Graph Language};\\
 \item Symbol: $\bigsqcup$ \\
 \end{itemize} 
 """)
-    name = os.path.basename(__file__)
+    name = os.path.basename(__file__)[:-3]
     art.gen_pdf(name)
     sli.gen_pdf('beamer_' + name)
 
@@ -1685,6 +1776,13 @@ def htail():
     "_"
     return '<h6 title="Base64 encoded short sha1 digest">%s</h6></html>' % __digest__.decode('utf-8')
 
+def tex2pdf(txt):
+    "TeX to PDF"
+    src = 'tikzfile' # better use tmpfile module
+    open('/tmp/%s.tex' % src, 'w', encoding='utf-8').write(txt)
+    subprocess.Popen(('cd /tmp; pdflatex -interaction=batchmode %s.tex 1>/dev/null' % src), shell=True).communicate()
+    return open('/tmp/%s.pdf' % src, 'rb').read()
+
 def application(environ, start_response):
     """ WSGI Web application """
     s, mime, o, myu, host = urllib.parse.unquote(environ['QUERY_STRING']), 'text/plain; charset=utf-8', 'Error!', u(), environ['SERVER_NAME']
@@ -1724,7 +1822,8 @@ def application(environ, start_response):
         elif environ['REQUEST_METHOD'].lower() == 'put':
             arg = environ['wsgi.input'].read().decode('utf-8')
         if lang:
-            if lang in ('xml','svg') and mod: mime = 'application/xhtml+xml; charset=utf-8'
+            if lang in ('xml', 'svg') and mod: mime = 'application/xhtml+xml; charset=utf-8'
+            if lang == 'tikz' and mod: mime = 'application/pdf'
             if arg:
                 if lang == 'svg' and environ['REQUEST_METHOD'].lower() == 'post': 
                     raw = environ['wsgi.input'].read().decode('utf-8')
@@ -1739,12 +1838,14 @@ def application(environ, start_response):
                 else:
                     mime, fname = 'text/html; charset=utf-8', lang
                     o = hhead() + '<form method=post enctype=multipart/form-data><input type=file name=a onchange="submit();"/>' + htail()
+            if lang == 'tikz' and mod: o = tex2pdf(o)
         else:
             if arg:
                 o = myu.headfoot(myu.gen_ast, 'python', host)(myu.parse(arg))
             else:
-                o = open(__file__, 'r', encoding='utf-8').read() 
-        o = o.encode('utf-8')
+                o = open(__file__, 'r', encoding='utf-8').read()
+        if lang != 'tikz' or not mod:
+            o = o.encode('utf-8')
     start_response('200 OK', [('Content-type', mime), ('Content-Disposition', 'filename={}'.format(fname))])
     return [o] 
 
@@ -1814,6 +1915,9 @@ class F:
 zz=4
 y=zz
 """ 
+    code = """
+'source code'
+"""
     #print (code)
     print ('>c')
     print (nodeCodeGen(ast.parse(code),'c').out)
