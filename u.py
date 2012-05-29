@@ -655,6 +655,8 @@ class u:
         ville/.style={draw,rectangle,rounded corners=3pt},
         capitale/.style={draw,ellipse,very thick,fill=black!25},
         None/.style={rectangle,drop shadow,draw=gray!40,fill=blue!20},
+        S/.style={rectangle,drop shadow,draw=gray!20,fill=blue!20},
+        E/.style={ellipse,drop shadow,draw=gray!20,fill=green!20},
         }
         """
         return self.gen_tikz_header.__doc__ + '\n'
@@ -671,7 +673,7 @@ class u:
         pos, ratio = self.layout(uast, 'LR'), .04
         for n in pos:
             x, y = pos[n][0]*ratio, pos[n][1]*ratio
-            styl = 'None'
+            styl = nodes[n][1] if nodes[n][1] else 'None'
             o += r'\node[%s](%s) at (%0.3f,%0.3f){%s};'% (styl, n, x, y, nodeCodeGen(self.gast(n, nodes[n])).out) +'\n'
         for a in arcs:
             boucle = '[loop right]' if a[0][0] == a[1][0] else ''  
@@ -1350,7 +1352,8 @@ class latex:
 
     def head(self, lpkg, hcmd, title, subtitle, author, email, beam=False):
         "_"
-        for p in ('draftwatermark', 'listings', 'embedfile', 'graphicx', 'tikz', 'hyperref') + lpkg:
+        #for p in ('draftwatermark', 'listings', 'embedfile', 'graphicx', 'tikz', 'hyperref') + lpkg:
+        for p in ('listings', 'embedfile', 'graphicx', 'tikz', 'hyperref') + lpkg:
             a = p.split('|')
             if len(a) > 1:
                 self.tex += r'\usepackage[%s]{%s}' % (a[1], a[0]) + '\n'
@@ -1368,14 +1371,14 @@ class latex:
         self.tex += r"""
 \def\wordsloop#1{\wordsloopiter#1 \nil}
 \def\wordsloopiter#1 #2\nil{
-  \langle #1 \rangle
+  {\scriptsize \langle #1 \rangle} 
   \ifx&#2&
     \let\next\relax
   \else
     \def\next{\wordsloopiter#2\nil}
   \fi
   \next}"""
-        self.tex += r'\newcommand{\req}[3]{\paragraph{{\sc Requirement} {\scriptsize \langle #1 \rangle} }  {\em #2 \cdot{} } \hfill {\scriptsize \wordsloop{#3} }  \\ }' + '\n'
+        self.tex += r'\newcommand{\req}[3]{\paragraph{{\sc Requirement} {\scriptsize \langle #1 \rangle} }  {\em #2 \circ{} } \hfill {\scriptsize \wordsloop{#3} }  \\ }' + '\n'
         if beam: 
             self.tex += r'\title[%s]{%s}' % (self.digest, title) + '\n'
             if subtitle:
