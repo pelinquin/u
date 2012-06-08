@@ -45,6 +45,10 @@ import sys, os, re, hashlib, subprocess, urllib.parse, base64, random, functools
 
 __digest__ = base64.urlsafe_b64encode(hashlib.sha1(open(__file__, 'r', encoding='utf-8').read().encode('utf-8')).digest())[:5]
 
+def introduction():
+    r"""Blabla intro with diagram: %(lp_diag)s blabla"""
+    return introduction.__doc__ % {'lp_diag': tikz('M"Literate program"S M-"weave">doc"Documentation"S M-"tangle">Code"Source Code"S', 1.7)}
+
 _XHTMLNS  = 'xmlns="http://www.w3.org/1999/xhtml"'
 _SVGNS    = 'xmlns="http://www.w3.org/2000/svg"'
 _XLINKNS  = 'xmlns:xlink="http://www.w3.org/1999/xlink"'
@@ -99,8 +103,8 @@ __OUT_LANG__ = {'c'          :['c',    ('/*', '*/', ''), 'gcc ansi pedantic'],
 }
  
 __DATA_ports__ = {
-    None:('in', 'out'),
-    'P':('p1', 'p2', 'p3', 'p4'),
+    None:('p1', 'p2', 'p3', 'p4'),
+    'P': ('p1', 'p2', 'p3', 'p4'),
     'T': ('i', 'o'),
     'O': ('in1', 'in2', 'out1', 'out2'),
     'V': ('in1', 'in2', 'out1', 'out2'),
@@ -145,7 +149,7 @@ __DATA_tikz__ = ({
         'm': ('rectangle,rounded corners=2pt,drop shadow,draw=gray!40,fill=brown!30,align=left', ''),
         'g': ('ellipse,drop shadow,draw=gray!40,fill=green!20', ''),
         'l': ('ellipse,drop shadow,draw=gray!40,fill=blue!20', ''),
-        'a': ('ellipse,drop shadow,draw=gray!40,fill=blue!20', ''),
+        'a': ('rectangle,drop shadow,draw=gray!40,fill=blue!20,minimum width=2cm, minimum height=2cm', ''),
         'b': ('rectangle,drop shadow,draw=gray!40,fill=blue!20', ''),
         'c': ('diamond,drop shadow,draw=gray!40,fill=blue!20', ''),
         'd': ('regular polygon,regular polygon sides=5,drop shadow,draw=gray!40,fill=blue!20', ''),
@@ -385,6 +389,12 @@ __AST_SET__ = [
     ('LinkBefore',             '->A{->B}'),
     ('LinkAfter',              '{A->}B->'),
     ('LinkOverload',           'A->--B'),
+    ('RecurseComposition',     'A{B} B{A}'),
+    ('MultiParents',           'A{C} B{C}'),
+    ('MultiChild',             'A{B} A{C}'),
+    ('Optimize1',              'A A"hh" A:T'),
+    ('Optimize2',              'A->B B->C'),
+    ('Optimize3',              'A{B} A{C}'),
 ]
 
 # (0) Parser
@@ -417,26 +427,14 @@ class u:
                 gen_x.__name__ = 'gen_%s' % l
                 setattr(u, gen_x.__name__, gen_x)
 
-    def addarcs(self, child, target, cli):
-        "not used!"
-        arcs = []
-        for c in child:
-            tc = range(-int(c[1])) if c[1] and int(c[1]) < 0 else [c[1]]
-            for i in target:
-                ti = range(-int(i[1])) if i[1] and int(i[1]) < 0 else [i[1]]
-                for p in tc:
-                    for q in ti:
-                        arcs.append(((c[0], p), (i[0], q)) + cli)
-        return arcs
-
     def addarc(self, c, i, cli):
         "utils"
         arcs = []
-        tc = range(-int(c[1])) if c[1] and int(c[1]) < 0 else [c[1]]
-        ti = range(-int(i[1])) if i[1] and int(i[1]) < 0 else [i[1]]
-        for p in tc:
-            for q in ti:
-                arcs.append(((c[0], p), (i[0], q)) + cli)
+        for a in c:
+            for x in range(-int(a[1])) if a[1] and int(a[1]) < 0 else [a[1]]:
+                for b in i:
+                    for y in range(-int(b[1])) if b[1] and int(b[1]) < 0 else [b[1]]:
+                        arcs.append(((a[0], x), (b[0], y)) + cli)
         return arcs
 
     def typeLabel(self, g, arc=True):
@@ -469,35 +467,66 @@ class u:
             nodes[nid] = (prt, typ, sep, lab)    
 
     def parse(self, x):
-        "kernel parser"
-        for p in __MACRO__:
-            x = re.sub(r'\b%s\b'%p, __MACRO__[p], x)
-        nodes, arcs, = {}, []
-        sak = [(None, None),] # for parent setting
-        sgl, cli, stl = False, (), [[],] # for arc setting
+        r"""
+The \u{} kernel parser code\\
+Specification:\\
+A {\em token} is a Name with possible attributes (type, label)\\
+A {\em link} is an arrow string with possible attributes (type, arrow, label)\\
+A {\em group} is a sequence of groups, links, token delimited by curly braces\\
+An {\em element} is either a group or a token
+A token has a {\em parent} iff there is a token (parent) just before the open brace of the group it belongs to\\
+A link makes a relation between the two near elements. 
+A link to or from a group is equivalent as a set of links to or from each member of the group.\\
+
+Output 
+A dictionnary with tokens as key and parent+attributes as value
+A list of all links between two tokens+port and link attributes
+ 
+"""
+        for p in __MACRO__: x = re.sub(r'\b%s\b'%p, __MACRO__[p], x) # library
+        nodes, arcs, stack = {}, [], [[[]]]
+        index, grp, link, sak = 0, 0, False, [None]
         for m in re.compile(__RE_U__, re.X|re.S).finditer(x):
             if sak:
                 if m.group(1) == '{': # open block
-                    sak.append((None, None))
-                    stl.append([])
-                    sgl = False
+                    index += 1
+                    if len(stack) <= index:
+                        stack.append([])
+                    grp = len(stack[index])
+                    stack[index].append([])
+                    sak.append(None)
                 elif m.group(1) == '}': # close block
                     sak.pop()
-                    stl.pop()
-                    if sak: sak[-1] = (None, None)
-                    sgl = False
+                    if sak: sak[-1] = None
+                    index -= 1 
+                    old_grp = grp
+                    grp = len(stack[index])-1
+                    stack[index][grp].append(old_grp)
                 elif m.group(11): # link
-                    sak[-1] = (None, None)
-                    cli, sgl = self.typeLabel(m.groups()), True
+                    sak[-1] = None
+                    stack[index][grp].append(self.typeLabel(m.groups()))
                 else: # node
-                    (nid, typ, sep, lab) = self.typeLabel(m.groups(), False)
-                    por, prt = self.getport(typ, m.group(10)), sak[-2][0] if len(sak)>1 else None
-                    if not prt and len(stl)>1: stl[-2] = []
-                    if sgl and stl[-1]: 
-                        arcs += self.addarc(stl[-1][-1], (nid, por), cli) 
-                    sak[-1], sgl = (nid, por), False
-                    stl[-1].append((nid, por))
-                    self.merge_attr(nid, nodes, prt, typ, sep, lab)
+                    (nid, typ, sep, lab) = self.typeLabel(m.groups(), False) # Compact
+                    prt = sak[-2] if len(sak)>1 else None                    # Compact
+                    self.merge_attr(nid, nodes, prt, typ, sep, lab)          # Compact
+                    stack[index][grp].append([nid, self.getport(typ, m.group(10))])
+                    sak[-1] = nid
+        current, parent = None, None
+        for l in stack:
+            for g in l:
+                for e in g: 
+                    if (type(e).__name__) == 'tuple' and g.index(e) > 0 and g.index(e) != len(g)-1:
+                        link = e
+                    else:
+                        if link:
+                            v = parent if type(current).__name__ == 'int' and parent else current
+                            if current != None:
+                                arcs += self.addarc(stack[stack.index(l) + 1][v] if type(v).__name__ == 'int' else [v], 
+                                                    stack[stack.index(l) + 1][e] if type(e).__name__ == 'int' else [e], link) 
+                            parent = None
+                        if type(e).__name__ == 'list':
+                            parent = e
+                        current, link = e, None
         return nodes, arcs
 
     def format_node(self, n, nod):
@@ -702,7 +731,7 @@ class u:
             if tt:
                 ports[n], delta, p = tt, 360/len(tt), -180
                 for i in tt:
-                    o += r'\draw[gray] (%s.%s) node{\tiny{%s}};' % (n, p, i) + '\n'
+                    o += r'\draw[gray] (%s.%s) node[rectangle,draw=none,fill=green!10,scale=.4]{\tiny{%s}};' % (n, p, i) + '\n'
                     p += int(delta)
         for a in arcs:
             boucle = '[loop right]' if a[0][0] == a[1][0] else ''  
@@ -711,13 +740,10 @@ class u:
             styl = typ if typ in __DATA_tikz__[1] else 'None'
             n0, n1 = a[0][0], a[1][0]
             if a[0][1] != None:
-                pass
                 #n0 += '.0'
-                #n0 += '.%d' % int(a[0][1]*360/len(ports[n0]))
+                n0 += '.%d' % int(a[0][1]*360/len(ports[n0]))
             if a[1][1] != None:
-                pass
-                #n1 += '.180'
-                #n1 += '.%d' % int(a[1][1]*360/len(ports[n1]))
+                n1 += '.%d' % int(a[1][1]*360/len(ports[n1]))
             o += r'\draw[arc%s] -- (%s) to%s %s(%s);'% (styl, n0, boucle, label, n1) +'\n'   
         o += r'\end{tikzpicture}' + '\n'
         if standalone:
@@ -1387,7 +1413,7 @@ class latex:
         digest = base64.urlsafe_b64encode(hashlib.sha1(open(userfile, 'r', encoding='utf-8').read().encode('utf-8')+__digest__).digest())[:5]
         self.digest = re.sub('_', '\_', r'\texttt{%s}' % digest.decode('utf-8'))
         self.embeds = ['u.py']
-        for l in open(userfile).readlines():
+        for l in open(userfile, 'r', encoding='utf-8').readlines(): #2
             m = re.search(r'/(\w+\.png)', l) 
             if m:
                 self.embeds.append(m.group(1))
@@ -1417,7 +1443,6 @@ class latex:
             if subtitle:
                 self.tex += r'\subtitle{%s}' % (subtitle) + '\n'
             self.tex += r'\author{%s\inst{*}}\institute{*%s}' % (author, email) + '\n'
-            self.tex += r'\pgfdeclareimage[height=.6cm]{logo}{%s/rcf.png}\logo{\pgfuseimage{logo}}' % os.path.dirname(os.path.abspath(__file__)) + '\n'
         else:
             ti = r'%s \\ {\large %s}' % (title, subtitle) if subtitle else title
             self.tex += r'\title{\bf %s}' % ti + '\n'
@@ -1426,20 +1451,23 @@ class latex:
             self.tex += r'\pagestyle{myheadings} \markright{\tiny{%s}\hfill}' % self.digest + '\n'
         self.tex += latex.__init__.__doc__ + '\n'
         self.tex += r'\lstset{language=Python, breaklines=true}'
-        self.tex += r'\embedfile[filespec=%s]{%s}' % (self.src, os.path.abspath(self.src)) + '\n'
+        if self.src != 'u.py':
+            self.tex += r'\embedfile[filespec=%s]{%s}' % (self.src, os.path.abspath(self.src)) + '\n'
         for x in self.embeds:
             self.tex += r'\embedfile[filespec=%s]{%s}' % (x, os.path.abspath(x)) + '\n'
         if beam:
-            self.tex += r"\frame{\titlepage}" + '\n'
+            self.tex += r"\begin{frame} \titlepage" + '\n'
             #self.tex += r"\setbeamertemplate{footline}{\insertframenumber}" + '\n'
             #self.tex += r'\setbeamertemplate{footline}[frame number]' + '\n'
+            self.tex += r'\usetikzlibrary{svg.path} \begin{tikzpicture}[remember picture,overlay,shift={(current page.north east)}] %s \end{tikzpicture}' % self.rclogo(.4) + '\n'
+            self.tex += r"\end{frame}" + '\n'
         else:
             self.tex += r'\maketitle' + '\n'
-            self.tex += r'\usetikzlibrary{svg.path} \begin{tikzpicture}[remember picture,overlay,shift={(current page.north east)}] %s \end{tikzpicture}' % self.rclogo() + '\n'
+            self.tex += r'\usetikzlibrary{svg.path} \begin{tikzpicture}[remember picture,overlay,shift={(current page.north east)}] %s \end{tikzpicture}' % self.rclogo() + '\n' #self.rclogo(.5, -19, 38)
 
-    def rclogo(self):
+    def rclogo(self, r=.8, x =-17, y=-17):
         "RockwellCollins TikZ logo (SVG source)"
-        return '\draw[draw=none,fill=black,yscale=-.8,xscale=.8,shift={(-17,-17)}] svg "M 310.0,513.4L301.8,513.4L294.2,530.5L299.6,530.5L302.3,524.3C302.3,524.3 303.4,524.2 304.3,524.2C305.3,524.2 305.8,524.4 305.8,524.4C307.4,524.9 306.9,526.4 306.9,526.4C306.8,526.8 306.6,527.3 306.6,527.3L305.2,530.5L310.5,530.5L312.4,526.4C313.3,524.0 311.5,523.2 311.5,523.2C310.9,522.9 309.9,522.8 309.9,522.8L309.9,522.7C310.6,522.7 311.4,522.5 311.4,522.5C313.9,522.1 315.1,520.3 315.1,520.3C316.5,518.5 316.1,516.6 316.1,516.6C315.8,514.9 314.3,514.1 314.3,514.1C313.4,513.6 311.9,513.4 311.9,513.4C311.2,513.4 310.0,513.4 310.0,513.4 z M 352.4,513.4L344.9,530.5L350.2,530.5L352.8,524.6L354.6,530.5L360.1,530.5L358.1,525.7C357.6,524.5 357.3,524.0 357.3,524.0C358.3,523.4 359.6,522.4 359.6,522.4L364.9,518.2L362.9,530.5L368.9,530.5L376.1,521.6C376.1,521.6 376.2,521.5 376.3,521.4L376.3,521.4C376.2,521.6 376.1,522.1 376.1,522.1L374.7,530.5L380.9,530.5L391.7,517.8L385.8,517.8L379.1,526.3C379.1,526.3 379.0,526.5 379,526.6L378.9,526.5C379.0,526.3 379.0,526.0 379.0,526.0L380.4,517.8L375.1,517.8L368.4,526.3C368.4,526.3 368.3,526.4 368.2,526.6L368.2,526.5C368.3,526.4 368.3,526.0 368.3,526.0L369.7,517.8L359.6,517.8L353.1,523.4L353.1,523.4C353.6,522.6 354.2,521.2 354.2,521.2L357.7,513.4L352.4,513.4 z M 411.8,513.4L404.2,530.5L409.6,530.5L417.1,513.4L411.8,513.4 z M 420.3,513.4L412.8,530.5L418.1,530.5L425.7,513.4L420.3,513.4 z M 307.5,516.1C307.5,516.1 308.5,516.1 309.0,516.2C309.0,516.2 309.8,516.3 310.3,516.9C310.3,516.9 311.1,517.8 310.5,519.2C310.5,519.2 309.9,520.7 308.4,521.2C308.4,521.2 307.7,521.4 306.5,521.4L303.6,521.4L305.9,516.2L307.5,516.1 z M 399.4,517.4C398.7,517.4 398.2,517.4 398.2,517.4C394.4,517.8 391.8,520.3 391.8,520.3C389.5,522.2 389,524.4 389,524.4C388.5,525.6 388.7,526.8 388.7,526.8C389.2,529.8 392.5,530.5 392.5,530.5C393.8,530.8 395.3,530.8 395.3,530.8C395.3,530.8 397.7,531.0 400.7,530.5L401.3,530.4L402.6,527.6C402.3,527.7 401.9,527.8 401.4,527.9C401.3,527.9 399.1,528.3 397.4,528.2C397.4,528.2 396.4,528.2 395.6,527.9C395.6,527.9 394.7,527.7 394.3,527.2C394.3,527.2 393.8,526.7 393.8,526.1C393.8,526.1 393.7,525.7 393.9,525.2L403.9,525.0L404.0,524.9C404.8,523.9 405.2,522.7 405.2,522.7C406.0,520.6 404.7,519.1 404.7,519.1C403.7,517.9 401.9,517.6 401.9,517.6C401.1,517.4 400.1,517.4 399.4,517.4 z M 325.0,517.5C322.8,517.5 320.7,518.2 318.9,519.5C317.1,520.7 315.8,522.4 315.1,524.1L315.1,524.2C315.0,524.6 314.9,524.9 314.8,525.3C314.8,525.6 314.8,525.9 314.8,526.2C314.8,527.3 315.0,528.1 315.6,528.9C316.7,530.1 318.5,530.8 321.0,530.8C323.6,530.9 326.0,530.3 328.1,528.8C329.9,527.6 331.2,525.9 331.9,524.2L331.9,524.1C332.0,523.7 332.1,523.4 332.1,523.0C332.2,522.7 332.2,522.4 332.2,522.1C332.2,521.0 331.9,520.2 331.3,519.4C330.3,518.2 328.4,517.5 326,517.5C325.6,517.5 325.3,517.5 325.0,517.5 z M 344.0,517.5C343.8,517.5 343.6,517.5 343.6,517.5C341.9,517.6 339.3,518.1 337.2,519.5C335.0,521.0 333.4,523.2 333.1,525.4C332.8,526.8 332.9,529.3 336.2,530.4C336.8,530.6 337.8,530.8 339.5,530.8C339.6,530.8 340.8,530.8 342.4,530.5L343.7,527.6C342.5,527.8 341.6,527.8 341.6,527.8C340.3,527.8 339.4,527.3 339.4,527.3C338.0,526.4 338.5,524.8 338.5,524.7C339.3,521.6 342.6,521.0 343.1,520.9C344.5,520.7 345.8,520.8 346.6,521.0L348.0,517.9C346.4,517.5 344.7,517.5 344.0,517.5 z M 398.7,520.0C398.8,520.0 398.9,520.1 399.0,520.1C399.1,520.1 399.6,520.1 400.0,520.3C400.0,520.3 400.6,520.6 400.8,521.3C401.0,522.1 400.5,523.1 400.5,523.1L395.2,523.2C395.2,523.2 394.8,523.2 394.6,523.2L394.6,523.2C394.6,523.1 394.7,523.0 394.7,523.0C395.0,522.3 395.5,521.7 396.0,521.2C396.7,520.6 397.5,520.2 398.3,520.1C398.4,520.1 398.5,520.0 398.7,520.0 z M 324.4,520.7C324.6,520.7 324.6,520.7 324.6,520.7C327.0,520.6 327.0,522.6 327.0,522.6C327.0,523.3 326.8,523.9 326.7,524.1L326.7,524.2C326.0,525.9 324.7,526.8 324.7,526.8C323.5,527.6 322.3,527.6 322.3,527.6C319.9,527.7 320,525.6 320,525.6C319.9,525.0 320.2,524.4 320.2,524.2L320.3,524.1C321.0,522.4 322.2,521.5 322.2,521.5C323.1,520.9 324.0,520.7 324.4,520.7 z M 380.4,533.4C375.1,533.4 371.8,535.3 371.8,535.3C367.2,537.6 365.7,541.2 365.7,541.2C364.4,543.9 365.0,546.3 365.0,546.3C365.5,548.7 367.7,549.8 367.7,549.8C369.1,550.6 371.1,550.9 371.1,550.9C372.4,551.0 373.6,551.0 373.6,551.0C374.9,551.0 376.3,550.8 376.3,550.8L377.8,547.3C375.1,547.6 374.0,547.5 374.0,547.5C371.7,547.3 371.0,545.5 371.0,545.5C370.5,544.3 370.8,543.1 370.8,543.1C371.3,540.9 373.2,539.4 373.2,539.4C375.6,537.3 379.1,537.3 379.1,537.3C380.4,537.2 382.0,537.4 382.0,537.4L384,533.8L383.7,533.7C382.4,533.5 381.4,533.5 381.4,533.5C381.1,533.5 380.7,533.5 380.4,533.4 z M 402.8,533.8L395.3,551.0L400.6,551.0L408.1,533.8L402.8,533.8 z M 411.4,533.8L403.9,551.0L409.2,551.0L416.7,533.8L411.4,533.8 z M 389.0,537.9C386.8,537.9 384.8,538.6 382.9,539.9C381.1,541.1 379.8,542.7 379.2,544.5L379.1,544.5C379.0,544.9 378.9,545.3 378.9,545.7C378.8,546.0 378.8,546.3 378.8,546.6C378.8,547.6 379.1,548.5 379.7,549.2C380.7,550.5 382.6,551.1 385.1,551.2C387.7,551.3 390.1,550.7 392.2,549.2C394.0,548.0 395.3,546.3 395.9,544.6L396,544.5C396.1,544.1 396.1,543.7 396.2,543.4C396.2,543.0 396.3,542.7 396.3,542.4C396.3,541.4 396.0,540.5 395.4,539.8C394.4,538.6 392.5,537.9 390.0,537.9C389.7,537.8 389.4,537.8 389.0,537.9 z M 449.1,537.9C444.2,538.1 442.9,540.8 442.9,540.9L442.8,541.0C442.4,541.9 442.6,542.6 442.6,542.7C442.7,543.7 443.5,544.2 443.5,544.3C444.0,544.7 444.9,545.1 444.9,545.1L446.0,545.6C446.8,546.0 447.1,546.3 447.1,546.3C447.3,546.5 447.3,546.8 447.3,547.0C447.3,547.4 447.2,547.6 447.0,547.8C446.6,548.3 445.9,548.3 445.9,548.4C445.2,548.5 444.5,548.4 444.5,548.4C443.1,548.4 441.3,547.9 440.7,547.7C440.4,548.3 439.8,549.5 439.4,550.6C440.7,550.9 444.1,551.3 446.1,551.3C446.1,551.3 446.2,551.3 446.2,551.3C451.1,551.2 452.5,548.5 452.6,548.3L452.6,548.2C453.0,547.3 452.8,546.6 452.8,546.6C452.7,545.5 451.9,545.0 451.9,544.9C451.4,544.5 450.6,544.1 450.5,544.1L449.4,543.6C448.6,543.2 448.4,542.9 448.3,542.9C448.1,542.6 448.1,542.4 448.1,542.2C448.1,541.8 448.2,541.6 448.4,541.4C448.8,541.0 449.5,540.9 449.5,540.9C450.2,540.7 450.9,540.8 451,540.8C452.3,540.8 453.8,541.3 454.5,541.5C454.7,541.0 455.4,539.3 455.7,538.8C454.8,538.5 452.6,538.0 450.2,537.9L450.0,537.9C450.0,537.9 449.1,537.9 449.1,537.9 z M 436.7,538.0C435.0,538.0 433.6,538.6 433.6,538.6C431.2,539.4 430.0,541.0 430.0,541.0L430.0,541.0L431.4,538.2L426.5,538.3L420.9,551.0L426.1,551.0L428.9,544.9C429.2,544.2 429.5,543.7 429.5,543.7C430.2,542.6 431.3,542.1 431.3,542.1C432.4,541.6 433.6,541.8 433.6,541.8C434.6,541.9 434.8,542.6 434.8,542.6C434.9,542.9 434.8,543.3 434.8,543.3C434.7,543.8 434.5,544.2 434.5,544.2L431.5,551.0L436.7,551.0L439.8,544.1C440.1,543.3 440.4,542.6 440.4,542.6C440.7,541.8 440.7,541.1 440.7,541.1C440.7,539.8 439.8,539.0 439.8,539.0C438.6,537.9 436.7,538.0 436.7,538.0 z M 418.0,538.2L412.4,551.0L417.7,551.0L423.3,538.3L418.0,538.2 z M 388.7,541.0C391.1,541.0 391.0,543.0 391.0,543.0C391.1,543.6 390.8,544.3 390.8,544.4L390.7,544.5C390.0,546.2 388.8,547.1 388.8,547.1C387.6,548.0 386.4,548.0 386.4,548.0C384.0,548.0 384.0,546.0 384.0,546.0C384.0,545.3 384.2,544.7 384.3,544.5L384.3,544.4C385.0,542.7 386.3,541.9 386.3,541.9C387.5,541.0 388.7,541.0 388.7,541.0 z"; \draw[draw=none,fill=red,xscale=.8,yscale=-.8,shift={(-17,-17)}] svg "M 421.3,530.5L419.8,533.9L425.2,533.9L426.7,530.5L421.3,530.5 z M 412.8,530.5L411.4,533.8L416.7,533.8L418.1,530.5L412.8,530.5 z M 404.2,530.5L402.8,533.8L408.1,533.8L409.6,530.5L404.2,530.5 z";'
+        return '\draw[draw=none,fill=black,yscale=-%f,xscale=%f,shift={(%d,%d)}] svg "M 310.0,513.4L301.8,513.4L294.2,530.5L299.6,530.5L302.3,524.3C302.3,524.3 303.4,524.2 304.3,524.2C305.3,524.2 305.8,524.4 305.8,524.4C307.4,524.9 306.9,526.4 306.9,526.4C306.8,526.8 306.6,527.3 306.6,527.3L305.2,530.5L310.5,530.5L312.4,526.4C313.3,524.0 311.5,523.2 311.5,523.2C310.9,522.9 309.9,522.8 309.9,522.8L309.9,522.7C310.6,522.7 311.4,522.5 311.4,522.5C313.9,522.1 315.1,520.3 315.1,520.3C316.5,518.5 316.1,516.6 316.1,516.6C315.8,514.9 314.3,514.1 314.3,514.1C313.4,513.6 311.9,513.4 311.9,513.4C311.2,513.4 310.0,513.4 310.0,513.4 z M 352.4,513.4L344.9,530.5L350.2,530.5L352.8,524.6L354.6,530.5L360.1,530.5L358.1,525.7C357.6,524.5 357.3,524.0 357.3,524.0C358.3,523.4 359.6,522.4 359.6,522.4L364.9,518.2L362.9,530.5L368.9,530.5L376.1,521.6C376.1,521.6 376.2,521.5 376.3,521.4L376.3,521.4C376.2,521.6 376.1,522.1 376.1,522.1L374.7,530.5L380.9,530.5L391.7,517.8L385.8,517.8L379.1,526.3C379.1,526.3 379.0,526.5 379,526.6L378.9,526.5C379.0,526.3 379.0,526.0 379.0,526.0L380.4,517.8L375.1,517.8L368.4,526.3C368.4,526.3 368.3,526.4 368.2,526.6L368.2,526.5C368.3,526.4 368.3,526.0 368.3,526.0L369.7,517.8L359.6,517.8L353.1,523.4L353.1,523.4C353.6,522.6 354.2,521.2 354.2,521.2L357.7,513.4L352.4,513.4 z M 411.8,513.4L404.2,530.5L409.6,530.5L417.1,513.4L411.8,513.4 z M 420.3,513.4L412.8,530.5L418.1,530.5L425.7,513.4L420.3,513.4 z M 307.5,516.1C307.5,516.1 308.5,516.1 309.0,516.2C309.0,516.2 309.8,516.3 310.3,516.9C310.3,516.9 311.1,517.8 310.5,519.2C310.5,519.2 309.9,520.7 308.4,521.2C308.4,521.2 307.7,521.4 306.5,521.4L303.6,521.4L305.9,516.2L307.5,516.1 z M 399.4,517.4C398.7,517.4 398.2,517.4 398.2,517.4C394.4,517.8 391.8,520.3 391.8,520.3C389.5,522.2 389,524.4 389,524.4C388.5,525.6 388.7,526.8 388.7,526.8C389.2,529.8 392.5,530.5 392.5,530.5C393.8,530.8 395.3,530.8 395.3,530.8C395.3,530.8 397.7,531.0 400.7,530.5L401.3,530.4L402.6,527.6C402.3,527.7 401.9,527.8 401.4,527.9C401.3,527.9 399.1,528.3 397.4,528.2C397.4,528.2 396.4,528.2 395.6,527.9C395.6,527.9 394.7,527.7 394.3,527.2C394.3,527.2 393.8,526.7 393.8,526.1C393.8,526.1 393.7,525.7 393.9,525.2L403.9,525.0L404.0,524.9C404.8,523.9 405.2,522.7 405.2,522.7C406.0,520.6 404.7,519.1 404.7,519.1C403.7,517.9 401.9,517.6 401.9,517.6C401.1,517.4 400.1,517.4 399.4,517.4 z M 325.0,517.5C322.8,517.5 320.7,518.2 318.9,519.5C317.1,520.7 315.8,522.4 315.1,524.1L315.1,524.2C315.0,524.6 314.9,524.9 314.8,525.3C314.8,525.6 314.8,525.9 314.8,526.2C314.8,527.3 315.0,528.1 315.6,528.9C316.7,530.1 318.5,530.8 321.0,530.8C323.6,530.9 326.0,530.3 328.1,528.8C329.9,527.6 331.2,525.9 331.9,524.2L331.9,524.1C332.0,523.7 332.1,523.4 332.1,523.0C332.2,522.7 332.2,522.4 332.2,522.1C332.2,521.0 331.9,520.2 331.3,519.4C330.3,518.2 328.4,517.5 326,517.5C325.6,517.5 325.3,517.5 325.0,517.5 z M 344.0,517.5C343.8,517.5 343.6,517.5 343.6,517.5C341.9,517.6 339.3,518.1 337.2,519.5C335.0,521.0 333.4,523.2 333.1,525.4C332.8,526.8 332.9,529.3 336.2,530.4C336.8,530.6 337.8,530.8 339.5,530.8C339.6,530.8 340.8,530.8 342.4,530.5L343.7,527.6C342.5,527.8 341.6,527.8 341.6,527.8C340.3,527.8 339.4,527.3 339.4,527.3C338.0,526.4 338.5,524.8 338.5,524.7C339.3,521.6 342.6,521.0 343.1,520.9C344.5,520.7 345.8,520.8 346.6,521.0L348.0,517.9C346.4,517.5 344.7,517.5 344.0,517.5 z M 398.7,520.0C398.8,520.0 398.9,520.1 399.0,520.1C399.1,520.1 399.6,520.1 400.0,520.3C400.0,520.3 400.6,520.6 400.8,521.3C401.0,522.1 400.5,523.1 400.5,523.1L395.2,523.2C395.2,523.2 394.8,523.2 394.6,523.2L394.6,523.2C394.6,523.1 394.7,523.0 394.7,523.0C395.0,522.3 395.5,521.7 396.0,521.2C396.7,520.6 397.5,520.2 398.3,520.1C398.4,520.1 398.5,520.0 398.7,520.0 z M 324.4,520.7C324.6,520.7 324.6,520.7 324.6,520.7C327.0,520.6 327.0,522.6 327.0,522.6C327.0,523.3 326.8,523.9 326.7,524.1L326.7,524.2C326.0,525.9 324.7,526.8 324.7,526.8C323.5,527.6 322.3,527.6 322.3,527.6C319.9,527.7 320,525.6 320,525.6C319.9,525.0 320.2,524.4 320.2,524.2L320.3,524.1C321.0,522.4 322.2,521.5 322.2,521.5C323.1,520.9 324.0,520.7 324.4,520.7 z M 380.4,533.4C375.1,533.4 371.8,535.3 371.8,535.3C367.2,537.6 365.7,541.2 365.7,541.2C364.4,543.9 365.0,546.3 365.0,546.3C365.5,548.7 367.7,549.8 367.7,549.8C369.1,550.6 371.1,550.9 371.1,550.9C372.4,551.0 373.6,551.0 373.6,551.0C374.9,551.0 376.3,550.8 376.3,550.8L377.8,547.3C375.1,547.6 374.0,547.5 374.0,547.5C371.7,547.3 371.0,545.5 371.0,545.5C370.5,544.3 370.8,543.1 370.8,543.1C371.3,540.9 373.2,539.4 373.2,539.4C375.6,537.3 379.1,537.3 379.1,537.3C380.4,537.2 382.0,537.4 382.0,537.4L384,533.8L383.7,533.7C382.4,533.5 381.4,533.5 381.4,533.5C381.1,533.5 380.7,533.5 380.4,533.4 z M 402.8,533.8L395.3,551.0L400.6,551.0L408.1,533.8L402.8,533.8 z M 411.4,533.8L403.9,551.0L409.2,551.0L416.7,533.8L411.4,533.8 z M 389.0,537.9C386.8,537.9 384.8,538.6 382.9,539.9C381.1,541.1 379.8,542.7 379.2,544.5L379.1,544.5C379.0,544.9 378.9,545.3 378.9,545.7C378.8,546.0 378.8,546.3 378.8,546.6C378.8,547.6 379.1,548.5 379.7,549.2C380.7,550.5 382.6,551.1 385.1,551.2C387.7,551.3 390.1,550.7 392.2,549.2C394.0,548.0 395.3,546.3 395.9,544.6L396,544.5C396.1,544.1 396.1,543.7 396.2,543.4C396.2,543.0 396.3,542.7 396.3,542.4C396.3,541.4 396.0,540.5 395.4,539.8C394.4,538.6 392.5,537.9 390.0,537.9C389.7,537.8 389.4,537.8 389.0,537.9 z M 449.1,537.9C444.2,538.1 442.9,540.8 442.9,540.9L442.8,541.0C442.4,541.9 442.6,542.6 442.6,542.7C442.7,543.7 443.5,544.2 443.5,544.3C444.0,544.7 444.9,545.1 444.9,545.1L446.0,545.6C446.8,546.0 447.1,546.3 447.1,546.3C447.3,546.5 447.3,546.8 447.3,547.0C447.3,547.4 447.2,547.6 447.0,547.8C446.6,548.3 445.9,548.3 445.9,548.4C445.2,548.5 444.5,548.4 444.5,548.4C443.1,548.4 441.3,547.9 440.7,547.7C440.4,548.3 439.8,549.5 439.4,550.6C440.7,550.9 444.1,551.3 446.1,551.3C446.1,551.3 446.2,551.3 446.2,551.3C451.1,551.2 452.5,548.5 452.6,548.3L452.6,548.2C453.0,547.3 452.8,546.6 452.8,546.6C452.7,545.5 451.9,545.0 451.9,544.9C451.4,544.5 450.6,544.1 450.5,544.1L449.4,543.6C448.6,543.2 448.4,542.9 448.3,542.9C448.1,542.6 448.1,542.4 448.1,542.2C448.1,541.8 448.2,541.6 448.4,541.4C448.8,541.0 449.5,540.9 449.5,540.9C450.2,540.7 450.9,540.8 451,540.8C452.3,540.8 453.8,541.3 454.5,541.5C454.7,541.0 455.4,539.3 455.7,538.8C454.8,538.5 452.6,538.0 450.2,537.9L450.0,537.9C450.0,537.9 449.1,537.9 449.1,537.9 z M 436.7,538.0C435.0,538.0 433.6,538.6 433.6,538.6C431.2,539.4 430.0,541.0 430.0,541.0L430.0,541.0L431.4,538.2L426.5,538.3L420.9,551.0L426.1,551.0L428.9,544.9C429.2,544.2 429.5,543.7 429.5,543.7C430.2,542.6 431.3,542.1 431.3,542.1C432.4,541.6 433.6,541.8 433.6,541.8C434.6,541.9 434.8,542.6 434.8,542.6C434.9,542.9 434.8,543.3 434.8,543.3C434.7,543.8 434.5,544.2 434.5,544.2L431.5,551.0L436.7,551.0L439.8,544.1C440.1,543.3 440.4,542.6 440.4,542.6C440.7,541.8 440.7,541.1 440.7,541.1C440.7,539.8 439.8,539.0 439.8,539.0C438.6,537.9 436.7,538.0 436.7,538.0 z M 418.0,538.2L412.4,551.0L417.7,551.0L423.3,538.3L418.0,538.2 z M 388.7,541.0C391.1,541.0 391.0,543.0 391.0,543.0C391.1,543.6 390.8,544.3 390.8,544.4L390.7,544.5C390.0,546.2 388.8,547.1 388.8,547.1C387.6,548.0 386.4,548.0 386.4,548.0C384.0,548.0 384.0,546.0 384.0,546.0C384.0,545.3 384.2,544.7 384.3,544.5L384.3,544.4C385.0,542.7 386.3,541.9 386.3,541.9C387.5,541.0 388.7,541.0 388.7,541.0 z"; \draw[draw=none,fill=red,xscale=%f,yscale=-%f,shift={(%d,%d)}] svg "M 421.3,530.5L419.8,533.9L425.2,533.9L426.7,530.5L421.3,530.5 z M 412.8,530.5L411.4,533.8L416.7,533.8L418.1,530.5L412.8,530.5 z M 404.2,530.5L402.8,533.8L408.1,533.8L409.6,530.5L404.2,530.5 z";' % (r, r, x, y, r, r, x, y)
 
     def gen_pdf(self, name):
         r"""\end{document}"""
@@ -1447,19 +1475,30 @@ class latex:
         open('%s.tex' % name, 'w').write(self.tex)
         here = os.path.dirname(os.path.abspath(__file__))
         subprocess.Popen(('cd /tmp; pdflatex -interaction=batchmode %s/%s.tex 1>/dev/null' % (here, name)), shell=True).communicate()
-        shutil.move('/tmp/%s.pdf' % name, '%s/%s.pdf' % (here, name))
+        #shutil.move('/tmp/%s.pdf' % name, '%s/%s.pdf' % (here, name))
 
 class article (latex):
     r"\documentclass[a4paper,10pt]{article}"
     def __init__(self, userfile, title, author, email, subtitle=''):
         "_"
+        self.userfile = userfile
         latex.__init__(self, userfile)
         self.tex += article.__doc__ + '\n'
         self.head(('geometry|margin=2cm', 'inputenc|utf8', 'lmodern', 'color', 'longtable', 'array'), {}, title, subtitle, author, email)
         
-    def abstract(self, content):
-        self.tex += r'\begin{abstract}' + content + r'\end{abstract}' + '\n'
-        
+    def abstract(self, content, kw=()):
+        "_"
+        self.tex += r'\begin{abstract}' + content + '\n'
+        if kw:
+            self.tex += r'\vspace{.4cm}\par\indent {\small {\bf Keywords\/}: ' + ', '.join(kw) + '.}'
+        self.tex += r'\end{abstract}' + '\n'
+
+    def end(self, note=False):
+        "_"
+        if note:
+            self.tex += r'\begin{flushright}{\tiny The end of the document}\end{flushright}' +'\n' 
+        self.tex += r'\end{document}'+'\n' 
+
     def section(self, title, content):
         "_"
         self.tex += r'\section{%s}' % title + '\n'
@@ -1476,6 +1515,11 @@ class article (latex):
         for i in hbib: self.tex += r'\bibitem{%s} %s.'%(i, hbib[i]) + '\n'
         self.tex += r'\end{thebibliography}'
 
+    def gen_pdf(self, note=True):
+        "_"
+        self.end(note)
+        latex.gen_pdf(self, os.path.basename(self.userfile)[:-3])
+
 def tikz(ustr, rx=1, ry=1):
     "_"
     myu = u()
@@ -1483,9 +1527,10 @@ def tikz(ustr, rx=1, ry=1):
 
 def insert_code(userfile, pat, sli=None):
     " ....in LaTeX "
-    o, x, d = r'\lstset{basicstyle=\small\ttfamily, numbers=left, numberstyle=\tiny, stepnumber=5, numbersep=5pt}', [], False
+    #o, x, d = r'\lstset{basicstyle=\small\ttfamily, numbers=left, numberstyle=\tiny, stepnumber=5, numbersep=5pt}', [], False
+    o, x, d = r'\lstset{basicstyle=\small\ttfamily, numbers=left, numberstyle=\tiny}', [], False
     o += r'\begin{lstlisting}[texcl]' + '\n'
-    for l in open(userfile).readlines():
+    for l in open(userfile, 'r', encoding='utf-8').readlines(): #1
         if re.match(r'(if|\s*def|class|\s*$)', l): d = False
         if re.match(pat, l): d = True
         if d: x.append(l)
@@ -1496,6 +1541,7 @@ class beamer (latex):
     r"\documentclass{beamer}"
     def __init__(self, userfile, title, author, email, subtitle=''):
         "_"
+        self.userfile = userfile
         latex.__init__(self, userfile)
         self.tex += beamer.__doc__ + '\n'
         self.head(('beamerthemeshadow', ), {}, title, subtitle, author, email, True)
@@ -1537,25 +1583,48 @@ class beamer (latex):
         "_"
         self.tex += self.header % title + '\n' + head
         self.tex += functools.reduce(lambda y,k: y+r'\item %s.'%k+ '\n',tab,r'\begin{enumerate}' + '\n') + r'\end{enumerate}' + '%s' % tail + '\n' + r'\end{frame}' + '\n'
+        
+    def gen_pdf(self):
+        latex.gen_pdf(self, 'beamer_' + os.path.basename(self.userfile)[:-3])
     
 def gen_doc():
     "weave article and beamer"
     art, sli = article(__file__, __title__, __author__, __email__, __subtitle__), beamer(__file__, __title__, __author__, __email__, __subtitle__)
     #
-    art.section('chapitre', 'blabla')
-    art.tex += insert_code(__file__, '__RE_U__') 
-    art.section('Parser', 'blabla')
-    art.tex += insert_code(__file__, r'\s*def\s+parse\(') 
+    art.section('Introduction', introduction())
+    art.section('Parser', insert_code(__file__, '__RE_U__') )
     #
-    sli.frame(r'What $\sqcup$ is?', r""" 
-The $\sqcup$ language is a {\bf Universal Graph Language};\\
-\begin{itemize}
-\item Symbol: $\bigsqcup$ \\
-\end{itemize} 
-""")
-    name = os.path.basename(__file__)[:-3]
-    art.gen_pdf(name)
-    sli.gen_pdf('beamer_' + name)
+    sli.itemize(r'What $\sqcup$ is?', r'The $\sqcup$ language is a {\bf Universal Graph Language};', 
+                (r'Symbol: $\bigsqcup$',
+                 r'Name: "square cup"',
+                 r'Universality (close to "u")',
+                 r'Unicode character $\sqcup$: (U+2294)',
+                 r'License: \textsc{gpl} v3'))
+
+    sli.itemize(r'Introducing the $\sqcup$ language...', 
+                r"""...as {\em Extented Literate Programming} 
+\par $\sqcup$ is a sparse graph language
+\par In $\sqcup$, { \verb?"A->B"? } string is simply rendered as: """ + '\n' + tikz('A->B') + '(TikZ output)',
+                (r'{\bf T}-yped',
+                 r'{\bf H}-ierachical',
+                 r'{\bf O}-nline',
+                 r'{\bf N}-eutral',
+                 r'{\bf U}-nicode',
+                 r'{\bf S}-hort'),
+                '...inspired from the Dot (Graphviz) and yUML language to fix some XML pitfalls')
+    sli.frame(r'The big picture', tikz('u_process', 2.5, 1.3))
+            
+    sli.itemize(r'$\sqcup$ Semantics', r'', 
+                (r'Model concept: model ({\sc ast}), diagram, string',
+                 r'Object concept: object, node, token',
+                 r'Relation concept: relation, arc, link',
+                 r'Port concept: model port, port, dot port',
+                 r'Attribute concept: property, content, label',
+                 r'Type concept: type, category, class'),
+                'N-ary relation, composition, Concept of {\em role} defined by the couple: ({\em port type, node type})')
+                 
+    art.gen_pdf()
+    sli.gen_pdf()
 
 # (4) Tests
 
@@ -1789,7 +1858,8 @@ def logo(opac=1):
 def style():
     """h1,h3,h6,p,li,b,a,td,th{font-family:helvetica neue,helvetica,arial,sans-serif;} a{text-decoration:none;} 
 table {border: 1px solid #666;width:100%;border-collapse:collapse;} td,th {border: 1px solid #666;} 
-h1{position:absolute;top:-8;left:60;} h6{position:absolute;top:0;right:10;}"""
+h1{position:absolute;top:-8;left:60;} h6{position:absolute;top:0;right:10;} 
+textarea.editor{resize:none;width:100%; color:white;background-color:#444;}"""
     return '<style>{}</style>\n'.format(style.__doc__)
 
 def table_test(par, title, tset):
@@ -1845,6 +1915,24 @@ def tex2pdf(txt):
     subprocess.Popen(('cd /tmp; pdflatex -interaction=batchmode %s.tex 1>/dev/null' % src), shell=True).communicate()
     return open('/tmp/%s.pdf' % src, 'rb').read()
 
+def get_editor(post):
+    ""
+    gid = 'toto'
+    content = open('/u/doc.py', 'r', encoding='utf-8').read()[43:]
+    o = '<form method="post" enctype=multipart/form-data>'
+    #o += '<input pattern="\w{5,10}" title="git id" type="search" list="l" name="gid" value="%s" onchange="submit();" data-message="6 to 10 digits" required/><datalist id="l">'%gid
+    #o += '</datalist><input type="button" id=".save" name="s" disabled="true" value="Save" onclick="submit();"/>'
+    o += '<input type="button" id=".save" name="s" value="Save" onclick="submit();"/>'
+    #if post:
+    #    subprocess.Popen(('chmod 777 /tmp/doc.pdf'), shell=True).communicate()
+    #else:
+    #out, err = subprocess.Popen(('ls -l /tmp/doc.pdf; rm -f /tmp/doc.pdf'), shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
+    #o += '<p>%s</p><p>%s</p>' % (out, err)
+    o += '<input type="button" id=".pdf" name="p" value="PDF" onclick="window.open(\'http://pelinquin/u?pdf\',\'toto\');">'
+    #o += '<a href="http://pelinquin/u?pdf">PDF</a>'
+    o += '<textarea id=".editor" name="content" class="editor" spellcheck="false" rows="20">%s</textarea>'%content
+    return o + '</form>'
+
 def application(environ, start_response):
     """ WSGI Web application """
     s, mime, o, myu, host = urllib.parse.unquote(environ['QUERY_STRING']), 'text/plain; charset=utf-8', 'Error!', u(), environ['SERVER_NAME']
@@ -1855,7 +1943,11 @@ def application(environ, start_response):
         if act.lower() in ('pdf', 'paper', 'beamer'):
             mime, name = 'application/pdf', 'beamer_u' if act == 'beamer' else 'u'
             fname = '{}.pdf'.format(name)
-            f = '%s/%s.pdf' % (os.path.dirname(environ['SCRIPT_FILENAME']), name)
+            fname = 'doc.pdf'
+            if act.lower() == 'pdf':
+                f = '/u/empty.pdf'
+            else:
+                f = '%s/%s.pdf' % (os.path.dirname(environ['SCRIPT_FILENAME']), name)
             o = open(f, 'rb').read()
         else:
             mime, fname, o = 'text/html; charset=utf-8', act, hhead()
@@ -1864,7 +1956,15 @@ def application(environ, start_response):
             elif act.lower() in ('update',): 
                 o += 'update'
             elif act.lower() in ('edit', 'ace', 'git'): 
-                o += 'edit' 
+                out, err, pst = None, None, False
+                if environ['REQUEST_METHOD'].lower() == 'post': 
+                    raw, pst = '\n'.join(environ['wsgi.input'].read().decode('utf-8').split('\r\n')[3:-2]), True
+                    head = '#!/usr/bin/python3\n# -*- coding: utf-8 -*-\n'
+                    open('/u/doc.py', 'w', encoding='utf-8').write(head + raw)
+                    out, err = subprocess.Popen(('cd /u; ./doc.py'), shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
+                o += get_editor(pst) 
+                if out or err:
+                    o += '<pre>%s %s</pre>' % (out.decode('utf-8'), err.decode('utf-8'))
             elif act.lower() in ('log',): 
                 o += 'log'
             elif act.lower() in ('test', 'parse'): 
@@ -1980,6 +2080,6 @@ y=zz
     code1 = 'A"line1\nline2"n'
     code2 = 'A"one line3\nline2"n'
     myu = u()
-    print (myu.gen_tikz(myu.parse(code1)))
-    print (myu.gen_tikz(myu.parse(code2)))
+    #print (myu.gen_tikz(myu.parse(code1)))
+    #print (myu.gen_tikz(myu.parse(code2)))
 # end
