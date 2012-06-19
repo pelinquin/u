@@ -27,6 +27,7 @@
 # - svg with proportional police size
 # - types data to move in a Berkeley database
 # - add block operator
+# - use code-mirror for textarea
 
 r"""
 The $\sqcup$ language is a universal typed sparse graph language. It serves {\em Model Driven Engineering}.
@@ -431,10 +432,12 @@ class u:
         "utils"
         arcs = []
         for a in c:
-            for x in range(-int(a[1])) if a[1] and int(a[1]) < 0 else [a[1]]:
-                for b in i:
-                    for y in range(-int(b[1])) if b[1] and int(b[1]) < 0 else [b[1]]:
-                        arcs.append(((a[0], x), (b[0], y)) + cli)
+            if type(a).__name__ == 'list':
+                for x in range(-int(a[1])) if a[1] and int(a[1]) < 0 else [a[1]]:
+                    for b in i:
+                        if type(b).__name__ == 'list':
+                            for y in range(-int(b[1])) if b[1] and int(b[1]) < 0 else [b[1]]:
+                                arcs.append(((a[0], x), (b[0], y)) + cli)
         return arcs
 
     def typeLabel(self, g, arc=True):
@@ -477,56 +480,51 @@ An {\em element} is either a group or a token
 A token has a {\em parent} iff there is a token (parent) just before the open brace of the group it belongs to\\
 A link makes a relation between the two near elements. 
 A link to or from a group is equivalent as a set of links to or from each member of the group.\\
-
 Output 
 A dictionnary with tokens as key and parent+attributes as value
 A list of all links between two tokens+port and link attributes
- 
 """
         for p in __MACRO__: x = re.sub(r'\b%s\b'%p, __MACRO__[p], x) # library
         nodes, arcs, stack = {}, [], [[[]]]
-        index, grp, link, sak = 0, 0, False, [None]
+        index, grp, sak = 0, 0, [None]
         for m in re.compile(__RE_U__, re.X|re.S).finditer(x):
-            if sak:
-                if m.group(1) == '{': # open block
-                    index += 1
-                    if len(stack) <= index:
-                        stack.append([])
-                    grp = len(stack[index])
-                    stack[index].append([])
-                    sak.append(None)
-                elif m.group(1) == '}': # close block
+            if m.group(1) == '{': # open block
+                index += 1
+                if len(stack) <= index: stack.append([])
+                grp = len(stack[index])
+                stack[index].append([])
+                sak.append(None)
+            elif m.group(1) == '}': # close block
+                if index:
                     sak.pop()
                     if sak: sak[-1] = None
                     index -= 1 
                     old_grp = grp
                     grp = len(stack[index])-1
                     stack[index][grp].append(old_grp)
-                elif m.group(11): # link
-                    sak[-1] = None
-                    stack[index][grp].append(self.typeLabel(m.groups()))
-                else: # node
-                    (nid, typ, sep, lab) = self.typeLabel(m.groups(), False) # Compact
-                    prt = sak[-2] if len(sak)>1 else None                    # Compact
-                    self.merge_attr(nid, nodes, prt, typ, sep, lab)          # Compact
-                    stack[index][grp].append([nid, self.getport(typ, m.group(10))])
-                    sak[-1] = nid
-        current, parent = None, None
-        for l in stack:
-            for g in l:
-                for e in g: 
-                    if (type(e).__name__) == 'tuple' and g.index(e) > 0 and g.index(e) != len(g)-1:
-                        link = e
-                    else:
-                        if link:
-                            v = parent if type(current).__name__ == 'int' and parent else current
-                            if current != None:
-                                arcs += self.addarc(stack[stack.index(l) + 1][v] if type(v).__name__ == 'int' else [v], 
-                                                    stack[stack.index(l) + 1][e] if type(e).__name__ == 'int' else [e], link) 
-                            parent = None
-                        if type(e).__name__ == 'list':
-                            parent = e
-                        current, link = e, None
+            elif m.group(11): # link
+                sak[-1] = None
+                if stack[index][grp]: stack[index][grp].append(self.typeLabel(m.groups()))
+            else: # node
+                (nid, typ, sep, lab) = self.typeLabel(m.groups(), False) # Compact
+                prt = sak[-2] if len(sak)>1 else None                    # Compact
+                self.merge_attr(nid, nodes, prt, typ, sep, lab)          # Compact
+                stack[index][grp].append([nid, self.getport(typ, m.group(10))])
+                sak[-1] = nid
+        for lvl in stack: 
+            for grp in lvl: 
+                while grp and type(grp[-1]).__name__ == 'tuple': del grp[-1] # remove orphan links
+        link, crt  = None, None
+        for lvl in stack:
+            for grp in lvl:
+                for elt in grp: 
+                    if (type(elt).__name__) == 'tuple': link = elt
+                    elif link != None:
+                        arcs += self.addarc(stack[stack.index(lvl) + 1][crt] if type(crt).__name__ == 'int' else [crt], 
+                                            stack[stack.index(lvl) + 1][elt] if type(elt).__name__ == 'int' else [elt], 
+                                            link) 
+                        link = None
+                    if elt != link: crt = elt
         return nodes, arcs
 
     def format_node(self, n, nod):
@@ -662,6 +660,25 @@ A list of all links between two tokens+port and link attributes
             if nodes[n][0]:
                 child.setdefault(nodes[n][0], []).append(n)
         return child
+ 
+    def layout_simple(self, uast, rankdir='LR'):
+        nodes, arcs = uast
+        bbx, bby, pos, d = None, None, {}, 'digraph G { rankdir=%s ' % rankdir 
+        for n in nodes:
+            d += ' %s[label="%s"];' % (n, nodeCodeGen(self.gast(n, nodes[n])).out)
+        for e in arcs:
+            label = re.sub(r' ','_', '' if e[5] == None else '[label="%s"];'%e[5])
+            d += ' %s->%s %s' % (e[0][0], e[1][0], label) 
+        d += '}' 
+        #print (d) # for debug
+        p = subprocess.Popen(('dot'), stdout=subprocess.PIPE, stdin=subprocess.PIPE)
+        for l in p.communicate(input=d.encode('utf-8'))[0].decode('utf-8').split('\n'):
+            #print (l) for debug
+            if reg(re.search('bb="0,0,([\.\d]+),([\.\d]+)"', l)):
+                bbx, bby = float(reg.v.group(1)), float(reg.v.group(2))
+            elif reg(re.search('^\s*(\w+)\s*\[label=[^,]*, pos="([\.\d]+),([\.\d]+)"', l)) and bbx and bby:
+                pos[reg.v.group(1)] = (int(float(reg.v.group(2))*100/bbx), int(float(reg.v.group(3))*100/bby))
+        return pos
 
     def layout(self, uast, rankdir='LR'):
         "Computes 2D automatic layout for graphics (tikz and svg) generation"
@@ -696,7 +713,7 @@ A list of all links between two tokens+port and link attributes
         return pos
 
     def gen_tikz_header(self, ln, le):
-        r'\usetikzlibrary{shapes,fit,arrows,shadows,backgrounds,svg.path} \tikzset{'
+        r'\tikzset{'
         o = self.gen_tikz_header.__doc__ + '\n'
         for n in ln:
             if n in __DATA_tikz__[0]:
@@ -711,12 +728,26 @@ A list of all links between two tokens+port and link attributes
         nt, at = gettypes(uast)
         o = ''
         if standalone:
-            o += r'\documentclass[a4paper]{article} \usepackage{tikz}' + '\n' + r'\begin{document}' + '\n'
+            o += r'\documentclass[landscape,a4paper,11pt]{article}' + '\n \\usepackage{tikz}\n\\begin{document}\n'
+            o += r'\usetikzlibrary{shapes,fit,arrows,shadows,backgrounds,svg.path}'+ '\n'
+            #o += r'\tikzset{oz/.style={path picture={ %s } } }' % rclogo() + '\n'
+            #o += r'\tikzset{oz/.style={path picture={ \draw[fill=red,draw=black] svg "M-10,-10L59,-10L59,59L-10,59Z";} } }' + '\n'
+            #o += r'\tikzset{oz/.style={ path picture={ \draw[fill=red,draw=blue] svg "M0,0L10,10L20,0L10,-10Z";} } }' + '\n'
+
         o += self.gen_tikz_header(nt, at)  
         o += r'\begin{tikzpicture}[auto,node distance=15mm,semithick]'+ '\n'
         #o += r'\begin{tikzpicture}'+ '\n'
         nodes, arcs = uast 
         pos, ratio = self.layout(uast, 'LR'), .04
+        prt = self.getchild(nodes)
+        box = {}
+        for n in prt:
+            mx, my = 0,0
+            for c in prt[n]:
+                if c in pos:
+                    if abs(pos[c][0]-pos[n][0]) > mx: mx = abs(pos[c][0]-pos[n][0])
+                    if abs(pos[c][1]-pos[n][1]) > my: my = abs(pos[c][1]-pos[n][1])
+            box[n] = (2*mx+20,2*my+20)
         ports = {}
         for n in pos:
             x, y = pos[n][0]*ratio*rx, pos[n][1]*ratio*ry
@@ -726,7 +757,10 @@ A list of all links between two tokens+port and link attributes
             label = re.sub('\n',r'\\\\', re.sub(r'\\n',r'\\\\',label))
             label = re.sub('([A-Z][A-Z]+)', lambda p: r'{\sc %s}' % p.group(1).lower(), label)
             label = re.sub(r'\bu\b',r'$\sqcup$', label)
-            o += r'\node[%s](%s) at (%0.3f,%0.3f){%s};'% (styl, n, x, y, label) +'\n'
+
+            size = ',minimum width=%s,minimum height=%s,fill=none' % box[n] if n in box else ''
+            o += r'\node[%s%s](%s) at (%0.3f,%0.3f){%s};'% (styl, size, n, x, y, label) +'\n'
+            #o += r'\draw(%s.north east) node[oz];' % n 
             tt = __DATA_ports__[t] if t in __DATA_ports__ else [] 
             if tt:
                 ports[n], delta, p = tt, 360/len(tt), -180
@@ -856,7 +890,7 @@ function hidetarget() {var tg = document.getElementById('target'); tg.firstChild
             o += ' <text class="port" x="{}" y="{}" dominant-baseline="middle" text-anchor="{}">{}</text>'.format(x, y, anchor, p)
         return o 
 
-    def setbox(self, prt, box, nodes):
+    def setbox_svg(self, prt, box, nodes):
         "set box"
         for n in box:
             t = nodes[n][1]
@@ -898,7 +932,7 @@ function hidetarget() {var tg = document.getElementById('target'); tg.firstChild
             nodes, arcs = uast
             #o += '<!--g %s -->\n' % self.getchild(nodes)
             prt = self.getchild(nodes)
-            self.setbox(prt, box, nodes)
+            self.setbox_svg(prt, box, nodes)
             seq = self.toposort(arcs)            
             o += '<title id=".title">%s</title>\n' % __title__ + favicon() + logo(.02) + '\n' + self.include_js_zoom_pan() + self.user_interface()
             o += '<g id=".graph">\n'
@@ -1420,8 +1454,8 @@ class latex:
 
     def head(self, lpkg, hcmd, title, subtitle, author, email, beam=False):
         "_"
-        #for p in ('draftwatermark', 'listings', 'embedfile', 'graphicx', 'tikz', 'hyperref') + lpkg:
-        for p in ('listings', 'embedfile', 'graphicx', 'tikz', 'hyperref') + lpkg:
+        for p in ('draftwatermark', 'listings', 'embedfile', 'graphicx', 'tikz', 'hyperref') + lpkg:
+        #for p in ('listings', 'embedfile', 'graphicx', 'tikz', 'hyperref') + lpkg:
             a = p.split('|')
             if len(a) > 1:
                 self.tex += r'\usepackage[%s]{%s}' % (a[1], a[0]) + '\n'
@@ -1447,10 +1481,11 @@ class latex:
             ti = r'%s \\ {\large %s}' % (title, subtitle) if subtitle else title
             self.tex += r'\title{\bf %s}' % ti + '\n'
             self.tex += r'\author{%s -- \url{%s} \\' % (author, email) + '\n'
-            self.tex += r'\tiny{[%s]}\footnote{the first five characters of the base64 encoding of the \textsc{sha1} digest of the attached source files.}}}' % self.digest
-            self.tex += r'\pagestyle{myheadings} \markright{\tiny{%s}\hfill}' % self.digest + '\n'
+            self.tex += r'{\tiny \tt [%s]}\footnote{the first five characters of the base64 encoding of the \textsc{sha1} digest of the attached source files.}}}' % self.digest
+            self.tex += r'\pagestyle{myheadings} \markright{{\tiny \tt [%s]}\hfill}' % self.digest + '\n'
         self.tex += latex.__init__.__doc__ + '\n'
-        self.tex += r'\lstset{language=Python, breaklines=true}'
+        self.tex += r'\lstset{language=Python, breaklines=true}' + '\n'
+        self.tex += r'\usetikzlibrary{shapes,fit,arrows,shadows,backgrounds,svg.path}'+ '\n'
         if self.src != 'u.py':
             self.tex += r'\embedfile[filespec=%s]{%s}' % (self.src, os.path.abspath(self.src)) + '\n'
         for x in self.embeds:
@@ -1459,15 +1494,15 @@ class latex:
             self.tex += r"\begin{frame} \titlepage" + '\n'
             #self.tex += r"\setbeamertemplate{footline}{\insertframenumber}" + '\n'
             #self.tex += r'\setbeamertemplate{footline}[frame number]' + '\n'
-            self.tex += r'\usetikzlibrary{svg.path} \begin{tikzpicture}[remember picture,overlay,shift={(current page.north east)}] %s \end{tikzpicture}' % self.rclogo(.4) + '\n'
+            self.tex += r'\usetikzlibrary{svg.path} \begin{tikzpicture}[remember picture,overlay,shift={(current page.north east)}] %s \end{tikzpicture}' % rclogo(.4) + '\n'
             self.tex += r"\end{frame}" + '\n'
         else:
             self.tex += r'\maketitle' + '\n'
-            self.tex += r'\usetikzlibrary{svg.path} \begin{tikzpicture}[remember picture,overlay,shift={(current page.north east)}] %s \end{tikzpicture}' % self.rclogo() + '\n' #self.rclogo(.5, -19, 38)
+            self.tex += r'\usetikzlibrary{svg.path} \begin{tikzpicture}[remember picture,overlay,shift={(current page.north east)}] %s \end{tikzpicture}' % rclogo() + '\n' 
 
-    def rclogo(self, r=.8, x =-17, y=-17):
-        "RockwellCollins TikZ logo (SVG source)"
-        return '\draw[draw=none,fill=black,yscale=-%f,xscale=%f,shift={(%d,%d)}] svg "M 310.0,513.4L301.8,513.4L294.2,530.5L299.6,530.5L302.3,524.3C302.3,524.3 303.4,524.2 304.3,524.2C305.3,524.2 305.8,524.4 305.8,524.4C307.4,524.9 306.9,526.4 306.9,526.4C306.8,526.8 306.6,527.3 306.6,527.3L305.2,530.5L310.5,530.5L312.4,526.4C313.3,524.0 311.5,523.2 311.5,523.2C310.9,522.9 309.9,522.8 309.9,522.8L309.9,522.7C310.6,522.7 311.4,522.5 311.4,522.5C313.9,522.1 315.1,520.3 315.1,520.3C316.5,518.5 316.1,516.6 316.1,516.6C315.8,514.9 314.3,514.1 314.3,514.1C313.4,513.6 311.9,513.4 311.9,513.4C311.2,513.4 310.0,513.4 310.0,513.4 z M 352.4,513.4L344.9,530.5L350.2,530.5L352.8,524.6L354.6,530.5L360.1,530.5L358.1,525.7C357.6,524.5 357.3,524.0 357.3,524.0C358.3,523.4 359.6,522.4 359.6,522.4L364.9,518.2L362.9,530.5L368.9,530.5L376.1,521.6C376.1,521.6 376.2,521.5 376.3,521.4L376.3,521.4C376.2,521.6 376.1,522.1 376.1,522.1L374.7,530.5L380.9,530.5L391.7,517.8L385.8,517.8L379.1,526.3C379.1,526.3 379.0,526.5 379,526.6L378.9,526.5C379.0,526.3 379.0,526.0 379.0,526.0L380.4,517.8L375.1,517.8L368.4,526.3C368.4,526.3 368.3,526.4 368.2,526.6L368.2,526.5C368.3,526.4 368.3,526.0 368.3,526.0L369.7,517.8L359.6,517.8L353.1,523.4L353.1,523.4C353.6,522.6 354.2,521.2 354.2,521.2L357.7,513.4L352.4,513.4 z M 411.8,513.4L404.2,530.5L409.6,530.5L417.1,513.4L411.8,513.4 z M 420.3,513.4L412.8,530.5L418.1,530.5L425.7,513.4L420.3,513.4 z M 307.5,516.1C307.5,516.1 308.5,516.1 309.0,516.2C309.0,516.2 309.8,516.3 310.3,516.9C310.3,516.9 311.1,517.8 310.5,519.2C310.5,519.2 309.9,520.7 308.4,521.2C308.4,521.2 307.7,521.4 306.5,521.4L303.6,521.4L305.9,516.2L307.5,516.1 z M 399.4,517.4C398.7,517.4 398.2,517.4 398.2,517.4C394.4,517.8 391.8,520.3 391.8,520.3C389.5,522.2 389,524.4 389,524.4C388.5,525.6 388.7,526.8 388.7,526.8C389.2,529.8 392.5,530.5 392.5,530.5C393.8,530.8 395.3,530.8 395.3,530.8C395.3,530.8 397.7,531.0 400.7,530.5L401.3,530.4L402.6,527.6C402.3,527.7 401.9,527.8 401.4,527.9C401.3,527.9 399.1,528.3 397.4,528.2C397.4,528.2 396.4,528.2 395.6,527.9C395.6,527.9 394.7,527.7 394.3,527.2C394.3,527.2 393.8,526.7 393.8,526.1C393.8,526.1 393.7,525.7 393.9,525.2L403.9,525.0L404.0,524.9C404.8,523.9 405.2,522.7 405.2,522.7C406.0,520.6 404.7,519.1 404.7,519.1C403.7,517.9 401.9,517.6 401.9,517.6C401.1,517.4 400.1,517.4 399.4,517.4 z M 325.0,517.5C322.8,517.5 320.7,518.2 318.9,519.5C317.1,520.7 315.8,522.4 315.1,524.1L315.1,524.2C315.0,524.6 314.9,524.9 314.8,525.3C314.8,525.6 314.8,525.9 314.8,526.2C314.8,527.3 315.0,528.1 315.6,528.9C316.7,530.1 318.5,530.8 321.0,530.8C323.6,530.9 326.0,530.3 328.1,528.8C329.9,527.6 331.2,525.9 331.9,524.2L331.9,524.1C332.0,523.7 332.1,523.4 332.1,523.0C332.2,522.7 332.2,522.4 332.2,522.1C332.2,521.0 331.9,520.2 331.3,519.4C330.3,518.2 328.4,517.5 326,517.5C325.6,517.5 325.3,517.5 325.0,517.5 z M 344.0,517.5C343.8,517.5 343.6,517.5 343.6,517.5C341.9,517.6 339.3,518.1 337.2,519.5C335.0,521.0 333.4,523.2 333.1,525.4C332.8,526.8 332.9,529.3 336.2,530.4C336.8,530.6 337.8,530.8 339.5,530.8C339.6,530.8 340.8,530.8 342.4,530.5L343.7,527.6C342.5,527.8 341.6,527.8 341.6,527.8C340.3,527.8 339.4,527.3 339.4,527.3C338.0,526.4 338.5,524.8 338.5,524.7C339.3,521.6 342.6,521.0 343.1,520.9C344.5,520.7 345.8,520.8 346.6,521.0L348.0,517.9C346.4,517.5 344.7,517.5 344.0,517.5 z M 398.7,520.0C398.8,520.0 398.9,520.1 399.0,520.1C399.1,520.1 399.6,520.1 400.0,520.3C400.0,520.3 400.6,520.6 400.8,521.3C401.0,522.1 400.5,523.1 400.5,523.1L395.2,523.2C395.2,523.2 394.8,523.2 394.6,523.2L394.6,523.2C394.6,523.1 394.7,523.0 394.7,523.0C395.0,522.3 395.5,521.7 396.0,521.2C396.7,520.6 397.5,520.2 398.3,520.1C398.4,520.1 398.5,520.0 398.7,520.0 z M 324.4,520.7C324.6,520.7 324.6,520.7 324.6,520.7C327.0,520.6 327.0,522.6 327.0,522.6C327.0,523.3 326.8,523.9 326.7,524.1L326.7,524.2C326.0,525.9 324.7,526.8 324.7,526.8C323.5,527.6 322.3,527.6 322.3,527.6C319.9,527.7 320,525.6 320,525.6C319.9,525.0 320.2,524.4 320.2,524.2L320.3,524.1C321.0,522.4 322.2,521.5 322.2,521.5C323.1,520.9 324.0,520.7 324.4,520.7 z M 380.4,533.4C375.1,533.4 371.8,535.3 371.8,535.3C367.2,537.6 365.7,541.2 365.7,541.2C364.4,543.9 365.0,546.3 365.0,546.3C365.5,548.7 367.7,549.8 367.7,549.8C369.1,550.6 371.1,550.9 371.1,550.9C372.4,551.0 373.6,551.0 373.6,551.0C374.9,551.0 376.3,550.8 376.3,550.8L377.8,547.3C375.1,547.6 374.0,547.5 374.0,547.5C371.7,547.3 371.0,545.5 371.0,545.5C370.5,544.3 370.8,543.1 370.8,543.1C371.3,540.9 373.2,539.4 373.2,539.4C375.6,537.3 379.1,537.3 379.1,537.3C380.4,537.2 382.0,537.4 382.0,537.4L384,533.8L383.7,533.7C382.4,533.5 381.4,533.5 381.4,533.5C381.1,533.5 380.7,533.5 380.4,533.4 z M 402.8,533.8L395.3,551.0L400.6,551.0L408.1,533.8L402.8,533.8 z M 411.4,533.8L403.9,551.0L409.2,551.0L416.7,533.8L411.4,533.8 z M 389.0,537.9C386.8,537.9 384.8,538.6 382.9,539.9C381.1,541.1 379.8,542.7 379.2,544.5L379.1,544.5C379.0,544.9 378.9,545.3 378.9,545.7C378.8,546.0 378.8,546.3 378.8,546.6C378.8,547.6 379.1,548.5 379.7,549.2C380.7,550.5 382.6,551.1 385.1,551.2C387.7,551.3 390.1,550.7 392.2,549.2C394.0,548.0 395.3,546.3 395.9,544.6L396,544.5C396.1,544.1 396.1,543.7 396.2,543.4C396.2,543.0 396.3,542.7 396.3,542.4C396.3,541.4 396.0,540.5 395.4,539.8C394.4,538.6 392.5,537.9 390.0,537.9C389.7,537.8 389.4,537.8 389.0,537.9 z M 449.1,537.9C444.2,538.1 442.9,540.8 442.9,540.9L442.8,541.0C442.4,541.9 442.6,542.6 442.6,542.7C442.7,543.7 443.5,544.2 443.5,544.3C444.0,544.7 444.9,545.1 444.9,545.1L446.0,545.6C446.8,546.0 447.1,546.3 447.1,546.3C447.3,546.5 447.3,546.8 447.3,547.0C447.3,547.4 447.2,547.6 447.0,547.8C446.6,548.3 445.9,548.3 445.9,548.4C445.2,548.5 444.5,548.4 444.5,548.4C443.1,548.4 441.3,547.9 440.7,547.7C440.4,548.3 439.8,549.5 439.4,550.6C440.7,550.9 444.1,551.3 446.1,551.3C446.1,551.3 446.2,551.3 446.2,551.3C451.1,551.2 452.5,548.5 452.6,548.3L452.6,548.2C453.0,547.3 452.8,546.6 452.8,546.6C452.7,545.5 451.9,545.0 451.9,544.9C451.4,544.5 450.6,544.1 450.5,544.1L449.4,543.6C448.6,543.2 448.4,542.9 448.3,542.9C448.1,542.6 448.1,542.4 448.1,542.2C448.1,541.8 448.2,541.6 448.4,541.4C448.8,541.0 449.5,540.9 449.5,540.9C450.2,540.7 450.9,540.8 451,540.8C452.3,540.8 453.8,541.3 454.5,541.5C454.7,541.0 455.4,539.3 455.7,538.8C454.8,538.5 452.6,538.0 450.2,537.9L450.0,537.9C450.0,537.9 449.1,537.9 449.1,537.9 z M 436.7,538.0C435.0,538.0 433.6,538.6 433.6,538.6C431.2,539.4 430.0,541.0 430.0,541.0L430.0,541.0L431.4,538.2L426.5,538.3L420.9,551.0L426.1,551.0L428.9,544.9C429.2,544.2 429.5,543.7 429.5,543.7C430.2,542.6 431.3,542.1 431.3,542.1C432.4,541.6 433.6,541.8 433.6,541.8C434.6,541.9 434.8,542.6 434.8,542.6C434.9,542.9 434.8,543.3 434.8,543.3C434.7,543.8 434.5,544.2 434.5,544.2L431.5,551.0L436.7,551.0L439.8,544.1C440.1,543.3 440.4,542.6 440.4,542.6C440.7,541.8 440.7,541.1 440.7,541.1C440.7,539.8 439.8,539.0 439.8,539.0C438.6,537.9 436.7,538.0 436.7,538.0 z M 418.0,538.2L412.4,551.0L417.7,551.0L423.3,538.3L418.0,538.2 z M 388.7,541.0C391.1,541.0 391.0,543.0 391.0,543.0C391.1,543.6 390.8,544.3 390.8,544.4L390.7,544.5C390.0,546.2 388.8,547.1 388.8,547.1C387.6,548.0 386.4,548.0 386.4,548.0C384.0,548.0 384.0,546.0 384.0,546.0C384.0,545.3 384.2,544.7 384.3,544.5L384.3,544.4C385.0,542.7 386.3,541.9 386.3,541.9C387.5,541.0 388.7,541.0 388.7,541.0 z"; \draw[draw=none,fill=red,xscale=%f,yscale=-%f,shift={(%d,%d)}] svg "M 421.3,530.5L419.8,533.9L425.2,533.9L426.7,530.5L421.3,530.5 z M 412.8,530.5L411.4,533.8L416.7,533.8L418.1,530.5L412.8,530.5 z M 404.2,530.5L402.8,533.8L408.1,533.8L409.6,530.5L404.2,530.5 z";' % (r, r, x, y, r, r, x, y)
+    def itemize(self, tab):
+        "_"
+        return functools.reduce(lambda y, k: y+r'\item %s' % k+ '\n', tab, r'\begin{itemize}' + '\n') + r'\end{itemize}' + '\n'
 
     def gen_pdf(self, name):
         r"""\end{document}"""
@@ -1475,7 +1510,7 @@ class latex:
         open('%s.tex' % name, 'w').write(self.tex)
         here = os.path.dirname(os.path.abspath(__file__))
         subprocess.Popen(('cd /tmp; pdflatex -interaction=batchmode %s/%s.tex 1>/dev/null' % (here, name)), shell=True).communicate()
-        #shutil.move('/tmp/%s.pdf' % name, '%s/%s.pdf' % (here, name))
+        shutil.move('/tmp/%s.pdf' % name, '%s/%s.pdf' % (here, name))
 
 class article (latex):
     r"\documentclass[a4paper,10pt]{article}"
@@ -1497,7 +1532,7 @@ class article (latex):
         "_"
         if note:
             self.tex += r'\begin{flushright}{\tiny The end of the document}\end{flushright}' +'\n' 
-        self.tex += r'\end{document}'+'\n' 
+        self.tex += '\n' 
 
     def section(self, title, content):
         "_"
@@ -1586,7 +1621,11 @@ class beamer (latex):
         
     def gen_pdf(self):
         latex.gen_pdf(self, 'beamer_' + os.path.basename(self.userfile)[:-3])
-    
+
+def rclogo(r=.75, x=-7, y=-4):
+    "RockwellCollins TikZ logo (SVG source)"
+    return '\draw[draw=none,fill=black,scale=%f,shift={(%d,%d)}] svg "M10.0,86.6L01.8,86.6L-5.8,69.5L-.4,69.5L02.3,75.7C02.3,75.7 03.4,75.8 04.3,75.8C05.3,75.8 05.8,75.6 05.8,75.6C07.4,75.1 06.9,73.6 06.9,73.6C06.8,73.2 06.6,72.7 06.6,72.7L05.2,69.5L10.5,69.5L12.4,73.6C13.3,76.0 11.5,76.8 11.5,76.8C10.9,77.1 09.9,77.2 09.9,77.2L09.9,77.3C10.6,77.3 11.4,77.5 11.4,77.5C13.9,77.9 15.1,79.7 15.1,79.7C16.5,81.5 16.1,83.4 16.1,83.4C15.8,85.1 14.3,85.9 14.3,85.9C13.4,86.4 11.9,86.6 11.9,86.6C11.2,86.6 10.0,86.6 10.0,86.6z M52.4,86.6L44.9,69.5L50.2,69.5L52.8,75.4L54.6,69.5L60.1,69.5L58.1,74.3C57.6,75.5 57.3,76.0 57.3,76.0C58.3,76.6 59.6,77.6 59.6,77.6L64.9,81.8L62.9,69.5L68.9,69.5L76.1,78.4C76.1,78.4 76.2,78.5 76.3,78.6L76.3,78.6C76.2,78.4 76.1,77.9 76.1,77.9L74.7,69.5L80.9,69.5L91.7,82.2L85.8,82.2L79.1,73.7C79.1,73.7 79.0,73.5 79,73.4L78.9,73.5C79.0,73.7 79.0,74.0 79.0,74.0L80.4,82.2L75.1,82.2L68.4,73.7C68.4,73.7 68.3,73.6 68.2,73.4L68.2,73.5C68.3,73.6 68.3,74.0 68.3,74.0L69.7,82.2L59.6,82.2L53.1,76.6L53.1,76.6C53.6,77.4 54.2,78.8 54.2,78.8L57.7,86.6L52.4,86.6z M111.8,86.6L104.2,69.5L109.6,69.5L117.1,86.6L111.8,86.6z M120.3,86.6L112.8,69.5L118.1,69.5L125.7,86.6L120.3,86.6z M07.5,83.9C07.5,83.9 08.5,83.9 09.0,83.8C09.0,83.8 09.8,83.7 10.3,83.1C10.3,83.1 11.1,82.2 10.5,80.8C10.5,80.8 09.9,79.3 08.4,78.8C08.4,78.8 07.7,78.6 06.5,78.6L03.6,78.6L05.9,83.8L07.5,83.9z M99.4,82.6C98.7,82.6 98.2,82.6 98.2,82.6C94.4,82.2 91.8,79.7 91.8,79.7C89.5,77.8 89,75.6 89,75.6C88.5,74.4 88.7,73.2 88.7,73.2C89.2,70.2 92.5,69.5 92.5,69.5C93.8,69.2 95.3,69.2 95.3,69.2C95.3,69.2 97.7,69.0 100.7,69.5L101.3,69.6L102.6,72.4C102.3,72.3 101.9,72.2 101.4,72.1C101.3,72.1 99.1,71.7 97.4,71.8C97.4,71.8 96.4,71.8 95.6,72.1C95.6,72.1 94.7,72.3 94.3,72.8C94.3,72.8 93.8,73.3 93.8,73.9C93.8,73.9 93.7,74.3 93.9,74.8L103.9,75.0L104.0,75.1C104.8,76.1 105.2,77.3 105.2,77.3C106.0,79.4 104.7,80.9 104.7,80.9C103.7,82.1 101.9,82.4 101.9,82.4C101.1,82.6 100.1,82.6 99.4,82.6z M25.0,82.5C22.8,82.5 20.7,81.8 18.9,80.5C17.1,79.3 15.8,77.6 15.1,75.9L15.1,75.8C15.0,75.4 14.9,75.1 14.8,74.7C14.8,74.4 14.8,74.1 14.8,73.8C14.8,72.7 15.0,71.9 15.6,71.1C16.7,69.9 18.5,69.2 21.0,69.2C23.6,69.1 26.0,69.7 28.1,71.2C29.9,72.4 31.2,74.1 31.9,75.8L31.9,75.9C32.0,76.3 32.1,76.6 32.1,77.0C32.2,77.3 32.2,77.6 32.2,77.9C32.2,79.0 31.9,79.8 31.3,80.6C30.3,81.8 28.4,82.5 26,82.5C25.6,82.5 25.3,82.5 25.0,82.5z M44.0,82.5C43.8,82.5 43.6,82.5 43.6,82.5C41.9,82.4 39.3,81.9 37.2,80.5C35.0,79.0 33.4,76.8 33.1,74.6C32.8,73.2 32.9,70.7 36.2,69.6C36.8,69.4 37.8,69.2 39.5,69.2C39.6,69.2 40.8,69.2 42.4,69.5L43.7,72.4C42.5,72.2 41.6,72.2 41.6,72.2C40.3,72.2 39.4,72.7 39.4,72.7C38.0,73.6 38.5,75.2 38.5,75.3C39.3,78.4 42.6,79.0 43.1,79.1C44.5,79.3 45.8,79.2 46.6,79.0L48.0,82.1C46.4,82.5 44.7,82.5 44.0,82.5z M98.7,80.0C98.8,80.0 98.9,79.9 99.0,79.9C99.1,79.9 99.6,79.9 100.0,79.7C100.0,79.7 100.6,79.4 100.8,78.7C101.0,77.9 100.5,76.9 100.5,76.9L95.2,76.8C95.2,76.8 94.8,76.8 94.6,76.8L94.6,76.8C94.6,76.9 94.7,77.0 94.7,77.0C95.0,77.7 95.5,78.3 96.0,78.8C96.7,79.4 97.5,79.8 98.3,79.9C98.4,79.9 98.5,80.0 98.7,80.0z M24.4,79.3C24.6,79.3 24.6,79.3 24.6,79.3C27.0,79.4 27.0,77.4 27.0,77.4C27.0,76.7 26.8,76.1 26.7,75.9L26.7,75.8C26.0,74.1 24.7,73.2 24.7,73.2C23.5,72.4 22.3,72.4 22.3,72.4C19.9,72.3 20,74.4 20,74.4C19.9,75.0 20.2,75.6 20.2,75.8L20.3,75.9C21.0,77.6 22.2,78.5 22.2,78.5C23.1,79.1 24.0,79.3 24.4,79.3z M80.4,66.6C75.1,66.6 71.8,64.7 71.8,64.7C67.2,62.4 65.7,58.8 65.7,58.8C64.4,56.1 65.0,53.7 65.0,53.7C65.5,51.3 67.7,50.2 67.7,50.2C69.1,49.4 71.1,49.1 71.1,49.1C72.4,49.0 73.6,49.0 73.6,49.0C74.9,49.0 76.3,49.2 76.3,49.2L77.8,52.7C75.1,52.4 74.0,52.5 74.0,52.5C71.7,52.7 71.0,54.5 71.0,54.5C70.5,55.7 70.8,56.9 70.8,56.9C71.3,59.1 73.2,60.6 73.2,60.6C75.6,62.7 79.1,62.7 79.1,62.7C80.4,62.8 82.0,62.6 82.0,62.6L84,66.2L83.7,66.3C82.4,66.5 81.4,66.5 81.4,66.5C81.1,66.5 80.7,66.5 80.4,66.6z M102.8,66.2L95.3,49.0L100.6,49.0L108.1,66.2L102.8,66.2z M111.4,66.2L103.9,49.0L109.2,49.0L116.7,66.2L111.4,66.2z M89.0,62.1C86.8,62.1 84.8,61.4 82.9,60.1C81.1,58.9 79.8,57.3 79.2,55.5L79.1,55.5C79.0,55.1 78.9,54.7 78.9,54.3C78.8,54.0 78.8,53.7 78.8,53.4C78.8,52.4 79.1,51.5 79.7,50.8C80.7,49.5 82.6,48.9 85.1,48.8C87.7,48.7 90.1,49.3 92.2,50.8C94.0,52.0 95.3,53.7 95.9,55.4L96,55.5C96.1,55.9 96.1,56.3 96.2,56.6C96.2,57.0 96.3,57.3 96.3,57.6C96.3,58.6 96.0,59.5 95.4,60.2C94.4,61.4 92.5,62.1 90.0,62.1C89.7,62.2 89.4,62.2 89.0,62.1z M149.1,62.1C144.2,61.9 142.9,59.2 142.9,59.1L142.8,59.0C142.4,58.1 142.6,57.4 142.6,57.3C142.7,56.3 143.5,55.8 143.5,55.7C144.0,55.3 144.9,54.9 144.9,54.9L146.0,54.4C146.8,54.0 147.1,53.7 147.1,53.7C147.3,53.5 147.3,53.2 147.3,53.0C147.3,52.6 147.2,52.4 147.0,52.2C146.6,51.7 145.9,51.7 145.9,51.6C145.2,51.5 144.5,51.6 144.5,51.6C143.1,51.6 141.3,52.1 140.7,52.3C140.4,51.7 139.8,50.5 139.4,49.4C140.7,49.1 144.1,48.7 146.1,48.7C146.1,48.7 146.2,48.7 146.2,48.7C151.1,48.8 152.5,51.5 152.6,51.7L152.6,51.8C153.0,52.7 152.8,53.4 152.8,53.4C152.7,54.5 151.9,55.0 151.9,55.1C151.4,55.5 150.6,55.9 150.5,55.9L149.4,56.4C148.6,56.8 148.4,57.1 148.3,57.1C148.1,57.4 148.1,57.6 148.1,57.8C148.1,58.2 148.2,58.4 148.4,58.6C148.8,59.0 149.5,59.1 149.5,59.1C150.2,59.3 150.9,59.2 151,59.2C152.3,59.2 153.8,58.7 154.5,58.5C154.7,59.0 155.4,60.7 155.7,61.2C154.8,61.5 152.6,62.0 150.2,62.1L150.0,62.1C150.0,62.1 149.1,62.1 149.1,62.1z M136.7,62.0C135.0,62.0 133.6,61.4 133.6,61.4C131.2,60.6 130.0,59.0 130.0,59.0L130.0,59.0L131.4,61.8L126.5,61.7L120.9,49.0L126.1,49.0L128.9,55.1C129.2,55.8 129.5,56.3 129.5,56.3C130.2,57.4 131.3,57.9 131.3,57.9C132.4,58.4 133.6,58.2 133.6,58.2C134.6,58.1 134.8,57.4 134.8,57.4C134.9,57.1 134.8,56.7 134.8,56.7C134.7,56.2 134.5,55.8 134.5,55.8L131.5,49.0L136.7,49.0L139.8,55.9C140.1,56.7 140.4,57.4 140.4,57.4C140.7,58.2 140.7,58.9 140.7,58.9C140.7,60.2 139.8,61.0 139.8,61.0C138.6,62.1 136.7,62.0 136.7,62.0z M118.0,61.8L112.4,49.0L117.7,49.0L123.3,61.7L118.0,61.8z M88.7,59.0C91.1,59.0 91.0,57.0 91.0,57.0C91.1,56.4 90.8,55.7 90.8,55.6L90.7,55.5C90.0,53.8 88.8,52.9 88.8,52.9C87.6,52.0 86.4,52.0 86.4,52.0C84.0,52.0 84.0,54.0 84.0,54.0C84.0,54.7 84.2,55.3 84.3,55.5L84.3,55.6C85.0,57.3 86.3,58.1 86.3,58.1C87.5,59.0 88.7,59.0 88.7,59.0z"; \draw[draw=none,fill=red,scale=%f,shift={(%d,%d)}] svg "M121.3,69.5L119.8,66.1L125.2,66.1L126.7,69.5L121.3,69.5z M112.8,69.5L111.4,66.2L116.7,66.2L118.1,69.5L112.8,69.5z M104.2,69.5L102.8,66.2L108.1,66.2L109.6,69.5L104.2,69.5z";' % (r, x, y, r, x, y)
+
 def gen_doc():
     "weave article and beamer"
     art, sli = article(__file__, __title__, __author__, __email__, __subtitle__), beamer(__file__, __title__, __author__, __email__, __subtitle__)
@@ -1906,7 +1945,7 @@ def hhead():
 
 def htail():
     "_"
-    return '<h6 title="Base64 encoded short sha1 digest">%s</h6></html>' % __digest__.decode('utf-8')
+    return '<h6 title="base64 encoded short sha1 digest">%s</h6></html>' % __digest__.decode('utf-8')
 
 def tex2pdf(txt):
     "TeX to PDF"
@@ -1917,9 +1956,15 @@ def tex2pdf(txt):
 
 def get_editor(post):
     ""
+    o = ''
     gid = 'toto'
     content = open('/u/doc.py', 'r', encoding='utf-8').read()[43:]
-    o = '<form method="post" enctype=multipart/form-data>'
+    here = os.path.dirname(os.path.abspath(__file__))
+    if os.path.isfile('%s/cm.css' % here) and os.path.isfile('%s/cm.js' % here):
+        o += '<style>%s</style>\n' %open('%s/cm.css' % here, 'r', encoding='utf-8').read()
+        o += '<script type="text/ecmascript">\n/*<![CDATA[*//*---->*/\n' + open('%s/cm.js' % here, 'r', encoding='utf-8').read() + '\n/*--*//*]]>*/</script>\n'
+
+    o += '<form method="post" enctype=multipart/form-data>'
     #o += '<input pattern="\w{5,10}" title="git id" type="search" list="l" name="gid" value="%s" onchange="submit();" data-message="6 to 10 digits" required/><datalist id="l">'%gid
     #o += '</datalist><input type="button" id=".save" name="s" disabled="true" value="Save" onclick="submit();"/>'
     o += '<input type="button" id=".save" name="s" value="Save" onclick="submit();"/>'
@@ -1930,7 +1975,8 @@ def get_editor(post):
     #o += '<p>%s</p><p>%s</p>' % (out, err)
     o += '<input type="button" id=".pdf" name="p" value="PDF" onclick="window.open(\'http://pelinquin/u?pdf\',\'toto\');">'
     #o += '<a href="http://pelinquin/u?pdf">PDF</a>'
-    o += '<textarea id=".editor" name="content" class="editor" spellcheck="false" rows="20">%s</textarea>'%content
+    o += '<textarea id=".editor" name="content" class="editor" spellcheck="false" rows="40">%s</textarea>'%content
+    o += '\n<script>var editor = CodeMirror.fromTextArea(document.getElementById(".editor"), { lineNumbers: true, mode: "text/x-python", keyMap: "emacs" });</script>'
     return o + '</form>'
 
 def application(environ, start_response):
