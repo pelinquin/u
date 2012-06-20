@@ -42,7 +42,7 @@ __license__  = 'GPLv3'
 __url__      = 'github.com/pelinquin/u'
 __git_base__ = '/u'
 
-import sys, os, re, hashlib, subprocess, urllib.parse, base64, random, functools, datetime, shutil, html, ast
+import sys, os, re, hashlib, subprocess, urllib.parse, base64, random, functools, datetime, shutil, html, ast, http.client
 
 __digest__ = base64.urlsafe_b64encode(hashlib.sha1(open(__file__, 'r', encoding='utf-8').read().encode('utf-8')).digest())[:5]
 
@@ -1983,8 +1983,9 @@ def application(environ, start_response):
     """ WSGI Web application """
     s, mime, o, myu, host = urllib.parse.unquote(environ['QUERY_STRING']), 'text/plain; charset=utf-8', 'Error!', u(), environ['SERVER_NAME']
     lang, mod, gid, arg, act, fname = None, None, None, None, None, 'u.py'
-    if reg(re.match(r'\s*(%s$|)(_?)(%s|)&?((\w{10})|(.*))\s*$' % ('$|'.join(__ACTIONS__), '|'.join(__OUT_LANG__)), s, re.I)):
-        act, mod, lang, gid, arg = reg.v.group(1), reg.v.group(2), reg.v.group(3), reg.v.group(5), bytes(reg.v.group(6),'utf-8').decode('unicode_escape')
+    if reg(re.match(r'\s*(%s$|)(_?)(%s|)&?((toto)|(.*))\s*$' % ('$|'.join(__ACTIONS__), '|'.join(__OUT_LANG__)), s, re.I)):
+        #act, mod, lang, gid, arg = reg.v.group(1), reg.v.group(2), reg.v.group(3), reg.v.group(5), bytes(reg.v.group(6),'utf-8').decode('unicode_escape')
+        act, mod, lang, gid, arg = reg.v.group(1), reg.v.group(2), reg.v.group(3), reg.v.group(5), reg.v.group(6)
     if act:
         if act.lower() in ('pdf', 'paper', 'beamer'):
             mime, name = 'application/pdf', 'beamer_u' if act == 'beamer' else 'u'
@@ -2026,9 +2027,12 @@ def application(environ, start_response):
             o = o.encode('utf-8')
     else:
         if gid:
-            arg = gitu().cat(gid)
+            #arg = gitu().cat(gid)
+            arg = open('/u/doc.txt').read()
         elif environ['REQUEST_METHOD'].lower() == 'put':
             arg = environ['wsgi.input'].read().decode('utf-8')
+        #elif environ['REQUEST_METHOD'].lower() == 'post':
+        #    arg = 'toto'
         if lang:
             if lang in ('xml', 'svg') and mod: mime = 'application/xhtml+xml; charset=utf-8'
             if lang == 'tikz' and mod: mime = 'application/pdf'
@@ -2067,7 +2071,7 @@ def put(server, service, content):
 
 def command_line():
     " Command line"
-    import getopt, http.client
+    import getopt
     opts, args = getopt.getopt(sys.argv[1:], 'h:f:s', ['host=', 'format=', 'stdin'])
     lang, host = '', '127.0.0.1' # use '193.84.73.209 for testing'
 
@@ -2098,7 +2102,7 @@ def command_line():
                 else:
                     o = open(__file__, 'r', encoding='utf-8').read()
         else:
-            o = put(host, '/u?%s' % o, data)
+            o = put(host, '/u?%s' % lang, data)
         print (o)
 
 if __name__ == '__main__':

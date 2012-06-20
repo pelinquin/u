@@ -1,5 +1,5 @@
 .CodeMirror { line-height: 1em; font-family: monospace; border: 1px solid #eee;}
-.CodeMirror-scroll { height: auto; overflow-y: hidden; overflow-x: auto; width: 100% }
+.CodeMirror-scroll { height: auto; overflow-y: hidden; overflow-x: auto; width: 50% }
 .CodeMirror-gutter { position: absolute; left: 0; top: 0; z-index: 10; background-color: #f7f7f7; border-right: 1px solid #eee; min-width: 2em; height: 100%; }
 .CodeMirror-gutter-text { color: #aaa; text-align: right; padding: .4em .2em .4em .4em; white-space: pre !important; }
 .CodeMirror-lines { padding: .4em; white-space: pre; }
