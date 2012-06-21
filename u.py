@@ -81,7 +81,7 @@ __ARC_T__  = ('--', '->', '-<', '-=', '=-', '=>', '=<', '==', '<-', '<>', '<<', 
 __NODE_T__ = ('|',  '\'', '`',  '"',  ';',  ',',  '!',  '~',  '^',  '@',  '*',  '+',  '/',  '$',  '(',  '[' )
  
 __ACTIONS__ = ('download', 'source', 'update', 'about', 'help', 'usage', 'pdf', 
-               'paper', 'beamer', 'edit', 'ace', 'git', 'log', 'test', 'parse', 'unparse', 'random')
+               'paper', 'beamer', 'edit', 'git', 'save', 'log', 'test', 'parse', 'unparse', 'random')
 
 __OUT_LANG__ = {'c'          :['c',    ('/*', '*/', ''), 'gcc ansi pedantic'],
                 'objectivec' :['m',    ('/*', '*/', ''), ''],
@@ -1736,8 +1736,7 @@ class gitu:
 
     def __init__(self, user='anybody', ip='0.0.0.0'):
         """ create the GIT repository if needed"""
-        if not os.path.isdir(__git_base__):
-            os.mkdir(__git_base__)
+        if not os.path.isdir(__git_base__): os.mkdir(__git_base__)
         e = os.environ.copy()
         e['GIT_AUTHOR_NAME'], e['GIT_AUTHOR_EMAIL'] = user, ip
         e['GIT_COMMITTER_NAME'], e['GIT_COMMITTER_EMAIL'] = __author__, __email__
@@ -1746,46 +1745,53 @@ class gitu:
         if not os.path.isdir(e['GIT_DIR']):
             subprocess.Popen(('git', 'init', '-q'), env=e, close_fds=True).communicate()
             p = subprocess.Popen(('git', 'hash-object', '-w', '--stdin'), env=e, stdout=subprocess.PIPE, stdin=subprocess.PIPE)
-            li = '100644 blob %s\tstart\n' % p.communicate(' \n')[0].strip()
+            li = '100644 blob %s\tstart\n' % p.communicate(' \n'.encode('utf-8'))[0].strip().decode('utf-8')
             q = subprocess.Popen(('git', 'mktree'), env=e, stdout=subprocess.PIPE, stdin=subprocess.PIPE)
-            r = subprocess.Popen(('git', 'commit-tree', q.communicate(li)[0].strip()), env=e, stdout=subprocess.PIPE, stdin=subprocess.PIPE)
-            subprocess.Popen(('git', 'update-ref', 'refs/heads/master', r.communicate('start')[0].strip()), env=e, stdout=subprocess.PIPE).communicate()
+            li = li.encode('utf-8')
+            tutu = q.communicate(li)[0].strip().decode('utf-8')
+            r = subprocess.Popen(('git', 'commit-tree', tutu), env=e, stdout=subprocess.PIPE, stdin=subprocess.PIPE)
+            subprocess.Popen(('git', 'update-ref', 'refs/heads/master', r.communicate('start'.encode('utf-8'))[0].strip().decode('utf-8')), env=e, stdout=subprocess.PIPE).communicate()
 
     def save(self, key, c, state=''):
         "_"
         p = subprocess.Popen(('git', 'show', 'master^{tree}:'+key), env=self.e, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = p.communicate('')
+        out = out.decode('utf-8')
         p = subprocess.Popen(('git', 'ls-tree', 'master^{tree}'), env=self.e, stdout=subprocess.PIPE)
-        liste = p.communicate()[0].strip()
+        liste = p.communicate()[0].strip().decode('utf-8')
         if err:
             liste += '\n100644 blob %s\t%s' % (self.sha(c), key) 
             self.commit (liste, key)
         else:
             if out[:-1] != c:
-                self.commit(re.sub(r'(100644 blob) [0-9a-f]{40}(\t%s)' % key, '\\1 %s\\2' % self.sha(c), liste), key+'\n'+state)
+                h = self.sha(bytes(c,encoding='utf-8'))
+                self.commit(re.sub(r'(100644 blob) [0-9a-f]{40}(\t%s)' % key, '\\1 %s\\2' % h, liste), key+'\n'+state) 
         p = subprocess.Popen(('git', 'log', '--pretty=format:%H', '-1'), env=self.e, stdout=subprocess.PIPE)
         return p.communicate()[0][:15]
 
     def sha(self, content):
         "_"
+        content = content.decode('utf-8') + '\n'
+        content = content.encode('utf-8')
         p = subprocess.Popen(('git', 'hash-object', '-w', '--stdin'), env=self.e, stdout=subprocess.PIPE, stdin=subprocess.PIPE)
-        return p.communicate(content+'\n')[0].strip()
-
+        return p.communicate(content)[0].strip().decode('utf-8')
+    
     def commit(self, li, msg):
         "_"
+        li = li.encode('utf-8')
+        msg = msg.encode('utf-8')
         p = subprocess.Popen(('git', 'mktree'), env=self.e, stdout=subprocess.PIPE, stdin=subprocess.PIPE)
-        sha = p.communicate(li)[0].strip()
+        sha = p.communicate(li)[0].strip().decode('utf-8')
         p = subprocess.Popen(('git', 'show-ref', '--hash', 'refs/heads/master'), env=self.e, stdout=subprocess.PIPE)
-        parent = p.communicate()[0].strip()
+        parent = p.communicate()[0].strip().decode('utf-8')
         p = subprocess.Popen(('git', 'commit-tree', sha, '-p', parent), env=self.e, stdout=subprocess.PIPE, stdin=subprocess.PIPE)
-        mm = p.communicate(msg)[0].strip()
+        mm = p.communicate(msg)[0].strip().decode('utf-8')
         p = subprocess.Popen(('git', 'update-ref', 'refs/heads/master', mm), env=self.e, stdout=subprocess.PIPE)
 
     def list(self):
         "_"
-        p = subprocess.Popen(('git', 'ls-tree', 'master^{tree}'), env=self.e, stdout=subprocess.PIPE)
-        liste = p.communicate()[0].strip()
-        return liste.split('\n')
+        liste = subprocess.Popen(('git', 'ls-tree', 'master^{tree}'), env=self.e, stdout=subprocess.PIPE).communicate()[0].strip()
+        return liste.decode('utf-8').split('\n')
 
     def history(self, key=''):
         "_"
@@ -1815,7 +1821,7 @@ class gitu:
         "_"
         p = subprocess.Popen(('git', 'show', 'master^{tree}:'+key), env=self.e, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = p.communicate()
-        return '"Not Found!"' if err else out[:-1]
+        return '"Not Found!"' if err else out[:-1].decode('utf-8')
 
     def cat_blob(self, key):
         "_"
@@ -1894,12 +1900,12 @@ def logo(opac=1):
     "_"
     return '<path id="logo" stroke-width="8" fill="none" stroke="Dodgerblue" onclick="window.open(\'http://%s\');" title="on Github: [http://%s]" opacity="%s" d="M10,10L10,35L30,35L30,10"/>' % (__url__, __url__, opac)
 
-def style():
+def style_old():
     """h1,h3,h6,p,li,b,a,td,th{font-family:helvetica neue,helvetica,arial,sans-serif;} a{text-decoration:none;} 
 table {border: 1px solid #666;width:100%;border-collapse:collapse;} td,th {border: 1px solid #666;} 
 h1{position:absolute;top:-8;left:60;} h6{position:absolute;top:0;right:10;} 
 textarea.editor{resize:none;width:100%; color:white;background-color:#444;}"""
-    return '<style>{}</style>\n'.format(style.__doc__)
+    return '<style>{}</style>\n'.format(style_old.__doc__)
 
 def table_test(par, title, tset):
     "_"
@@ -1941,7 +1947,7 @@ def table_about(host):
 
 def hhead():
     "_"
-    return '<html>' + favicon() + style() + '\n<svg %s height="64">%s</svg>\n' % (_SVGNS, logo())
+    return '<html>' + favicon() + style_old() + '\n<svg %s height="64">%s</svg>\n' % (_SVGNS, logo())
 
 def htail():
     "_"
@@ -1957,7 +1963,7 @@ def tex2pdf(txt):
 def get_editor(post):
     ""
     o = ''
-    gid = 'toto'
+    gid = 'tata'
     content = open('/u/doc.py', 'r', encoding='utf-8').read()[43:]
     here = os.path.dirname(os.path.abspath(__file__))
     if os.path.isfile('%s/cm.css' % here) and os.path.isfile('%s/cm.js' % here):
@@ -1979,15 +1985,64 @@ def get_editor(post):
     o += '\n<script>var editor = CodeMirror.fromTextArea(document.getElementById(".editor"), { lineNumbers: true, mode: "text/x-python", keyMap: "emacs" });</script>'
     return o + '</form>'
 
+__LANG__ = ('c', 'ada', 'svg', '_svg', 'tikz', '_tikz', 'ocaml', 'xml', '_xml', 'java', 'scala', 'python', 'ruby')
+
+def script(s):
+    "_"
+    return '<script type="text/ecmascript">\n/*<![CDATA[*//*---->*/\n' + s + '\n/*--*//*]]>*/</script>\n' 
+
+def style(s):
+    "_"
+    return '<style type="text/css">\n' + s + '</style>\n' 
+
+def save(environ, start_response):
+    start_response('200 OK', [('Content-type', 'text/plain; charset=utf-8'),])
+    if environ['REQUEST_METHOD'].lower() == 'post':  
+        raw = '\n'.join(environ['wsgi.input'].read().decode('utf-8').split('\n')[3:-2])
+        gitu().save('start', raw, 'git')
+    return ['ok']
+
+def ide(environ, start_response):
+    content = gitu().cat('start')
+    o = '<html><title id="title">doc</title>\n' + favicon()
+    o += style('html,body{margin:0;padding:0;}textarea#editor{position:absolute;left:0;top:0;resize:none;width:50%;}object#reader{position:absolute;right:0;top:0;width:50%;height:100%;border-style:solid;border-width:1px;border-color:grey;}select#lang{position:absolute;right:50%;top:0;z-index:10;}')
+    o += script("""function post(url, data, cb) {var req = new XMLHttpRequest();req.onreadystatechange = processRequest;function processRequest () {if (req.readyState == 4) {if (req.status == 200) {if (cb) { cb(req.responseText); }} else {alert('Error Post status:'+ req.status);}}} this.doPost = function() {req.open('POST', url, true);req.send(data);} };
+function setstart() {alert('yes'); var zz = document.getElementById("title").firstChild.nodeValue; alert(zz);}
+
+function run() {
+var name = document.getElementById("title").firstChild.nodeValue;
+document.getElementById("title").firstChild.nodeValue = name.replace(/^\*(.*)$/,'$1');
+var v=document.getElementById("editor").value; 
+var v=ed.getValue(); // commented if textarea used
+var t = document.getElementById("lang").value;
+  var fD = new FormData();
+  fD.append('content', v);
+  var ai = new post('u?save', fD, function(res) { 
+    document.getElementById("reader").setAttribute("data", "u?"+t+ "&test");
+  });
+  ai.doPost();
+  //document.getElementById("reader").setAttribute("data", "u?"+t+ "&" + v.replace(/\\n/g,' '));
+}""")
+    o += '<select id="lang" onchange="run();" title="Refresh:\'Alt R\'">' + ''.join(['<option>{}</option>'.format(i) for i in ['_tikz', '_xml', '_svg'] + list(__OUT_LANG__) ]) + '</select>\n'
+    o += '<textarea id="editor" style="height:100%">{}</textarea>\n'.format(content)
+    here = os.path.dirname(os.path.abspath(__file__))
+    if os.path.isfile('%s/cm.css' % here) and os.path.isfile('%s/cm.js' % here):
+        o += style(open('%s/cm.css' % here, 'r', encoding='utf-8').read()) + script(open('%s/cm.js' % here, 'r', encoding='utf-8').read())
+    o += '<object id="reader" data="u?_tikz&{}"></object>\n'.format(content)
+    start_response('200 OK', [('Content-type', 'text/html; charset=utf-8'),])
+    return [o + '</html>\n']
+
 def application(environ, start_response):
     """ WSGI Web application """
     s, mime, o, myu, host = urllib.parse.unquote(environ['QUERY_STRING']), 'text/plain; charset=utf-8', 'Error!', u(), environ['SERVER_NAME']
     lang, mod, gid, arg, act, fname = None, None, None, None, None, 'u.py'
-    if reg(re.match(r'\s*(%s$|)(_?)(%s|)&?((toto)|(.*))\s*$' % ('$|'.join(__ACTIONS__), '|'.join(__OUT_LANG__)), s, re.I)):
+    if reg(re.match(r'\s*(%s$|)(_?)(%s|)&?((test)|(.*))\s*$' % ('$|'.join(__ACTIONS__), '|'.join(__OUT_LANG__)), s, re.I)):
         #act, mod, lang, gid, arg = reg.v.group(1), reg.v.group(2), reg.v.group(3), reg.v.group(5), bytes(reg.v.group(6),'utf-8').decode('unicode_escape')
         act, mod, lang, gid, arg = reg.v.group(1), reg.v.group(2), reg.v.group(3), reg.v.group(5), reg.v.group(6)
     if act:
-        if act.lower() in ('pdf', 'paper', 'beamer'):
+        if act.lower() == 'save':
+            return save(environ, start_response)
+        elif act.lower() in ('pdf', 'paper', 'beamer'):
             mime, name = 'application/pdf', 'beamer_u' if act == 'beamer' else 'u'
             fname = '{}.pdf'.format(name)
             fname = 'doc.pdf'
@@ -2002,7 +2057,8 @@ def application(environ, start_response):
                 o += table_about(host)
             elif act.lower() in ('update',): 
                 o += 'update'
-            elif act.lower() in ('edit', 'ace', 'git'): 
+            elif act.lower() in ('edit', 'git'): 
+                return ide(environ, start_response)
                 out, err, pst = None, None, False
                 if environ['REQUEST_METHOD'].lower() == 'post': 
                     raw, pst = '\n'.join(environ['wsgi.input'].read().decode('utf-8').split('\r\n')[3:-2]), True
@@ -2027,12 +2083,10 @@ def application(environ, start_response):
             o = o.encode('utf-8')
     else:
         if gid:
-            #arg = gitu().cat(gid)
-            arg = open('/u/doc.txt').read()
+            arg = gitu().cat('start')
+            #arg = open('/u/doc.txt').read()
         elif environ['REQUEST_METHOD'].lower() == 'put':
             arg = environ['wsgi.input'].read().decode('utf-8')
-        #elif environ['REQUEST_METHOD'].lower() == 'post':
-        #    arg = 'toto'
         if lang:
             if lang in ('xml', 'svg') and mod: mime = 'application/xhtml+xml; charset=utf-8'
             if lang == 'tikz' and mod: mime = 'application/pdf'
@@ -2132,4 +2186,5 @@ y=zz
     myu = u()
     #print (myu.gen_tikz(myu.parse(code1)))
     #print (myu.gen_tikz(myu.parse(code2)))
+
 # end
