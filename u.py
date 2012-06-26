@@ -1454,7 +1454,7 @@ class latex:
 
     def head(self, lpkg, hcmd, title, subtitle, author, email, beam=False):
         "_"
-        for p in ('draftwatermark', 'listings', 'embedfile', 'graphicx', 'tikz', 'hyperref') + lpkg:
+        for p in ('listings', 'embedfile', 'graphicx', 'tikz', 'hyperref') + lpkg:
         #for p in ('listings', 'embedfile', 'graphicx', 'tikz', 'hyperref') + lpkg:
             a = p.split('|')
             if len(a) > 1:
@@ -1518,7 +1518,7 @@ class latex:
         open('%s.tex' % name, 'w').write(self.tex)
         here = os.path.dirname(os.path.abspath(__file__))
         subprocess.Popen(('cd /tmp; pdflatex -interaction=batchmode %s.tex 1>/dev/null' % name), shell=True).communicate()
-
+       
 class article (latex):
     r"\documentclass[a4paper,10pt]{article}"
     def __init__(self, userfile, title='title', author='author', email='email', subtitle=''):
@@ -1567,6 +1567,24 @@ class article (latex):
         self.end(note)
         latex.gen(self, os.path.basename(self.userfile)[:-3])
 
+class article12 (article):
+    r"\documentclass[a4paper,12pt]{article}"
+    def __init__(self, userfile, title='title', author='author', email='email', subtitle=''):
+        "_"
+        self.userfile = userfile
+        latex.__init__(self, userfile)
+        self.tex += article12.__doc__ + '\n'
+        latex.head(self, ('geometry|margin=2cm', 'inputenc|utf8', 'lmodern', 'color', 'longtable', 'array'), {}, title, subtitle, author, email)
+ 
+class draft (article):
+    r"\documentclass[a4paper,12pt]{article}"
+    def __init__(self, userfile, title='title', author='author', email='email', subtitle=''):
+        "_"
+        self.userfile = userfile
+        latex.__init__(self, userfile)
+        self.tex += draft.__doc__ + '\n'
+        latex.head(self, ('draftwatermark', 'geometry|margin=2cm', 'inputenc|utf8', 'lmodern', 'color', 'longtable', 'array'), {}, title, subtitle, author, email)
+ 
 def tikz(ustr, rx=1, ry=1):
     "_"
     myu = u()
@@ -1586,7 +1604,7 @@ def insert_code(userfile, pat, sli=None):
 
 class beamer (latex):
     r"\documentclass{beamer}"
-    def __init__(self, userfile, title, author, email, subtitle=''):
+    def __init__(self, userfile, title='title', author='author', email='email', subtitle=''):
         "_"
         self.userfile = userfile
         latex.__init__(self, userfile)
@@ -1633,6 +1651,10 @@ class beamer (latex):
         
     def gen_pdf(self):
         latex.gen_pdf(self, 'beamer_' + os.path.basename(self.userfile)[:-3])
+
+    def gen(self, note=True):
+        "_"
+        latex.gen(self, os.path.basename(self.userfile)[:-3])
 
 def rclogo(r=.75, x=-7, y=-4):
     "RockwellCollins TikZ logo (SVG source)"
@@ -1759,7 +1781,6 @@ class gitu:
             p = subprocess.Popen(('git', 'hash-object', '-w', '--stdin'), env=e, stdout=subprocess.PIPE, stdin=subprocess.PIPE)
             li = '100644 blob %s\tstart\n' % p.communicate(' \n'.encode('utf-8'))[0].strip().decode('utf-8')
             q = subprocess.Popen(('git', 'mktree'), env=e, stdout=subprocess.PIPE, stdin=subprocess.PIPE)
-            open('/tmp/log0', 'w', encoding='utf-8').write('%s'%li)
             li = li.encode('utf-8')
             tutu = q.communicate(li)[0].strip().decode('utf-8')
             r = subprocess.Popen(('git', 'commit-tree', tutu), env=e, stdout=subprocess.PIPE, stdin=subprocess.PIPE)
@@ -1772,14 +1793,15 @@ class gitu:
         out = out.decode('utf-8')
         p = subprocess.Popen(('git', 'ls-tree', 'master^{tree}'), env=self.e, stdout=subprocess.PIPE)
         liste = p.communicate()[0].decode('utf-8')
-        open('/tmp/log2', 'w', encoding='utf-8').write('%s'%liste)
         if err:
-            liste += '\n100644 blob %s\t%s' % (self.sha(bytes(c, encoding='utf-8')), key) 
+            #liste += '100644 blob %s\t%s' % (self.sha(bytes(c, encoding='utf-8')), key)
+            liste += '100644 blob %s\t%s' % (self.sha(c.encode('utf-8')), key)
             self.commit (liste, key)
         else:
-            if out[:-1] != c:
-                h = self.sha(bytes(c,encoding='utf-8'))
-                self.commit(re.sub(r'(100644 blob) [0-9a-f]{40}(\t%s)' % key, '\\1 %s\\2' % h, liste), state) 
+            if out != c:
+                #h = self.sha(bytes(c,encoding='utf-8'))
+                h = self.sha(c.encode('utf-8'))
+                self.commit(re.sub(r'(100644 blob) [0-9a-f]{40}(\t%s)\n' % key, '\\1 %s\\2\n' % h, liste), state) 
         p = subprocess.Popen(('git', 'log', '--pretty=format:%H', '-1'), env=self.e, stdout=subprocess.PIPE)
         return p.communicate()[0][:15]
 
@@ -1838,7 +1860,8 @@ class gitu:
         "_"
         p = subprocess.Popen(('git', 'show', 'master^{tree}:'+key), env=self.e, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = p.communicate()
-        return '"Not Found!"' if err else out.decode('utf-8')
+        s = 'print ("New file!")' if re.search('\.py$', key) else 'New->File'
+        return s if err else out.decode('utf-8')
 
     def cat_blob(self, key):
         "_"
@@ -1919,7 +1942,7 @@ def logo(opac=1):
 
 def style_old():
     """h1,h3,h6,p,li,b,a,td,th{font-family:helvetica neue,helvetica,arial,sans-serif;} a{text-decoration:none;} 
-table {border: 1px solid #666;width:100%;border-collapse:collapse;} td,th {border: 1px solid #666;} 
+table {border: 1px solid #666;width:100%;border-collapse:collapse;} td,th {border: 1px solid #666;padding:2pt;}
 h1{position:absolute;top:-8;left:60;} h6{position:absolute;top:0;right:10;} 
 textarea.editor{resize:none;width:100%; color:white;background-color:#444;}"""
     return '<style>{}</style>\n'.format(style_old.__doc__)
@@ -1977,31 +2000,6 @@ def tex2pdf(txt):
     subprocess.Popen(('cd /tmp; pdflatex -interaction=batchmode %s.tex 1>/dev/null' % src), shell=True).communicate()
     return open('/tmp/%s.pdf' % src, 'rb').read()
 
-def get_editor(post):
-    ""
-    o = ''
-    gid = 'tata'
-    content = open('/u/doc.py', 'r', encoding='utf-8').read()[43:]
-    here = os.path.dirname(os.path.abspath(__file__))
-    if os.path.isfile('%s/cm.css' % here) and os.path.isfile('%s/cm.js' % here):
-        o += '<style>%s</style>\n' %open('%s/cm.css' % here, 'r', encoding='utf-8').read()
-        o += '<script type="text/ecmascript">\n/*<![CDATA[*//*---->*/\n' + open('%s/cm.js' % here, 'r', encoding='utf-8').read() + '\n/*--*//*]]>*/</script>\n'
-
-    o += '<form method="post" enctype=multipart/form-data>'
-    #o += '<input pattern="\w{5,10}" title="git id" type="search" list="l" name="gid" value="%s" onchange="submit();" data-message="6 to 10 digits" required/><datalist id="l">'%gid
-    #o += '</datalist><input type="button" id=".save" name="s" disabled="true" value="Save" onclick="submit();"/>'
-    o += '<input type="button" id=".save" name="s" value="Save" onclick="submit();"/>'
-    #if post:
-    #    subprocess.Popen(('chmod 777 /tmp/doc.pdf'), shell=True).communicate()
-    #else:
-    #out, err = subprocess.Popen(('ls -l /tmp/doc.pdf; rm -f /tmp/doc.pdf'), shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
-    #o += '<p>%s</p><p>%s</p>' % (out, err)
-    o += '<input type="button" id=".pdf" name="p" value="PDF" onclick="window.open(\'http://pelinquin/u?pdf\',\'toto\');">'
-    #o += '<a href="http://pelinquin/u?pdf">PDF</a>'
-    o += '<textarea id=".editor" name="content" class="editor" spellcheck="false" rows="40">%s</textarea>'%content
-    o += '\n<script>var editor = CodeMirror.fromTextArea(document.getElementById(".editor"), { lineNumbers: true, mode: "text/x-python", keyMap: "emacs" });</script>'
-    return o + '</form>'
-
 __LANG__ = ('c', 'ada', 'svg', '_svg', 'tikz', '_tikz', 'ocaml', 'xml', '_xml', 'java', 'scala', 'python', 'ruby')
 
 def script(s):
@@ -2022,9 +2020,9 @@ def save(environ, start_response, gid='start'):
 def ide(environ, start_response, gid='start', python=False):
     content = gitu().cat(gid)
     o = '<html><title id="title">%s</title>\n' % gid + favicon()
-    o += style('html,body{margin:0;padding:0;}textarea#editor{position:absolute;left:0;top:0;resize:none;width:50%;}object#reader{position:absolute;right:0;top:0;width:50%;height:100%;border-style:solid;border-width:1px;border-color:grey;}select#lang{position:absolute;right:50%;top:0;z-index:10;}input#message{position:absolute;right:50%;bottom:0;z-index:10;}')
+    o += style('html,body{margin:0;padding:0;}textarea#editor{position:absolute;left:0;top:0;resize:none;width:50%;}object#reader{position:absolute;right:0;top:0;width:50%;height:100%;border-style:solid;border-width:1px;border-color:grey;}select#lang{position:absolute;right:50%;top:22;z-index:10;}input#message{position:absolute;right:50%;top:0;z-index:10;}')
     o += script("""function post(url, data, cb) {var req = new XMLHttpRequest();req.onreadystatechange = processRequest;function processRequest () {if (req.readyState == 4) {if (req.status == 200) {if (cb) { cb(req.responseText); }} else {alert('Error Post status:'+ req.status);}}} this.doPost = function() {req.open('POST', url, true);req.send(data);} };
-window.onload = run;
+//window.onload = run;
 function run() {
 var name = document.getElementById("title").firstChild.nodeValue;
 document.getElementById("title").firstChild.nodeValue = name.replace(/^\*(.*)$/,'$1');
@@ -2045,12 +2043,24 @@ var t = document.getElementById("lang").value;
         o += '<select id="lang" onchange="run();" title="Refresh:\'Alt R\'">' + ''.join(['<option>{}</option>'.format(i) for i in ['_svg', '_xml', '_tikz'] + list(__OUT_LANG__) ]) + '</select>\n'
     else:
         o += '<input type="hidden" id="lang" value=""/>\n'
+    o += '<a href="u?list"><svg id="list" height="16" width="16"><path d="M0,0L16,0L16,16L0,16Z" stroke-width="0" stroke="black" fill="#EEE"/><path d="M4,4L12,4M4,8L12,8M4,12L12,12" stroke-width="2" stroke="white" fill="none"/></svg></a>\n'
     o += '<input type="text" id="message" placeholder="...enter a commit message" onchange="run()"/>\n'
-    o += '<textarea id="editor" style="height:100%">{}</textarea>\n'.format(content)
+    toto = bytes(re.sub(r'\\n',r'\\\\n',content), 'utf-8').decode('unicode_escape')
+    #toto = bytes(content, 'utf-8').decode('unicode_escape')
+    #toto = bytes(content, 'utf-8').decode()
+    #toto = repr(content)
+    o += '<textarea id="editor" style="height:100%">{}</textarea>\n'.format(toto)
     here = os.path.dirname(os.path.abspath(__file__))
     if os.path.isfile('%s/cm.css' % here) and os.path.isfile('%s/cm.js' % here):
         o += style(open('%s/cm.css' % here, 'r', encoding='utf-8').read()) + script(open('%s/cm.js' % here, 'r', encoding='utf-8').read())
     o += '<object id="reader" data=""></object>\n'
+    start_response('200 OK', [('Content-type', 'text/html; charset=utf-8'),])
+    return [o + '</html>\n']
+
+def ide2(environ, start_response, gid='start', python=False):
+    content = gitu().cat(gid)
+    o = '<html>\n'
+    o += '<textarea id="editor" style="height:100%">{}</textarea>\n'.format(content.encode('utf-8'))
     start_response('200 OK', [('Content-type', 'text/html; charset=utf-8'),])
     return [o + '</html>\n']
 
@@ -2071,18 +2081,27 @@ def action(environ, start_response, key, host):
         elif key in ('random',): 
             o += table_test(False, 'Random', get_random_set())
         elif key == 'list':
-            ficon = '<svg height="20" width="20"><path d="M0,0L14,0L20,6L20,20L0,20Z" stroke-width="2" stroke="black" fill="#EEE"/><path d="M4,4L12,4M4,8L16,8M4,12L16,12M4,16L16,16" stroke-width="1" stroke="black" fill="none"/></svg>'
+            ficon = '<svg height="20" width="20"><path d="M0,0L14,0L20,6L20,20L0,20Z" stroke-width="2" stroke="gray" fill="#EEE"/><path d="M4,4L12,4M4,8L16,8M4,12L16,12M4,16L16,16" stroke-width="1" stroke="gray" fill="none"/></svg>'
+            pyicon = '<svg height="20" width="20"><path d="M0,0L14,0L20,6L20,20L0,20Z" stroke-width="2" stroke="gray" fill="#EEE"/><path d="M4,4L12,4M4,8L16,8M4,12L16,12" stroke-width="1" stroke="gray" fill="none"/></svg>'
             i = 0
-            o += '<table><tr><th width="2.5cm">#</th><th>blob</th><th>commit</th><th>author</th><th>age</th><th>message</th></tr>'
+            o += '<table><tr><th width="2.5cm">#</th><th>blob</th><th width="2cm">commit</th><th width="1cm">author</th><th>age</th><th>message</th></tr>'
             for l in gitu().list():
                 i +=1
                 t = l.split('\t')
-                if t:
-                    print( file=sys.stderr, 'hello')
+                if len(t) == 2:
+                    icon = pyicon if re.search('\.py$', t[1]) else ficon
                     h = gitu().gethead2(t[1])
                     r = h.split(':')
-                    o += '<tr><td>%03d</td><td>%s <a href="u?@%s">%s</a></td><td style="font-family:courier;">%s</td><td>%s</td><td>%s</td><td>%s</td><tr>' % (i, ficon, t[1], t[1], r[0], r[1], r[2], r[3]) 
+                    o += '<tr><td>%03d</td><td>%s <a href="u?@%s">%s</a></td><td style="font-family:courier;">%s</td><td>%s</td><td>%s</td><td>%s</td><tr>' % (i, icon, t[1], t[1], r[0], r[1], r[2], r[3]) 
             o += '</table>'
+        elif key in ('update',):
+            here = os.path.dirname(os.path.abspath(__file__))
+            # add security
+            #cmd = 'cd %s/..; rm -rf u; git clone git://github.com/pelinquin/u.git' % here
+            cmd = 'cd %s; ls' % here
+            out, err = subprocess.Popen((cmd), shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
+            o = 'Application Update...\n'
+            o += 'Error:%s\n' % err if err else 'Message:%s\nUpdate OK\n' % out.decode('utf-8')
         else:
             o += '<pre>Keywork:%s</pre>' % key
         o += htail()
@@ -2093,13 +2112,14 @@ def action(environ, start_response, key, host):
 def display(environ, start_response, gid):
     "_"
     raw = gitu().cat(gid)
+    #raw = bytes(raw, 'utf-8').decode('unicode_escape')
     here = os.path.dirname(os.path.abspath(__file__))
     head = '#!/usr/bin/python3\n# -*- coding: utf-8 -*-\nimport os,sys\np="%s"\nif p not in sys.path: sys.path.append(p)\nimport u\n' % here
     src = '/tmp/%s' % gid
     pdf = src[:-2]+'pdf'
+    pdfname = 'toto.pdf'
     open(src, 'w', encoding='utf-8').write(head + raw)
     out, err = subprocess.Popen(('cd /tmp; rm -rf %s; python3 %s' % (pdf, src)), shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
-    #out, err = subprocess.Popen(('cd /tmp; rm -rf %s; cat %s' % (pdf, src)), shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
     if err:
         pdf = 'error'
         o = err
@@ -2112,7 +2132,7 @@ def display(environ, start_response, gid):
             pdf = 'no pdf generated!'
             o = out
             mime = 'text/plain'
-    start_response('200 OK', [('Content-type', mime), ('Content-Disposition', 'filename={}'.format(pdf))])
+    start_response('200 OK', [('Content-type', mime), ('Content-Disposition', 'filename={}'.format(pdfname))])
     return [o]
 
 def application(environ, start_response):
@@ -2130,6 +2150,7 @@ def application(environ, start_response):
         elif way == '$':
             return display(environ, start_response, gid)
         elif way == '@':
+            #open('/tmp/log', 'w', encoding='utf-8').write(gitu().cat(gid))
             if lng:
                 arg = gitu().cat(gid)
             else:
@@ -2158,86 +2179,6 @@ def application(environ, start_response):
     start_response('200 OK', [('Content-type', mime), ('Content-Disposition', 'filename={}'.format(fname))])
     return [o] 
 
-def application_old(environ, start_response):
-    s, mime, o, myu, host = urllib.parse.unquote(environ['QUERY_STRING']), 'text/plain; charset=utf-8', 'Error!', u(), environ['SERVER_NAME']
-    lang, mod, gid, arg, act, fname = None, None, None, None, None, 'u.py'
-    if reg(re.match(r'\s*(%s$|)(_?)(%s|)&?((test)|(.*))\s*$' % ('$|'.join(__ACTIONS__), '|'.join(__OUT_LANG__)), s, re.I)):
-        #act, mod, lang, gid, arg = reg.v.group(1), reg.v.group(2), reg.v.group(3), reg.v.group(5), bytes(reg.v.group(6),'utf-8').decode('unicode_escape')
-        act, mod, lang, gid, arg = reg.v.group(1), reg.v.group(2), reg.v.group(3), reg.v.group(5), reg.v.group(6)
-    if act:
-        if act.lower() in ('pdf', 'paper', 'beamer'):
-            mime, name = 'application/pdf', 'beamer_u' if act == 'beamer' else 'u'
-            fname = '{}.pdf'.format(name)
-            fname = 'doc.pdf'
-            if act.lower() == 'pdf':
-                f = '/u/empty.pdf'
-            else:
-                f = '%s/%s.pdf' % (os.path.dirname(environ['SCRIPT_FILENAME']), name)
-            o = open(f, 'rb').read()
-        else:
-            mime, fname, o = 'text/html; charset=utf-8', act, hhead()
-            if act.lower() in ('about', 'help', 'usage'): 
-                o += table_about(host)
-            elif act.lower() in ('update',): 
-                o += 'update'
-            elif act.lower() in ('edit', 'git'): 
-                return ide(environ, start_response)
-                out, err, pst = None, None, False
-                if environ['REQUEST_METHOD'].lower() == 'post': 
-                    raw, pst = '\n'.join(environ['wsgi.input'].read().decode('utf-8').split('\r\n')[3:-2]), True
-                    head = '#!/usr/bin/python3\n# -*- coding: utf-8 -*-\n'
-                    open('/u/doc.py', 'w', encoding='utf-8').write(head + raw)
-                    out, err = subprocess.Popen(('cd /u; ./doc.py'), shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
-                o += get_editor(pst) 
-                if out or err:
-                    o += '<pre>%s %s</pre>' % (out.decode('utf-8'), err.decode('utf-8'))
-            elif act.lower() in ('log',): 
-                o += 'log'
-            elif act.lower() in ('test', 'parse'): 
-                o += table_test(True, 'Parsing', __AST_SET__)
-            elif act.lower() in ('unparse',): 
-                o += table_test(False, 'Unparsing', __AST_SET__)
-            elif act.lower() in ('random',): 
-                o += table_test(False, 'Random', get_random_set())
-            elif act.lower() in ('download', 'source'): 
-                mime = 'text/plain; charset=utf-8'
-                o = open(__file__, 'r', encoding='utf-8').read()
-            o += htail()
-            o = o.encode('utf-8')
-    else:
-        if gid:
-            arg = gitu().cat('start')
-            #arg = open('/u/doc.txt').read()
-        elif environ['REQUEST_METHOD'].lower() == 'put':
-            arg = environ['wsgi.input'].read().decode('utf-8')
-        if lang:
-            if lang in ('xml', 'svg') and mod: mime = 'application/xhtml+xml; charset=utf-8'
-            if lang == 'tikz' and mod: mime = 'application/pdf'
-            if arg:
-                if lang == 'svg' and environ['REQUEST_METHOD'].lower() == 'post': 
-                    raw = environ['wsgi.input'].read().decode('utf-8')
-                    o = myu.gen_svg(myu.parse(arg), eval(urllib.parse.unquote(raw[2:])))
-                    #o += '<!-- %s -->'%urllib.parse.unquote(raw[2:])
-                else:
-                    o = eval('myu.headfoot(myu.gen_{}, lang, host)(myu.parse(arg))'.format(lang))
-            else:
-                if environ['REQUEST_METHOD'].lower() == 'post':
-                    arg = '\n'.join(environ['wsgi.input'].read().decode('utf-8').split('\n')[4:-2])
-                    o = eval('myu.headfoot(myu.gen_{}, lang, host)(myu.parse(arg))'.format(lang))
-                else:
-                    mime, fname = 'text/html; charset=utf-8', lang
-                    o = hhead() + '<form method=post enctype=multipart/form-data><input type=file name=a onchange="submit();"/>' + htail()
-            if lang == 'tikz' and mod: o = tex2pdf(o)
-        else:
-            if arg:
-                o = myu.headfoot(myu.gen_ast, 'python', host)(myu.parse(arg))
-            else:
-                o = open(__file__, 'r', encoding='utf-8').read()
-        if lang != 'tikz' or not mod:
-            o = o.encode('utf-8')
-    start_response('200 OK', [('Content-type', mime), ('Content-Disposition', 'filename={}'.format(fname))])
-    return [o] 
-
 # (7) Command line
 
 def put(server, service, content):
@@ -2253,8 +2194,8 @@ def command_line():
     lang, host = '', '127.0.0.1' # use '193.84.73.209 for testing'
 
     if not opts and not args:
-        #gen_test()
-        #gen_doc()
+        gen_test()
+        gen_doc()
         print(__digest__.decode('utf-8'))
     
     for r in opts:
@@ -2287,8 +2228,6 @@ if __name__ == '__main__':
     command_line()
 
     # test zone!
-
-    myu = u()
     code = """
 tata=3;toto=tata+5-7
 class F:
@@ -2298,31 +2237,6 @@ class F:
 zz=4
 y=zz
 """ 
-    code = """
-A->B
-# hello
-C->D
-"""
-    myu = u()
-    print (myu.parse(code))
+    #print (u().parse(code))
 
-    liste = """
-100644 blob 0de5af302d6a7595ab72cad4d8493b86b0570422	blabla
-100644 blob 0de5af302d6a7595ab72cad4d8493b86b0570422	blabla.py
-100644 blob a9e64ee09d975a670e299965c4ff277175e68b08	file1
-100644 blob 0f36d6041e6a56f5feb0b40cb9982b83bea0df44	list
-100644 blob 673e4e3a88af9bf174b6a109d179489738c655b0	new.u
-100644 blob e7917c1cd587ef2c473c693447476787aa105ab7	start
-100644 blob 0f36d6041e6a56f5feb0b40cb9982b83bea0df44	start.py
-100644 blob a28e39e2c6e469c084f0c9ed11d708d588c4c2eb	tata
-100644 blob 9fb582fda0c3b93c216d98bf668eccbb97bbdcd7	tata.u
-100644 blob bc3b14453e388ae8330d66865ce9562881330f5c	tonton
-100644 blob 5e6659fa78026d167611e431602dbc964ac71ff1	toto
-100644 blob bcbc6786b054760097f3bfd332ef7199cf5cb42e	toto.py
-100644 blob 5790a37688c66db1684781daa21e5f83728ab149	toto.u
-100644 blob 8fc30f9da1eee5f4b5a7f81d75e4fa205ab15264    tutu
-"""
-    key = 'blabla'
-    h = '55555a37688c66db1684781daa21e5f83728ab14'
-    print (re.sub(r'(100644 blob) [0-9a-f]{40}(\t%s)\n' % key, '\\1 %s\\2\n' % h, liste))
 # end
