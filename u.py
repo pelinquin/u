@@ -61,18 +61,18 @@ __RE_U__ = r'''     # RegExp
    (?:              # Three basic tokens:
     ([{}])          # (1) Block 
    |
-    (?:\#[^\n]*)    # or (2) Line comment
+    (\#[^\n]*)      # or (2) Line comment
    |                # or (3) NODE:
     (?=[^\s<\-=>])  # Not empty token 
     (?:(\w{1,10})|) # Name      
     (?::(\w)|)      # Type pre  
-    ((%s)(.+?)\5|\[([^\]]+)\]|\(([^)]+)\)|) # Content
+    ((%s)(.+?)\6|\[([^\]]+)\]|\(([^)]+)\)|) # Content
     (\w|)           # Type post 
     (?:\.(\w{1,20}|\*)|) # Port      
    |                # or (4) ARC:  
     ([<\-=>])       # Head      
     (?:([^\W\d_])|) # Type pre  
-    ((%s)(.+?)\14|\[([^\]]+)\]|\(([^)]+)\)|) # Content
+    ((%s)(.+?)\15|\[([^\]]+)\]|\(([^)]+)\)|) # Content
     (?:([^\W\d_])|) # Type post  
     ([<\-=>])       # Tail
 )''' % (__delimiter__, __delimiter__)
@@ -442,15 +442,15 @@ class u:
     def typeLabel(self, g, arc=True):
         "_"
         if arc:
-            lab = g[16] if g[16] else g[15] if g[15] else g[14]
-            typ = g[17] if g[17] else g[11]
-            sep = g[13] if g[13] else g[12][0] + g[12][-1] if g[12] else None 
-            res = (__ARC_T__.index(g[10]+g[18]), typ, sep, lab)
+            lab = g[17] if g[17] else g[16] if g[16] else g[15]
+            typ = g[18] if g[18] else g[12]
+            sep = g[14] if g[14] else g[13][0] + g[13][-1] if g[13] else None 
+            res = (__ARC_T__.index(g[11]+g[19]), typ, sep, lab)
         else:
-            typ = g[8] if g[8] else g[2]
-            lab = g[7] if g[7] else g[6] if g[6] else g[5]
-            sep = g[4] if g[4] else g[3][0] + g[3][-1] if g[3] else None 
-            nid = g[1] if g[1] else re.sub(r'\W', '', '_%s' % lab.lower())[:9] if lab else '__%s' % typ
+            typ = g[9] if g[9] else g[3]
+            lab = g[8] if g[8] else g[7] if g[7] else g[6]
+            sep = g[5] if g[5] else g[4][0] + g[4][-1] if g[4] else None 
+            nid = g[2] if g[2] else re.sub(r'\W', '', '_%s' % lab.lower())[:9] if lab else '__%s' % typ
             res = (nid, typ, sep, lab)
         return res
 
@@ -487,6 +487,7 @@ A list of all links between two tokens+port and link attributes
         nodes, arcs, stack = {}, [], [[[]]]
         index, grp, sak = 0, 0, [None]
         for m in re.compile(__RE_U__, re.X|re.S).finditer(x):
+            if m.group(2): continue # comments
             if m.group(1) == '{': # open block
                 index += 1
                 if len(stack) <= index: stack.append([])
@@ -501,14 +502,14 @@ A list of all links between two tokens+port and link attributes
                     old_grp = grp
                     grp = len(stack[index])-1
                     stack[index][grp].append(old_grp)
-            elif m.group(11): # link
+            elif m.group(12): # link
                 sak[-1] = None
                 if stack[index][grp]: stack[index][grp].append(self.typeLabel(m.groups()))
             else: # node
                 (nid, typ, sep, lab) = self.typeLabel(m.groups(), False) # Compact
                 prt = sak[-2] if len(sak)>1 else None                    # Compact
                 self.merge_attr(nid, nodes, prt, typ, sep, lab)          # Compact
-                stack[index][grp].append([nid, self.getport(typ, m.group(10))])
+                stack[index][grp].append([nid, self.getport(typ, m.group(11))])
                 sak[-1] = nid
         for lvl in stack: 
             for grp in lvl: 
@@ -1520,7 +1521,7 @@ class latex:
 
 class article (latex):
     r"\documentclass[a4paper,10pt]{article}"
-    def __init__(self, userfile, title, author, email, subtitle=''):
+    def __init__(self, userfile, title='title', author='author', email='email', subtitle=''):
         "_"
         self.userfile = userfile
         latex.__init__(self, userfile)
@@ -1758,25 +1759,27 @@ class gitu:
             p = subprocess.Popen(('git', 'hash-object', '-w', '--stdin'), env=e, stdout=subprocess.PIPE, stdin=subprocess.PIPE)
             li = '100644 blob %s\tstart\n' % p.communicate(' \n'.encode('utf-8'))[0].strip().decode('utf-8')
             q = subprocess.Popen(('git', 'mktree'), env=e, stdout=subprocess.PIPE, stdin=subprocess.PIPE)
+            open('/tmp/log0', 'w', encoding='utf-8').write('%s'%li)
             li = li.encode('utf-8')
             tutu = q.communicate(li)[0].strip().decode('utf-8')
             r = subprocess.Popen(('git', 'commit-tree', tutu), env=e, stdout=subprocess.PIPE, stdin=subprocess.PIPE)
             subprocess.Popen(('git', 'update-ref', 'refs/heads/master', r.communicate('start'.encode('utf-8'))[0].strip().decode('utf-8')), env=e, stdout=subprocess.PIPE).communicate()
 
-    def save(self, key, c, state=''):
+    def save(self, key, c, state='NON'):
         "_"
         p = subprocess.Popen(('git', 'show', 'master^{tree}:'+key), env=self.e, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = p.communicate('')
         out = out.decode('utf-8')
         p = subprocess.Popen(('git', 'ls-tree', 'master^{tree}'), env=self.e, stdout=subprocess.PIPE)
-        liste = p.communicate()[0].strip().decode('utf-8')
+        liste = p.communicate()[0].decode('utf-8')
+        open('/tmp/log2', 'w', encoding='utf-8').write('%s'%liste)
         if err:
             liste += '\n100644 blob %s\t%s' % (self.sha(bytes(c, encoding='utf-8')), key) 
             self.commit (liste, key)
         else:
             if out[:-1] != c:
                 h = self.sha(bytes(c,encoding='utf-8'))
-                self.commit(re.sub(r'(100644 blob) [0-9a-f]{40}(\t%s)' % key, '\\1 %s\\2' % h, liste), key+'\n'+state) 
+                self.commit(re.sub(r'(100644 blob) [0-9a-f]{40}(\t%s)' % key, '\\1 %s\\2' % h, liste), state) 
         p = subprocess.Popen(('git', 'log', '--pretty=format:%H', '-1'), env=self.e, stdout=subprocess.PIPE)
         return p.communicate()[0][:15]
 
@@ -1813,8 +1816,13 @@ class gitu:
 
     def gethead(self, key):
         "_"
-        p = subprocess.Popen(('git', 'log', '-1', '--pretty=format:%H:%an:%ar:%at', '--', key), env=self.e, stdout=subprocess.PIPE) # ar
-        return p.communicate()[0].strip()
+        p = subprocess.Popen(('git', 'log', '-1', '--pretty=format:%H:%an:%ar:%at', '--', key), env=self.e, stdout=subprocess.PIPE) 
+        return p.communicate()[0].strip().decode('utf-8')
+
+    def gethead2(self, key):
+        "_"
+        p = subprocess.Popen(('git', 'log', '-1', '--pretty=format:%H:%an:%ar:%s', '--', key), env=self.e, stdout=subprocess.PIPE) 
+        return p.communicate()[0].strip().decode('utf-8')
     
     def revision(self, key):
         "_"
@@ -1830,7 +1838,7 @@ class gitu:
         "_"
         p = subprocess.Popen(('git', 'show', 'master^{tree}:'+key), env=self.e, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = p.communicate()
-        return '"Not Found!"' if err else out[:-1].decode('utf-8')
+        return '"Not Found!"' if err else out.decode('utf-8')
 
     def cat_blob(self, key):
         "_"
@@ -2007,18 +2015,16 @@ def style(s):
 def save(environ, start_response, gid='start'):
     start_response('200 OK', [('Content-type', 'text/plain; charset=utf-8'),])
     if environ['REQUEST_METHOD'].lower() == 'post':  
-        raw = '\n'.join(environ['wsgi.input'].read().decode('utf-8').split('\n')[3:-2])
-        gitu().save(gid, raw, 'git')
+        l = environ['wsgi.input'].read().decode('utf-8').split('\r\n')
+        gitu().save(gid, '\n'.join(l[4:-2]), l[3])
     return ['ok']
 
-def ide(environ, start_response, gid='start'):
+def ide(environ, start_response, gid='start', python=False):
     content = gitu().cat(gid)
     o = '<html><title id="title">%s</title>\n' % gid + favicon()
-    o += style('html,body{margin:0;padding:0;}textarea#editor{position:absolute;left:0;top:0;resize:none;width:50%;}object#reader{position:absolute;right:0;top:0;width:50%;height:100%;border-style:solid;border-width:1px;border-color:grey;}select#lang{position:absolute;right:50%;top:0;z-index:10;}')
+    o += style('html,body{margin:0;padding:0;}textarea#editor{position:absolute;left:0;top:0;resize:none;width:50%;}object#reader{position:absolute;right:0;top:0;width:50%;height:100%;border-style:solid;border-width:1px;border-color:grey;}select#lang{position:absolute;right:50%;top:0;z-index:10;}input#message{position:absolute;right:50%;bottom:0;z-index:10;}')
     o += script("""function post(url, data, cb) {var req = new XMLHttpRequest();req.onreadystatechange = processRequest;function processRequest () {if (req.readyState == 4) {if (req.status == 200) {if (cb) { cb(req.responseText); }} else {alert('Error Post status:'+ req.status);}}} this.doPost = function() {req.open('POST', url, true);req.send(data);} };
-function setstart() {alert('yes'); var zz = document.getElementById("title").firstChild.nodeValue; alert(zz);}
 window.onload = run;
-
 function run() {
 var name = document.getElementById("title").firstChild.nodeValue;
 document.getElementById("title").firstChild.nodeValue = name.replace(/^\*(.*)$/,'$1');
@@ -2026,45 +2032,25 @@ var v=document.getElementById("editor").value;
 var v=ed.getValue(); // commented if textarea used
 var t = document.getElementById("lang").value;
   var fD = new FormData();
+  v = document.getElementById("message").value  + '\\n' + v;
   fD.append('content', v);
-  var ai = new post('u?^%s', fD, function(res) { 
-    document.getElementById("reader").setAttribute("data", "u?"+t+ "@%s");
+  var ai = new post('u?^%s', fD, function(res) {
+    var py = '%s';
+    var url = 'u?' + t + '@%s';
+    if (py == 'True') { url = 'u?' + '$%s'}
+    document.getElementById("reader").setAttribute('data', url);
   });
-  ai.doPost();
-  //document.getElementById("reader").setAttribute("data", "u?"+t+ "&" + v.replace(/\\n/g,' '));
-}""" % (gid, gid))
-    o += '<select id="lang" onchange="run();" title="Refresh:\'Alt R\'">' + ''.join(['<option>{}</option>'.format(i) for i in ['_svg', '_xml', '_tikz'] + list(__OUT_LANG__) ]) + '</select>\n'
+  ai.doPost();}""" % (gid, python, gid, gid))
+    if not python:
+        o += '<select id="lang" onchange="run();" title="Refresh:\'Alt R\'">' + ''.join(['<option>{}</option>'.format(i) for i in ['_svg', '_xml', '_tikz'] + list(__OUT_LANG__) ]) + '</select>\n'
+    else:
+        o += '<input type="hidden" id="lang" value=""/>\n'
+    o += '<input type="text" id="message" placeholder="...enter a commit message" onchange="run()"/>\n'
     o += '<textarea id="editor" style="height:100%">{}</textarea>\n'.format(content)
     here = os.path.dirname(os.path.abspath(__file__))
     if os.path.isfile('%s/cm.css' % here) and os.path.isfile('%s/cm.js' % here):
         o += style(open('%s/cm.css' % here, 'r', encoding='utf-8').read()) + script(open('%s/cm.js' % here, 'r', encoding='utf-8').read())
-    o += '<object id="reader" data="u?empty"></object>\n'
-    start_response('200 OK', [('Content-type', 'text/html; charset=utf-8'),])
-    return [o + '</html>\n']
-
-def pyide(environ, start_response, gid='start'):
-    content = gitu().cat(gid)
-    o = '<html><title id="title">%s</title>\n' % gid + favicon()
-    o += style('html,body{margin:0;padding:0;}textarea#editor{position:absolute;left:0;top:0;resize:none;width:50%;}object#reader{position:absolute;right:0;top:0;width:50%;height:100%;border-style:solid;border-width:1px;border-color:grey;}select#lang{position:absolute;right:50%;top:0;z-index:10;}')
-    o += script("""function post(url, data, cb) {var req = new XMLHttpRequest();req.onreadystatechange = processRequest;function processRequest () {if (req.readyState == 4) {if (req.status == 200) {if (cb) { cb(req.responseText); }} else {alert('Error Post status:'+ req.status);}}} this.doPost = function() {req.open('POST', url, true);req.send(data);} };
-function setstart() {alert('yes'); var zz = document.getElementById("title").firstChild.nodeValue; alert(zz);}
-window.onload = run;
-function run() {
-var name = document.getElementById("title").firstChild.nodeValue;
-document.getElementById("title").firstChild.nodeValue = name.replace(/^\*(.*)$/,'$1');
-var v=ed.getValue(); 
-  var fD = new FormData();
-  fD.append('content', v);
-  var ai = new post('u?^%s', fD, function(res) { 
-    document.getElementById("reader").setAttribute("data", "u?"+"$%s");
-  });
-  ai.doPost();
-}""" % (gid, gid))
-    o += '<textarea id="editor" style="height:100%">{}</textarea>\n'.format(content)
-    here = os.path.dirname(os.path.abspath(__file__))
-    if os.path.isfile('%s/cm.css' % here) and os.path.isfile('%s/cm.js' % here):
-        o += style(open('%s/cm.css' % here, 'r', encoding='utf-8').read()) + script(open('%s/cm.js' % here, 'r', encoding='utf-8').read())
-    o += '<object id="reader" data="u?empty"></object>\n'
+    o += '<object id="reader" data=""></object>\n'
     start_response('200 OK', [('Content-type', 'text/html; charset=utf-8'),])
     return [o + '</html>\n']
 
@@ -2085,14 +2071,17 @@ def action(environ, start_response, key, host):
         elif key in ('random',): 
             o += table_test(False, 'Random', get_random_set())
         elif key == 'list':
+            ficon = '<svg height="20" width="20"><path d="M0,0L14,0L20,6L20,20L0,20Z" stroke-width="2" stroke="black" fill="#EEE"/><path d="M4,4L12,4M4,8L16,8M4,12L16,12M4,16L16,16" stroke-width="1" stroke="black" fill="none"/></svg>'
             i = 0
-            o += '<table><tr><td>#</td><td>u</td><td>Python</td></tr>'
+            o += '<table><tr><th width="2.5cm">#</th><th>blob</th><th>commit</th><th>author</th><th>age</th><th>message</th></tr>'
             for l in gitu().list():
                 i +=1
                 t = l.split('\t')
-                h = gitu().history(t[1])
-                nb = len(h)
-                o += '<tr><td>%03d</td><td><a title="%s" href="u?@%s">%s</a></td><td><a title="%s" href="u?~%s">%s</a><td>(%d)</td></td><tr>' % (i, t[0], t[1], t[1], t[0], t[1], t[1], nb) 
+                if t:
+                    print( file=sys.stderr, 'hello')
+                    h = gitu().gethead2(t[1])
+                    r = h.split(':')
+                    o += '<tr><td>%03d</td><td>%s <a href="u?@%s">%s</a></td><td style="font-family:courier;">%s</td><td>%s</td><td>%s</td><td>%s</td><tr>' % (i, ficon, t[1], t[1], r[0], r[1], r[2], r[3]) 
             o += '</table>'
         else:
             o += '<pre>Keywork:%s</pre>' % key
@@ -2106,10 +2095,11 @@ def display(environ, start_response, gid):
     raw = gitu().cat(gid)
     here = os.path.dirname(os.path.abspath(__file__))
     head = '#!/usr/bin/python3\n# -*- coding: utf-8 -*-\nimport os,sys\np="%s"\nif p not in sys.path: sys.path.append(p)\nimport u\n' % here
-    src = '/tmp/%s.py' % gid
+    src = '/tmp/%s' % gid
     pdf = src[:-2]+'pdf'
     open(src, 'w', encoding='utf-8').write(head + raw)
     out, err = subprocess.Popen(('cd /tmp; rm -rf %s; python3 %s' % (pdf, src)), shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
+    #out, err = subprocess.Popen(('cd /tmp; rm -rf %s; cat %s' % (pdf, src)), shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
     if err:
         pdf = 'error'
         o = err
@@ -2129,7 +2119,7 @@ def application(environ, start_response):
     """ WSGI Web application """
     s, mime, o, myu, host, fname = urllib.parse.unquote(environ['QUERY_STRING']), 'text/plain; charset=utf-8', 'Error!', u(), environ['SERVER_NAME'], 'u.py'
     act, mod, lng, way, gid, arg = None, None, None, None, None, None
-    if reg(re.match(r'\s*(%s$|)(_?)(%s|)(([@\^~\$])(.+)|&?(.+|))\s*$' % ('$|'.join(__ACTIONS__), '|'.join(__OUT_LANG__)), s, re.I)):
+    if reg(re.match(r'\s*(%s$|)(_?)(%s|)(([@\^\$])(.+)|&?(.+|))\s*$' % ('$|'.join(__ACTIONS__), '|'.join(__OUT_LANG__)), s, re.I)):
         act, mod, lng, way, gid, arg = reg.v.group(1), reg.v.group(2), reg.v.group(3), reg.v.group(5), reg.v.group(6), reg.v.group(7)
     o = 'act:"%s" mod:"%s" lng:"%s" way:"%s" gid:"%s" arg:"%s"\n'%(act, mod, lng, way, gid, arg)
     if act:
@@ -2137,15 +2127,18 @@ def application(environ, start_response):
     elif gid:
         if way == '^':
             return save(environ, start_response, gid)
-        elif way == '~':
-            return pyide(environ, start_response, gid)
         elif way == '$':
             return display(environ, start_response, gid)
-        else:
+        elif way == '@':
             if lng:
                 arg = gitu().cat(gid)
             else:
-                return ide(environ, start_response, gid)
+                if re.search('\.py$', gid):
+                    return ide(environ, start_response, gid, True)
+                else:
+                    return ide(environ, start_response, gid)
+        else:
+            pass
     if arg:
         if lng:
             if lng in ('xml', 'svg') and mod: mime = 'application/xhtml+xml; charset=utf-8'
@@ -2260,8 +2253,8 @@ def command_line():
     lang, host = '', '127.0.0.1' # use '193.84.73.209 for testing'
 
     if not opts and not args:
-        gen_test()
-        gen_doc()
+        #gen_test()
+        #gen_doc()
         print(__digest__.decode('utf-8'))
     
     for r in opts:
@@ -2293,13 +2286,7 @@ if __name__ == '__main__':
     "Tangle Command line"
     command_line()
 
-    # define user's class
-    #class useu(u):  
-    #    def gen_ada(self, ast):
-    #        return 'My ADA code generator'
-    #myu = useu()
-    #print (myu.gen_ada(myu.parse('A')))
-    #print (myu.gen_c(myu.parse('A')))
+    # test zone!
 
     myu = u()
     code = """
@@ -2311,10 +2298,31 @@ class F:
 zz=4
 y=zz
 """ 
-    code1 = 'A"line1\nline2"n'
-    code2 = 'A"one line3\nline2"n'
+    code = """
+A->B
+# hello
+C->D
+"""
     myu = u()
-    #print (myu.gen_tikz(myu.parse(code1)))
-    #print (myu.gen_tikz(myu.parse(code2)))
+    print (myu.parse(code))
 
+    liste = """
+100644 blob 0de5af302d6a7595ab72cad4d8493b86b0570422	blabla
+100644 blob 0de5af302d6a7595ab72cad4d8493b86b0570422	blabla.py
+100644 blob a9e64ee09d975a670e299965c4ff277175e68b08	file1
+100644 blob 0f36d6041e6a56f5feb0b40cb9982b83bea0df44	list
+100644 blob 673e4e3a88af9bf174b6a109d179489738c655b0	new.u
+100644 blob e7917c1cd587ef2c473c693447476787aa105ab7	start
+100644 blob 0f36d6041e6a56f5feb0b40cb9982b83bea0df44	start.py
+100644 blob a28e39e2c6e469c084f0c9ed11d708d588c4c2eb	tata
+100644 blob 9fb582fda0c3b93c216d98bf668eccbb97bbdcd7	tata.u
+100644 blob bc3b14453e388ae8330d66865ce9562881330f5c	tonton
+100644 blob 5e6659fa78026d167611e431602dbc964ac71ff1	toto
+100644 blob bcbc6786b054760097f3bfd332ef7199cf5cb42e	toto.py
+100644 blob 5790a37688c66db1684781daa21e5f83728ab149	toto.u
+100644 blob 8fc30f9da1eee5f4b5a7f81d75e4fa205ab15264    tutu
+"""
+    key = 'blabla'
+    h = '55555a37688c66db1684781daa21e5f83728ab14'
+    print (re.sub(r'(100644 blob) [0-9a-f]{40}(\t%s)\n' % key, '\\1 %s\\2\n' % h, liste))
 # end
