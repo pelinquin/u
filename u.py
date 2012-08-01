@@ -80,7 +80,7 @@ __RE_U__ = r'''     # RegExp
 __ARC_T__  = ('--', '->', '-<', '-=', '=-', '=>', '=<', '==', '<-', '<>', '<<', '<=', '>-', '>>', '><', '>=')
 __NODE_T__ = ('|',  '\'', '`',  '"',  ';',  ',',  '!',  '~',  '^',  '@',  '*',  '+',  '/',  '$',  '(',  '[' )
  
-__ACTIONS__ = ('download', 'source', 'update', 'about', 'help', 'usage', 'pdf', 'list', 'paper', 'beamer', 'log', 'test', 'parse', 'unparse', 'random')
+__ACTIONS__ = ('download', 'source', 'update', 'about', 'help', 'usage', 'pdf', 'list', 'paper', 'beamer', 'log', 'test', 'parse', 'unparse', 'random', 'type')
 
 __OUT_LANG__ = {'c'          :['c',    ('/*', '*/', ''), 'gcc ansi pedantic'],
                 'objectivec' :['m',    ('/*', '*/', ''), ''],
@@ -107,6 +107,7 @@ __DATA_ports__ = {
     'P': ('p1', 'p2', 'p3', 'p4'),
     'T': ('i', 'o'),
     'O': ('in1', 'in2', 'out1', 'out2'),
+    'b': ('in1', 'in2', 'out1', 'out2'),
     'V': ('in1', 'in2', 'out1', 'out2'),
     'a': ('p1', 'p2', 'p3', 'p4', 'p5', 'p6', 'p7', 'p8', 'p9', 'p10', 'p11', 'p12', 'p13', 'p14', 'p15', 'p16'),
     'D': ('pin1', 'pin2', 'pin3', 'pin4', 'pin5', 'pin6'),
@@ -141,7 +142,7 @@ __DATA_svg__ = ({
 
 __DATA_tikz__ = ({
         None:('rectangle,rounded corners=2pt,draw=gray!40,fill=blue!20,align=left', ''),
-        'S': ('rectangle,draw=black!40,fill=gray!10', ''),
+        'w': ('rectangle,rounded corners=2pt,draw=gray!40,fill=blue!20', ''),
         'T': ('circle,drop shadow,draw=green!40,fill=gray!20', ''), 
         'O': ('rectangle,drop shadow,rounded corners=3pt,draw=red!40,fill=blue!25', ''),
         't': ('rectangle,rounded corners=5pt,drop shadow,draw=gray!40,fill=red!30,align=center', ''),
@@ -157,6 +158,7 @@ __DATA_tikz__ = ({
         'f': ('regular polygon,regular polygon sides=8,drop shadow,draw=gray!40,fill=blue!20', ''),
         'S': ('rectangle,drop shadow,rounded corners=3pt,draw=gray!20,fill=blue!20', ''),
         'E': ('ellipse,drop shadow,draw=gray!20,fill=green!20', ''),
+        'p': ('trapezium,dashed,trapezium left angle=70,trapezium right angle=-70, minimum width=.5cm, minimum height=1cm,draw=black,fill=gray!20', ''),
         }, {
         None:'--',
         'I':  '->,>=open diamond',
@@ -169,6 +171,7 @@ __DATA_tikz__ = ({
         '1l':  '->,>=latex,dashed',
         '1v': '->,very thick, line width=5pt, draw=red',
         '1d': '->>,dotted',
+        '0x': '>->,>=triangle 90, thick, draw=gray, fill=gray',
         })
 
 __DATA_c__ = ({
@@ -207,7 +210,7 @@ __DATA_xml__        = ({None: (), }, {None:(), })
 
 __MACRO__ = {
     'u_nested' : 'process{A->B->C->A}',
-    'u_process': 'A"u concrete\nsyntax\nstring"n B"u abstract\nsyntax\nPython\nstructure"n  A -e(u parser)> B B -e(Web)> "SVG"g B -e(doc.gen.)> "Tikz"g B -e(code gen.)> "Ada"l B -e> "Ocaml"l B -e(model gen.)> "AADL"l e"UML\nSimulink\nKAOS"m -d(use)> A "u type\nchecker"t -l> B "optimizer"t -l> A'
+    'u_process': 'A"u concrete\nsyntax\nstring"n B"u abstract\nsyntax\nPython\nstructure"n  A -e(u parser)> B B -e(Web)> "SVG"g B -e(doc.gen.)> "Tikz"g B -e(code gen.)> "Ada"l B -e> "Ocaml"l B -e(model gen.)> "AADL"l e"AADL\nUML\nSimulink\nKAOS"m -d(use)> A "u type\nchecker"t -l> B "optimizer"t -l> A'
 }
 
 __IN_MODEL__ = {
@@ -705,7 +708,7 @@ A list of all links between two tokens+port and link attributes
             x, y, n = 0, 0, 0
             for c in child[item]:
                 if c in pos:
-                    n +=1
+                    n += 1
                     x += pos[c][0]
                     y += pos[c][1]
             if n:
@@ -754,9 +757,9 @@ A list of all links between two tokens+port and link attributes
             t = nodes[n][1]
             styl = t if t in __DATA_tikz__[0] else 'None'
             label = nodeCodeGen(self.gast(n, nodes[n]), 'tikz').out
-            label = re.sub('\n',r'\\\\', re.sub(r'\\n',r'\\\\',label))
+            label = re.sub('\n', r'\\\\', re.sub(r'\\n', r'\\\\',label))
             label = re.sub('([A-Z][A-Z]+)', lambda p: r'{\sc %s}' % p.group(1).lower(), label)
-            label = re.sub(r'\bu\b',r'$\sqcup$', label)
+            label = re.sub(r'\bu\b', r'$\sqcup$', label)
 
             size = ',minimum width=%s,minimum height=%s,fill=none' % box[n] if n in box else ''
             o += r'\node[%s%s](%s) at (%0.3f,%0.3f){%s};'% (styl, size, n, x, y, label) +'\n'
@@ -1470,8 +1473,8 @@ class latex:
         base.update(hcmd)
         for c in base:
             self.tex += r'\renewcommand{\%s}{%s}' % (c, base[c]) + '\n'
-        self.tex += r'\def\wordsl#1{\wordsloopiter#1 \nil} \def\wordsloopiter#1 #2\nil{ \langle #1 \rangle \ifx&#2& \let\next\relax \else \def\next{\wordsloopiter#2\nil} \fi \next}'
-        self.tex += r'\newcommand{\req}[3]{\paragraph{{\sc Req.} {\tiny $\langle #1 \rangle$ } }  {\em #2 $\circ$ } \hfill {\tiny $\wordsl{#3}$ }  }' + '\n'
+        self.tex += r'\def\wordsl#1{\wordsloopiter#1 \nil} \def\wordsloopiter#1 #2\nil{ \textcolor{brown}{\langle #1 \rangle} \ifx&#2& \let\next\relax \else \def\next{\wordsloopiter#2\nil} \fi \next}'
+        self.tex += r'\newcommand{\req}[3]{\paragraph{{\sc Req.} {\tiny \textcolor{blue}{$\langle #1 \rangle$} } }  {\em #2 $\circ$ } \hfill {\tiny $\wordsl{#3}$ }  }' + '\n'
         if beam: 
             self.tex += r'\title[%s]{%s}' % (self.digest, title) + '\n'
             if subtitle:
@@ -1495,6 +1498,7 @@ class latex:
             #self.tex += r"\setbeamertemplate{footline}{\insertframenumber}" + '\n'
             #self.tex += r'\setbeamertemplate{footline}[frame number]' + '\n'
             self.tex += r'\usetikzlibrary{svg.path} \begin{tikzpicture}[remember picture,overlay,shift={(current page.north east)}] %s \end{tikzpicture}' % rclogo(.4) + '\n'
+            self.tex += r'\begin{tikzpicture}[remember picture,overlay,shift={(current page.north west)}] %s \end{tikzpicture}' % ulogo() + '\n'
             self.tex += r"\end{frame}" + '\n'
         else:
             self.tex += r'\maketitle' + '\n'
@@ -1554,7 +1558,7 @@ class article (latex):
     def biblio(self, hbib):
         "_"
         self.tex += r'\begin{thebibliography}{99}' 
-        for i in hbib: self.tex += r'\bibitem{%s} %s.'%(i, hbib[i]) + '\n'
+        for i in hbib: self.tex += r'\bibitem{%s} %s.' % (i, hbib[i]) + '\n'
         self.tex += r'\end{thebibliography}'
 
     def gen_pdf(self, note=True):
@@ -1632,22 +1636,23 @@ class beamer (latex):
         self.tex += self.header % title + '\n' + head
         self.tex += functools.reduce(lambda y, k: y+r'\item %s.'%k+ '\n', tab, r'\begin{itemize}' + '\n') + r'\end{itemize}' + r'%s' % tail + '\n' + r'\end{frame}' + '\n'
     
-    def itemize2(self, title, tab1, tab2):
+    def itemize2(self, title, tab1, tab2, tail=''):
         "_"
         self.tex += r'\begin{frame}'
-        self.tex += r'\frametitle{%s}'%title + '\n'
+        self.tex += r'\frametitle{%s}' % title + '\n'
         self.tex += r'\begin{columns}[l]' + '\n'
         self.tex += r'\column{1.5in}' + '\n'
         self.tex += functools.reduce(lambda y, k: y+r'\item %s'%k+ '\n', tab1, r'\begin{itemize}') + r'\end{itemize}'
         self.tex += r'\column{1.5in}' + '\n' 
         self.tex += functools.reduce(lambda y, k: y+r'\item %s'%k+ '\n', tab2, r'\begin{itemize}') + r'\end{itemize}'
         self.tex += r'\end{columns}' + '\n'
+        self.tex += r'\par ' + tail
         self.tex += r'\end{frame}' + '\n'
 
     def enum(self, title, head, tab, tail=''):
         "_"
         self.tex += self.header % title + '\n' + head
-        self.tex += functools.reduce(lambda y,k: y+r'\item %s.'%k+ '\n',tab,r'\begin{enumerate}' + '\n') + r'\end{enumerate}' + '%s' % tail + '\n' + r'\end{frame}' + '\n'
+        self.tex += functools.reduce(lambda y, k: y+r'\item %s.'%k+ '\n', tab, r'\begin{enumerate}' + '\n') + r'\end{enumerate}' + '%s' % tail + '\n' + r'\end{frame}' + '\n'
         
     def gen_pdf(self):
         latex.gen_pdf(self, 'beamer_' + os.path.basename(self.userfile)[:-3])
@@ -1940,6 +1945,14 @@ def logo(opac=1):
     "_"
     return '<path id="logo" stroke-width="8" fill="none" stroke="Dodgerblue" onclick="window.open(\'http://%s\');" title="on Github: [http://%s]" opacity="%s" d="M10,10L10,35L30,35L30,10"/>' % (__url__, __url__, opac)
 
+def include_ulogo():
+    ""
+    return  r'\begin{tikzpicture} %s \end{tikzpicture}' % ulogo() + '\n'
+
+def ulogo():
+    "_"
+    return r"""\draw[draw=none,fill=blue,scale=1,shift={(.6,-1)}] svg "M0,0L0,18L4,18L4,4L14,4L14,18L18,18L18,0Z";"""
+
 def style_old():
     """h1,h3,h6,p,li,b,a,td,th{font-family:helvetica neue,helvetica,arial,sans-serif;} a{text-decoration:none;} 
 table {border: 1px solid #666;width:100%;border-collapse:collapse;} td,th {border: 1px solid #666;padding:2pt;}
@@ -2026,8 +2039,11 @@ window.onload = run;
 function run() {
 var name = document.getElementById("title").firstChild.nodeValue;
 document.getElementById("title").firstChild.nodeValue = name.replace(/^\*(.*)$/,'$1');
+    if (typeof ed != 'undefined') {
+var v=ed.getValue();
+} else { 
 var v=document.getElementById("editor").value; 
-var v=ed.getValue(); // commented if textarea used
+}
 var t = document.getElementById("lang").value;
   var fD = new FormData();
   v = document.getElementById("message").value  + '\\n' + v;
@@ -2045,24 +2061,23 @@ var t = document.getElementById("lang").value;
         o += '<input type="hidden" id="lang" value=""/>\n'
     o += '<a href="u?list"><svg id="list" height="16" width="16"><path d="M0,0L16,0L16,16L0,16Z" stroke-width="0" stroke="black" fill="#EEE"/><path d="M4,4L12,4M4,8L12,8M4,12L12,12" stroke-width="2" stroke="white" fill="none"/></svg></a>\n'
     o += '<input type="text" id="message" placeholder="...enter a commit message" onchange="run()"/>\n'
-    toto = bytes(re.sub(r'\\n',r'\\\\n',content), 'utf-8').decode('unicode_escape')
+
+    # FIX FIX THIS THIS ::
+
+    #toto = bytes(re.sub(r'\\n', r'\\\\n', content), 'utf-8').decode('unicode_escape')
     #toto = bytes(content, 'utf-8').decode('unicode_escape')
     #toto = bytes(content, 'utf-8').decode()
     #toto = repr(content)
-    o += '<textarea id="editor" style="height:100%">{}</textarea>\n'.format(toto)
+
+    o += '<textarea id="editor" style="height:100%">{}</textarea>\n'.format(content)
     here = os.path.dirname(os.path.abspath(__file__))
-    if os.path.isfile('%s/cm.css' % here) and os.path.isfile('%s/cm.js' % here):
+    AREA = False # config
+    if os.path.isfile('%s/cm.css' % here) and os.path.isfile('%s/cm.js' % here) and not AREA:
         o += style(open('%s/cm.css' % here, 'r', encoding='utf-8').read()) + script(open('%s/cm.js' % here, 'r', encoding='utf-8').read())
     o += '<object id="reader" data=""></object>\n'
     start_response('200 OK', [('Content-type', 'text/html; charset=utf-8'),])
-    return [o + '</html>\n']
-
-def ide2(environ, start_response, gid='start', python=False):
-    content = gitu().cat(gid)
-    o = '<html>\n'
-    o += '<textarea id="editor" style="height:100%">{}</textarea>\n'.format(content.encode('utf-8'))
-    start_response('200 OK', [('Content-type', 'text/html; charset=utf-8'),])
-    return [o + '</html>\n']
+    o += '</html>\n'
+    return [o.encode('utf-8')]
 
 def action(environ, start_response, key, host):
     if key in ('pdf', 'paper', 'beamer'):
@@ -2086,7 +2101,7 @@ def action(environ, start_response, key, host):
             i = 0
             o += '<table><tr><th width="2.5cm">#</th><th>blob</th><th width="2cm">commit</th><th width="1cm">author</th><th>age</th><th>message</th></tr>'
             for l in gitu().list():
-                i +=1
+                i += 1
                 t = l.split('\t')
                 if len(t) == 2:
                     icon = pyicon if re.search('\.py$', t[1]) else ficon
@@ -2102,6 +2117,8 @@ def action(environ, start_response, key, host):
             out, err = subprocess.Popen((cmd), shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
             o = 'Application Update...\n'
             o += 'Error:%s\n' % err if err else 'Message:%s\nUpdate OK\n' % out.decode('utf-8')
+        elif key in ('type',):
+            o += '<pre>TYPE</pre>'
         else:
             o += '<pre>Keywork:%s</pre>' % key
         o += htail()
@@ -2141,7 +2158,7 @@ def application(environ, start_response):
     act, mod, lng, way, gid, arg = None, None, None, None, None, None
     if reg(re.match(r'\s*(%s$|)(_?)(%s|)(([@\^\$])(.+)|&?(.+|))\s*$' % ('$|'.join(__ACTIONS__), '|'.join(__OUT_LANG__)), s, re.I)):
         act, mod, lng, way, gid, arg = reg.v.group(1), reg.v.group(2), reg.v.group(3), reg.v.group(5), reg.v.group(6), reg.v.group(7)
-    o = 'act:"%s" mod:"%s" lng:"%s" way:"%s" gid:"%s" arg:"%s"\n'%(act, mod, lng, way, gid, arg)
+    o = 'act:"%s" mod:"%s" lng:"%s" way:"%s" gid:"%s" arg:"%s"\n' % (act, mod, lng, way, gid, arg)
     if act:
         return action(environ, start_response, act.lower(), host)
     elif gid:
@@ -2154,10 +2171,7 @@ def application(environ, start_response):
             if lng:
                 arg = gitu().cat(gid)
             else:
-                if re.search('\.py$', gid):
-                    return ide(environ, start_response, gid, True)
-                else:
-                    return ide(environ, start_response, gid)
+                return ide(environ, start_response, gid, bool(re.search('\.py$', gid)))
         else:
             pass
     if arg:
@@ -2226,17 +2240,6 @@ def command_line():
 if __name__ == '__main__':
     "Tangle Command line"
     command_line()
-
-    # test zone!
-    code = """
-tata=3;toto=tata+5-7
-class F:
-    raw=5
-    def toto(p):pass
-    def to(p):pass
-zz=4
-y=zz
-""" 
-    #print (u().parse(code))
-
+    content = gitu().cat('toto')
+    print (content)
 # end
