@@ -1508,21 +1508,18 @@ class latex:
         "_"
         return functools.reduce(lambda y, k: y+r'\item %s' % k+ '\n', tab, r'\begin{itemize}' + '\n') + r'\end{itemize}' + '\n'
 
-    def gen_pdf(self, name):
-        r"""\end{document}"""
-        self.tex += latex.gen_pdf.__doc__ + '\n'
-        open('%s.tex' % name, 'w').write(self.tex)
-        here = os.path.dirname(os.path.abspath(__file__))
-        subprocess.Popen(('cd /tmp; pdflatex -interaction=batchmode %s/%s.tex 1>/dev/null' % (here, name)), shell=True).communicate()
-        shutil.move('/tmp/%s.pdf' % name, '%s/%s.pdf' % (here, name))
-
     def gen(self, name):
         r"""\end{document}"""
-        self.tex += latex.gen_pdf.__doc__ + '\n'
+        self.tex += latex.gen.__doc__ + '\n'
         open('%s.tex' % name, 'w').write(self.tex)
-        here = os.path.dirname(os.path.abspath(__file__))
-        subprocess.Popen(('cd /tmp; pdflatex -interaction=batchmode %s.tex 1>/dev/null' % name), shell=True).communicate()
-       
+        #here = os.path.dirname(os.path.abspath(__file__))
+        here = os.path.dirname(os.path.abspath(self.src))
+        if here == '/tmp':
+            subprocess.Popen(('cd /tmp; pdflatex -interaction=batchmode %s.tex 1>/dev/null' % name), shell=True).communicate()
+        else:
+            subprocess.Popen(('cd /tmp; pdflatex -interaction=batchmode %s/%s.tex 1>/dev/null' % (here, name)), shell=True).communicate()
+            shutil.move('/tmp/%s.pdf' % name, '%s/%s.pdf' % (here, name))
+
 class article (latex):
     r"\documentclass[a4paper,10pt]{article}"
     def __init__(self, userfile, title='title', author='author', email='email', subtitle=''):
@@ -1560,11 +1557,6 @@ class article (latex):
         self.tex += r'\begin{thebibliography}{99}' 
         for i in hbib: self.tex += r'\bibitem{%s} %s.' % (i, hbib[i]) + '\n'
         self.tex += r'\end{thebibliography}'
-
-    def gen_pdf(self, note=True):
-        "_"
-        self.end(note)
-        latex.gen_pdf(self, os.path.basename(self.userfile)[:-3])
 
     def gen(self, note=True):
         "_"
@@ -1654,8 +1646,8 @@ class beamer (latex):
         self.tex += self.header % title + '\n' + head
         self.tex += functools.reduce(lambda y, k: y+r'\item %s.'%k+ '\n', tab, r'\begin{enumerate}' + '\n') + r'\end{enumerate}' + '%s' % tail + '\n' + r'\end{frame}' + '\n'
         
-    def gen_pdf(self):
-        latex.gen_pdf(self, 'beamer_' + os.path.basename(self.userfile)[:-3])
+    #def gen_pdf(self):
+    #    latex.gen_pdf(self, 'beamer_' + os.path.basename(self.userfile)[:-3])
 
     def gen(self, note=True):
         "_"
@@ -1701,8 +1693,8 @@ def gen_doc():
                  r'Type concept: type, category, class'),
                 'N-ary relation, composition, Concept of {\em role} defined by the couple: ({\em port type, node type})')
                  
-    art.gen_pdf()
-    sli.gen_pdf()
+    art.gen()
+    sli.gen()
 
 # (4) Tests
 
@@ -2021,7 +2013,7 @@ def script(s):
 
 def style(s):
     "_"
-    return '<style type="text/css">\n' + s + '</style>\n' 
+    return '<style type="text/css">' + s + '</style>\n' 
 
 def save(environ, start_response, gid='start'):
     start_response('200 OK', [('Content-type', 'text/plain; charset=utf-8'),])
@@ -2033,7 +2025,7 @@ def save(environ, start_response, gid='start'):
 def ide(environ, start_response, gid='start', python=False):
     content = gitu().cat(gid)
     o = '<html><title id="title">%s</title>\n' % gid + favicon()
-    o += style('html,body{margin:0;padding:0;}textarea#editor{position:absolute;left:0;top:0;resize:none;width:50%;}object#reader{position:absolute;right:0;top:0;width:50%;height:100%;border-style:solid;border-width:1px;border-color:grey;}select#lang{position:absolute;right:50%;top:22;z-index:10;}input#message{position:absolute;right:50%;top:0;z-index:10;}')
+    o += style('html,body,textarea,object,input,div{margin:0;padding:0;}textarea#editor{position:absolute;left:0;top:0;resize:none;width:50%;height:100%;padding-top:20;}object#reader{position:absolute;right:0;top:0;width:50%;height:100%;}select#lang{position:absolute;right:50%;top:22;z-index:11;}input#message{position:absolute;right:50%;top:0;z-index:11;color:Dodgerblue;}div#repository{position:absolute;left:0;top:0;z-index:11;}')
     o += script("""function post(url, data, cb) {var req = new XMLHttpRequest();req.onreadystatechange = processRequest;function processRequest () {if (req.readyState == 4) {if (req.status == 200) {if (cb) { cb(req.responseText); }} else {alert('Error Post status:'+ req.status);}}} this.doPost = function() {req.open('POST', url, true);req.send(data);} };
 window.onload = run;
 function run() {
@@ -2059,17 +2051,9 @@ var t = document.getElementById("lang").value;
         o += '<select id="lang" onchange="run();" title="Refresh:\'Alt R\'">' + ''.join(['<option>{}</option>'.format(i) for i in ['_svg', '_xml', '_tikz'] + list(__OUT_LANG__) ]) + '</select>\n'
     else:
         o += '<input type="hidden" id="lang" value=""/>\n'
-    o += '<a href="u?list"><svg id="list" height="16" width="16"><path d="M0,0L16,0L16,16L0,16Z" stroke-width="0" stroke="black" fill="#EEE"/><path d="M4,4L12,4M4,8L12,8M4,12L12,12" stroke-width="2" stroke="white" fill="none"/></svg></a>\n'
+    o += '<div id="repository"><a href="u?list"><svg id="list" height="16" width="16"><path d="M0,0L16,0L16,16L0,16Z" stroke-width="0" stroke="black" fill="Dodgerblue"/><path d="M4,4L12,4M4,8L12,8M4,12L12,12" stroke-width="2" stroke="white" fill="none"/></svg></a></div>\n'
     o += '<input type="text" id="message" placeholder="...enter a commit message" onchange="run()"/>\n'
-
-    # FIX FIX THIS THIS ::
-
-    #toto = bytes(re.sub(r'\\n', r'\\\\n', content), 'utf-8').decode('unicode_escape')
-    #toto = bytes(content, 'utf-8').decode('unicode_escape')
-    #toto = bytes(content, 'utf-8').decode()
-    #toto = repr(content)
-
-    o += '<textarea id="editor" style="height:100%">{}</textarea>\n'.format(content)
+    o += '<textarea id="editor">{}</textarea>\n'.format(content)
     here = os.path.dirname(os.path.abspath(__file__))
     AREA = False # config
     if os.path.isfile('%s/cm.css' % here) and os.path.isfile('%s/cm.js' % here) and not AREA:
@@ -2136,19 +2120,25 @@ def display(environ, start_response, gid):
     pdf = src[:-2]+'pdf'
     pdfname = 'toto.pdf'
     open(src, 'w', encoding='utf-8').write(head + raw)
+    # FIX HERE !
     out, err = subprocess.Popen(('cd /tmp; rm -rf %s; python3 %s' % (pdf, src)), shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
+    #out, err = subprocess.Popen(('python3', src), stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
+    #out, err = subprocess.Popen(('cat', src), stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
+    #open('/tmp/logpy', 'w', encoding='utf-8').write(out.decode('utf-8'))
+    #out = out.encode('utf-8')
     if err:
         pdf = 'error'
-        o = err
-        mime = 'text/plain'
+        #o = err
+        o = 'Python error!\n\n'.encode('utf-8') + err 
+        mime = 'text/plain; charset=utf-8'
     else:
         if os.path.isfile(pdf): 
-            mime = 'application/pdf'
+            mime = 'application/pdf; charset=utf-8'
             o = open(pdf, 'rb').read()
         else:
             pdf = 'no pdf generated!'
             o = out
-            mime = 'text/plain'
+            mime = 'text/plain; charset=utf-8'
     start_response('200 OK', [('Content-type', mime), ('Content-Disposition', 'filename={}'.format(pdfname))])
     return [o]
 
@@ -2240,6 +2230,10 @@ def command_line():
 if __name__ == '__main__':
     "Tangle Command line"
     command_line()
-    content = gitu().cat('toto')
-    print (content)
+    src = '/tmp/dagstuhl.py'
+    out, err = subprocess.Popen(('python3', src), stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
+    if err:
+        print ('error')
+    else:
+        print (out.decode('utf-8'))
 # end
