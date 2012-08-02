@@ -1443,10 +1443,11 @@ class nodeCodeGen(ast.NodeVisitor):
 
 class latex:
     "% This is generated, do not edit by hands!\n"
-    def __init__(self, userfile='__file__'):
+    def __init__(self, userfile='__file__', today=''):
         r"\begin{document}"
         self.src = os.path.basename(sys.argv[0])
         self.tex = latex.__doc__ + '\n'
+        self.today = r'\date{%s}' % today if today else ''
         digest = base64.urlsafe_b64encode(hashlib.sha1(open(userfile, 'r', encoding='utf-8').read().encode('utf-8')+__digest__).digest())[:5]
         self.digest = re.sub('_', '\_', r'\texttt{%s}' % digest.decode('utf-8'))
         self.embeds = ['u.py']
@@ -1458,7 +1459,6 @@ class latex:
     def head(self, lpkg, hcmd, title, subtitle, author, email, beam=False):
         "_"
         for p in ('listings', 'embedfile', 'graphicx', 'tikz', 'hyperref') + lpkg:
-        #for p in ('listings', 'embedfile', 'graphicx', 'tikz', 'hyperref') + lpkg:
             a = p.split('|')
             if len(a) > 1:
                 self.tex += r'\usepackage[%s]{%s}' % (a[1], a[0]) + '\n'
@@ -1476,7 +1476,7 @@ class latex:
         self.tex += r'\def\wordsl#1{\wordsloopiter#1 \nil} \def\wordsloopiter#1 #2\nil{ \textcolor{brown}{\langle #1 \rangle} \ifx&#2& \let\next\relax \else \def\next{\wordsloopiter#2\nil} \fi \next}'
         self.tex += r'\newcommand{\req}[3]{\paragraph{{\sc Req.} {\tiny \textcolor{blue}{$\langle #1 \rangle$} } }  {\em #2 $\circ$ } \hfill {\tiny $\wordsl{#3}$ }  }' + '\n'
         if beam: 
-            self.tex += r'\title[%s]{%s}' % (self.digest, title) + '\n'
+            self.tex += r'\title[%s]{%s} %s' % (self.digest, title, self.today) + '\n'
             if subtitle:
                 self.tex += r'\subtitle{%s}' % (subtitle) + '\n'
             self.tex += r'\author{%s\inst{*}}\institute{*%s}' % (author, email) + '\n'
@@ -1600,10 +1600,10 @@ def insert_code(userfile, pat, sli=None):
 
 class beamer (latex):
     r"\documentclass{beamer}"
-    def __init__(self, userfile, title='title', author='author', email='email', subtitle=''):
+    def __init__(self, userfile, title='title', author='author', email='email', subtitle='', today=''):
         "_"
         self.userfile = userfile
-        latex.__init__(self, userfile)
+        latex.__init__(self, userfile, today)
         self.tex += beamer.__doc__ + '\n'
         self.head(('beamerthemeshadow', ), {}, title, subtitle, author, email, True)
         self.tex += r'\note{%s}' % __doc__ + '\n'
@@ -2025,28 +2025,26 @@ def save(environ, start_response, gid='start'):
 def ide(environ, start_response, gid='start', python=False):
     content = gitu().cat(gid)
     o = '<html><title id="title">%s</title>\n' % gid + favicon()
-    o += style('html,body,textarea,object,input,div{margin:0;padding:0;}textarea#editor{position:absolute;left:0;top:0;resize:none;width:50%;height:100%;padding-top:20;}object#reader{position:absolute;right:0;top:0;width:50%;height:100%;}select#lang{position:absolute;right:50%;top:22;z-index:11;}input#message{position:absolute;right:50%;top:0;z-index:11;color:Dodgerblue;}div#repository{position:absolute;left:0;top:0;z-index:11;}')
+    o += style('html,body,textarea,object,input,div{margin:0;padding:0;}textarea#editor{position:absolute;left:0;top:0;resize:none;width:50%;height:100%;padding-top:20;}object#reader{position:absolute;right:0;top:0;width:50%;height:100%;background-color:#F1F4FF;}select#lang{position:absolute;right:50%;top:22;z-index:11;}input#message{position:absolute;right:50%;top:0;z-index:11;color:Dodgerblue;}div#repository{position:absolute;left:0;top:0;z-index:11;}')
     o += script("""function post(url, data, cb) {var req = new XMLHttpRequest();req.onreadystatechange = processRequest;function processRequest () {if (req.readyState == 4) {if (req.status == 200) {if (cb) { cb(req.responseText); }} else {alert('Error Post status:'+ req.status);}}} this.doPost = function() {req.open('POST', url, true);req.send(data);} };
 window.onload = run;
+//document.getElementById("reader").addEventListener('load',alert('yes'));
 function run() {
 var name = document.getElementById("title").firstChild.nodeValue;
 document.getElementById("title").firstChild.nodeValue = name.replace(/^\*(.*)$/,'$1');
-    if (typeof ed != 'undefined') {
-var v=ed.getValue();
-} else { 
-var v=document.getElementById("editor").value; 
-}
+if (typeof ed != 'undefined') {var v=ed.getValue();} else { var v=document.getElementById("editor").value; }
 var t = document.getElementById("lang").value;
-  var fD = new FormData();
-  v = document.getElementById("message").value  + '\\n' + v;
-  fD.append('content', v);
-  var ai = new post('u?^%s', fD, function(res) {
-    var py = '%s';
-    var url = 'u?' + t + '@%s';
-    if (py == 'True') { url = 'u?' + '$%s'}
-    document.getElementById("reader").setAttribute('data', url);
-  });
-  ai.doPost();}""" % (gid, python, gid, gid))
+var fD = new FormData();
+v = document.getElementById("message").value  + '\\n' + v;
+fD.append('content', v);
+var ai = new post('u?^%s', fD, function(res) {
+var py = '%s'; var url = 'u?' + t + '@%s';
+if (py == 'True') { url = 'u?' + '$%s'}
+// triks for Webkit refresh [BUG 123536]
+document.getElementById("reader").style.webkitTransform = 'scale(1)'; document.getElementById("reader").setAttribute('data', ''); // Webkit BUG 123536
+document.getElementById("reader").setAttribute('data', url);
+//alert (url);
+});ai.doPost();}""" % (gid, python, gid, gid))
     if not python:
         o += '<select id="lang" onchange="run();" title="Refresh:\'Alt R\'">' + ''.join(['<option>{}</option>'.format(i) for i in ['_svg', '_xml', '_tikz'] + list(__OUT_LANG__) ]) + '</select>\n'
     else:
@@ -2231,9 +2229,4 @@ if __name__ == '__main__':
     "Tangle Command line"
     command_line()
     src = '/tmp/dagstuhl.py'
-    out, err = subprocess.Popen(('python3', src), stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
-    if err:
-        print ('error')
-    else:
-        print (out.decode('utf-8'))
 # end
