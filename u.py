@@ -2079,7 +2079,7 @@ def action(environ, start_response, key, host):
             o += table_test(False, 'Random', get_random_set())
         elif key == 'list':
             ficon = '<svg height="20" width="20"><path d="M0,0L14,0L20,6L20,20L0,20Z" stroke-width="2" stroke="gray" fill="#EEE"/><path d="M4,4L12,4M4,8L16,8M4,12L16,12M4,16L16,16" stroke-width="1" stroke="gray" fill="none"/></svg>'
-            pyicon = '<svg height="20" width="20"><path d="M0,0L14,0L20,6L20,20L0,20Z" stroke-width="2" stroke="gray" fill="#EEE"/><path d="M4,4L12,4M4,8L16,8M4,12L16,12" stroke-width="1" stroke="gray" fill="none"/></svg>'
+            pyicon = '<svg height="20" width="20"><path d="M0,0L14,0L20,6L20,20L0,20Z" stroke-width="2" stroke="gray" fill="#FFF"/><path d="M4,4L12,4M4,8L16,8M4,12L16,12" stroke-width="1" stroke="gray" fill="none"/><g transform="scale(.15),translate(-40,-60)"><path style="fill:#366994;" d="M 99.75,67.46C71.71,67.46 73.46,79.62 73.46,79.62L73.5,92.21L100.25,92.21L100.25,96L62.87,96C62.87,96 44.93,93.96 44.93,122.25 C44.93,150.53 60.59,149.53 60.59,149.53L69.93,149.53L69.93,136.40C69.93,136.40 69.43,120.75 85.34,120.75C101.25,120.75 111.87,120.75 111.87,120.75C111.87,120.75 126.78,120.99 126.78,106.34C126.78,91.69 126.78,82.12 126.78,82.12C126.78,82.12 129.04,67.46 99.75,67.46z M85,75.93 C87.66,75.93 89.81,78.08 89.81,80.75C89.81,83.41 87.66,85.56 85,85.56C82.33,85.56 80.18,83.41 80.18,80.75 C 80.18,78.08 82.33,75.93 85,75.93z"/><path style="fill:#ffc331;" d="M100.54,177.31C128.57,177.31 126.82,165.15 126.82,165.15L126.79,152.56L100.04,152.56L100.04,148.78L137.42,148.78C137.42,148.78 155.35,150.81 155.35,122.53C155.35,94.24 139.70,95.25 139.70,95.25L130.35,95.25L130.35,108.37C130.35,108.37 130.86,124.03 114.95,124.03C99.04,124.03 88.42,124.03 88.421,124.03C88.42,124.03 73.51,123.79 73.51,138.43C73.51,153.08 73.51,162.65 73.51,162.65C73.51,162.65 71.25,177.31 100.54,177.31zM115.29,168.84C112.63,168.84 110.48,166.69 110.48,164.03C110.48,161.37 112.63,159.22 115.29,159.22C117.95,159.22 120.10,161.37 120.10,164.03C120.10,166.69 117.95,168.84 115.29,168.84z"/></g></svg>'
             i = 0
             o += '<table><tr><th width="2.5cm">#</th><th>blob</th><th width="2cm">commit</th><th width="1cm">author</th><th>age</th><th>message</th></tr>'
             for l in gitu().list():
@@ -2089,13 +2089,26 @@ def action(environ, start_response, key, host):
                     icon = pyicon if re.search('\.py$', t[1]) else ficon
                     h = gitu().gethead2(t[1])
                     r = h.split(':')
-                    o += '<tr><td>%03d</td><td>%s <a href="u?@%s">%s</a></td><td style="font-family:courier;">%s</td><td>%s</td><td>%s</td><td>%s</td><tr>' % (i, icon, t[1], t[1], r[0], r[1], r[2], r[3]) 
+                    o += '<tr><td>%03d</td><td>%s <a href="u?@%s">%s</a></td><td style="font-family:courier;">%s</td><td>%s</td><td>%s</td><td>%s</td></tr>' % (i, icon, t[1], t[1], r[0], r[1], r[2], r[3]) 
             o += '</table>'
+            o += '<table><tr><th width="2.5cm">#</th><th>name</th><th width="2cm">commit</th><th width="1cm">author</th><th>age</th><th>message</th></tr>'
+            aa = gitu()
+            i = 0
+            for l in aa.history():
+                li = l.split(':')
+                i += 1
+                p = subprocess.Popen(('git', 'diff-tree', '--name-only', li[0]), env=aa.e, stdout=subprocess.PIPE)
+                liste = p.communicate()[0].strip()
+                li2 = liste.split()
+                if len(li2)>1:
+                    o += '<tr><td>%03d</td><td><a href="u?@%s">%s</a></td><td style="font-family:courier;">%s</td><td>%s</td><td>%s</td><td>%s</td></tr>' % (i, li2[1].decode('utf-8'), li2[1].decode('utf-8'), li[0], li[1], li[2], li[3])
+            o += '</table>'                
         elif key in ('update',):
             here = os.path.dirname(os.path.abspath(__file__))
             # add security
+            #cmd = 'cd %s; ls' % here
             #cmd = 'cd %s/..; rm -rf u; git clone git://github.com/pelinquin/u.git' % here
-            cmd = 'cd %s; ls' % here
+            cmd = 'cd %s/..; rm -rf u; git clone https://github.com/pelinquin/u.git' % here
             out, err = subprocess.Popen((cmd), shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
             o = 'Application Update...\n'
             o += 'Error:%s\n' % err if err else 'Message:%s\nUpdate OK\n' % out.decode('utf-8')
@@ -2146,6 +2159,8 @@ def application(environ, start_response):
     act, mod, lng, way, gid, arg = None, None, None, None, None, None
     if reg(re.match(r'\s*(%s$|)(_?)(%s|)(([@\^\$])(.+)|&?(.+|))\s*$' % ('$|'.join(__ACTIONS__), '|'.join(__OUT_LANG__)), s, re.I)):
         act, mod, lng, way, gid, arg = reg.v.group(1), reg.v.group(2), reg.v.group(3), reg.v.group(5), reg.v.group(6), reg.v.group(7)
+    if gid and reg(re.match(r'([^~]+)~([a-fA-F\d]{6,20})$', gid)):
+        gid, rev = reg.v.group(1), reg.v.group(2)
     o = 'act:"%s" mod:"%s" lng:"%s" way:"%s" gid:"%s" arg:"%s"\n' % (act, mod, lng, way, gid, arg)
     if act:
         return action(environ, start_response, act.lower(), host)
