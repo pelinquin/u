@@ -80,7 +80,7 @@ __RE_U__ = r'''     # RegExp
 __ARC_T__  = ('--', '->', '-<', '-=', '=-', '=>', '=<', '==', '<-', '<>', '<<', '<=', '>-', '>>', '><', '>=')
 __NODE_T__ = ('|',  '\'', '`',  '"',  ';',  ',',  '!',  '~',  '^',  '@',  '*',  '+',  '/',  '$',  '(',  '[' )
  
-__ACTIONS__ = ('download', 'source', 'update', 'about', 'help', 'usage', 'pdf', 'list', 'paper', 'beamer', 'log', 'test', 'parse', 'unparse', 'random', 'type')
+__ACTIONS__ = ('download', 'source', 'update', 'about', 'help', 'usage', 'pdf', 'list', 'history', 'paper', 'beamer', 'log', 'test', 'parse', 'unparse', 'random', 'type')
 
 __OUT_LANG__ = {'c'          :['c',    ('/*', '*/', ''), 'gcc ansi pedantic'],
                 'objectivec' :['m',    ('/*', '*/', ''), ''],
@@ -1791,12 +1791,10 @@ class gitu:
         p = subprocess.Popen(('git', 'ls-tree', 'master^{tree}'), env=self.e, stdout=subprocess.PIPE)
         liste = p.communicate()[0].decode('utf-8')
         if err:
-            #liste += '100644 blob %s\t%s' % (self.sha(bytes(c, encoding='utf-8')), key)
             liste += '100644 blob %s\t%s' % (self.sha(c.encode('utf-8')), key)
             self.commit (liste, key)
         else:
             if out != c:
-                #h = self.sha(bytes(c,encoding='utf-8'))
                 h = self.sha(c.encode('utf-8'))
                 self.commit(re.sub(r'(100644 blob) [0-9a-f]{40}(\t%s)\n' % key, '\\1 %s\\2\n' % h, liste), state) 
         p = subprocess.Popen(('git', 'log', '--pretty=format:%H', '-1'), env=self.e, stdout=subprocess.PIPE)
@@ -1809,6 +1807,10 @@ class gitu:
     
     def commit(self, li, msg):
         "_"
+        # remove bad blobs!
+        #open('/tmp/log', 'w', encoding='utf-8').write(li)
+        #for f in ('1', 'tata~b54d625aa203ea55cc14a4b77bb942d818d45738~57c1518fe1'):
+        #    li = re.sub(r'100644 blob\s[0-9a-f]{40}\t%s\n' % f, '', li)
         li = li.encode('utf-8')
         msg = msg.encode('utf-8')
         p = subprocess.Popen(('git', 'mktree'), env=self.e, stdout=subprocess.PIPE, stdin=subprocess.PIPE)
@@ -1829,7 +1831,7 @@ class gitu:
         if key:
             p = subprocess.Popen(('git', 'log', '--pretty=format:%H:%an:%ar:%s', '--', key), env=self.e, stdout=subprocess.PIPE)
         else:
-            p = subprocess.Popen(('git', 'log', '--pretty=format:%H:%an:%ar:%s'), env=self.e, stdout=subprocess.PIPE)
+            p = subprocess.Popen(('git', 'log', '-20', '--pretty=format:%H:%an:%ar:%s'), env=self.e, stdout=subprocess.PIPE)
         liste = p.communicate()[0].strip()
         return liste.decode('utf-8').split('\n')
 
@@ -1853,12 +1855,33 @@ class gitu:
         c = subprocess.Popen(('git', 'log', '-1', '--pretty=format:%ci', '--', key), env=self.e, stdout=subprocess.PIPE)
         return c.communicate()[0][:-5]
 
+    def rm(self, key):
+        "_"
+        p = subprocess.Popen(('git', 'reset', '--hard'), env=self.e, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        out, err = p.communicate()
+        #p = subprocess.Popen(('git', 'filter-branch', '--tree-filter', '\'rm %s\'' % key, 'HEAD'), env=self.e, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        #out, err = p.communicate()
+        o = err if err else out
+        return o.decode('utf-8')
+
     def cat(self, key):
         "_"
         p = subprocess.Popen(('git', 'show', 'master^{tree}:'+key), env=self.e, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = p.communicate()
         s = 'print ("New file!")' if re.search('\.py$', key) else 'New->File'
         return s if err else out.decode('utf-8')
+
+    def cat_rev(self, key, rev):
+        "_"
+        p = subprocess.Popen(('git', 'show', '%s:%s' % (rev, key)), env=self.e, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        out, err = p.communicate()
+        s = 'print ("New revision!")' if re.search('\.py$', key) else 'New->Revision'
+        return s if err else out.decode('utf-8')
+
+    def cat_simple(self, key, rev):
+        "_"
+        p = subprocess.Popen(('git', 'show', '%s:%s' % (rev, key)), env=self.e, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+        return p.communicate()[0][:-1]
 
     def cat_blob(self, key):
         "_"
@@ -1897,11 +1920,6 @@ class gitu:
                 p = subprocess.Popen(('git', 'show', '%s:%s' % (rev, key)), env=self.e, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
                 cont = p.communicate()[0][:-1]
         return rev[:15], cont
-
-    def cat_simple(self, key, rev):
-        "_"
-        p = subprocess.Popen(('git', 'show', '%s:%s' % (rev, key)), env=self.e, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-        return p.communicate()[0][:-1]
 
     def test(self, key, rev):
         "_"
@@ -1946,9 +1964,9 @@ def ulogo():
     return r"""\draw[draw=none,fill=blue,scale=1,shift={(.6,-1)}] svg "M0,0L0,18L4,18L4,4L14,4L14,18L18,18L18,0Z";"""
 
 def style_old():
-    """h1,h3,h6,p,li,b,a,td,th{font-family:helvetica neue,helvetica,arial,sans-serif;} a{text-decoration:none;} 
+    """h1,h2,h3,h6,p,li,b,a,td,th{font-family:helvetica neue,helvetica,arial,sans-serif;} a{text-decoration:none;} 
 table {border: 1px solid #666;width:100%;border-collapse:collapse;} td,th {border: 1px solid #666;padding:2pt;}
-h1{position:absolute;top:-8;left:60;} h6{position:absolute;top:0;right:10;} 
+h1{position:absolute;top:-8;left:60;} h2{position:absolute;top:0;left:260;color:#DDD} h6{position:absolute;top:0;right:10;} 
 textarea.editor{resize:none;width:100%; color:white;background-color:#444;}"""
     return '<style>{}</style>\n'.format(style_old.__doc__)
 
@@ -1990,9 +2008,9 @@ def table_about(host):
         o += '<tr><td><small>{:03d}</small></td><td>Input Model Type: {}</td><td><a target="_blank" href="u?_svg&{}">http://{}/u?_svg&{}</a></td></tr>\n'.format(n, x, d, host, d)
     return o + '</table>'
 
-def hhead():
+def hhead(host):
     "_"
-    return '<html>' + favicon() + style_old() + '\n<svg %s height="64">%s</svg>\n' % (_SVGNS, logo())
+    return '<html>' + favicon() + style_old() + '\n<svg %s height="64">%s</svg>\n<h2>[server:%s]</h2>\n' % (_SVGNS, logo(), host)
 
 def htail():
     "_"
@@ -2022,35 +2040,41 @@ def save(environ, start_response, gid='start'):
         gitu().save(gid, '\n'.join(l[4:-2]), l[3])
     return ['ok']
 
-def ide(environ, start_response, gid='start', python=False):
-    content = gitu().cat(gid)
+def ide(environ, start_response, gid='start', rev=None):
+    is_python = bool(re.search('\.py$', gid))
+    content = gitu().cat_rev(gid, rev) if rev else gitu().cat(gid)
     o = '<html><title id="title">%s</title>\n' % gid + favicon()
-    o += style('html,body,textarea,object,input,div{margin:0;padding:0;}textarea#editor{position:absolute;left:0;top:0;resize:none;width:50%;height:100%;padding-top:20;}object#reader{position:absolute;right:0;top:0;width:50%;height:100%;background-color:#F1F4FF;}select#lang{position:absolute;right:50%;top:22;z-index:11;}input#message{position:absolute;right:50%;top:0;z-index:11;color:Dodgerblue;}div#repository{position:absolute;left:0;top:0;z-index:11;}')
+    o += style('html,body,textarea,object,input,div{margin:0;padding:0;}textarea#editor{position:absolute;left:0;top:0;resize:none;width:50%;height:100%;padding-top:20;}object#reader{position:absolute;right:0;top:0;width:50%;height:100%;background-color:#F1F4FF;}select#lang{position:absolute;right:50%;top:22;z-index:11;}input#message{position:absolute;right:50%;top:0;z-index:11;color:Dodgerblue;}div#list{position:absolute;left:0;top:0;z-index:11;}div#history{position:absolute;left:0;top:18;z-index:11;}')
     o += script("""function post(url, data, cb) {var req = new XMLHttpRequest();req.onreadystatechange = processRequest;function processRequest () {if (req.readyState == 4) {if (req.status == 200) {if (cb) { cb(req.responseText); }} else {alert('Error Post status:'+ req.status);}}} this.doPost = function() {req.open('POST', url, true);req.send(data);} };
 window.onload = run;
-//document.getElementById("reader").addEventListener('load',alert('yes'));
-function run() {
+function save() {
 var name = document.getElementById("title").firstChild.nodeValue;
 document.getElementById("title").firstChild.nodeValue = name.replace(/^\*(.*)$/,'$1');
 if (typeof ed != 'undefined') {var v=ed.getValue();} else { var v=document.getElementById("editor").value; }
-var t = document.getElementById("lang").value;
 var fD = new FormData();
-v = document.getElementById("message").value  + '\\n' + v;
-fD.append('content', v);
+fD.append('content', document.getElementById("message").value  + '\\n' + v);
 var ai = new post('u?^%s', fD, function(res) {
-var py = '%s'; var url = 'u?' + t + '@%s';
-if (py == 'True') { url = 'u?' + '$%s'}
+run();
+});ai.doPost();
+}
+function run() {
+var py = '%s'; var rev='%s'; var gid='%s'; if (rev == 'None') { rev = ''; } else { rev = '~' + rev;}
+var url = 'u?' + document.getElementById("lang").value + '@' + gid + rev; 
+if (py == 'True') { url = 'u?' + '$' + gid}
 // triks for Webkit refresh [BUG 123536]
 document.getElementById("reader").style.webkitTransform = 'scale(1)'; document.getElementById("reader").setAttribute('data', ''); // Webkit BUG 123536
 document.getElementById("reader").setAttribute('data', url);
-//alert (url);
-});ai.doPost();}""" % (gid, python, gid, gid))
-    if not python:
+//document.getElementById("message").value = '';
+//document.getElementById("message").blur();
+}
+""" % (gid, is_python, rev, gid))
+    if not is_python:
         o += '<select id="lang" onchange="run();" title="Refresh:\'Alt R\'">' + ''.join(['<option>{}</option>'.format(i) for i in ['_svg', '_xml', '_tikz'] + list(__OUT_LANG__) ]) + '</select>\n'
     else:
         o += '<input type="hidden" id="lang" value=""/>\n'
-    o += '<div id="repository"><a href="u?list"><svg id="list" height="16" width="16"><path d="M0,0L16,0L16,16L0,16Z" stroke-width="0" stroke="black" fill="Dodgerblue"/><path d="M4,4L12,4M4,8L12,8M4,12L12,12" stroke-width="2" stroke="white" fill="none"/></svg></a></div>\n'
-    o += '<input type="text" id="message" placeholder="...enter a commit message" onchange="run()"/>\n'
+    o += '<div id="list" title="list"><a href="u?list"><svg height="16" width="16"><path d="M0,0L16,0L16,16L0,16Z" stroke-width="0" stroke="black" fill="Dodgerblue"/><path d="M4,4L12,4M4,8L12,8M4,12L12,12" stroke-width="2" stroke="white" fill="none"/></svg></a></div>\n'
+    o += '<div id="history" title="history"><a href="u?history"><svg height="16" width="16"><path d="M0,0L16,0L16,16L0,16Z" stroke-width="0" stroke="black" fill="Dodgerblue"/><path d="M4,4L4,12M4,8L12,8M12,4L12,12" stroke-width="2" stroke="white" fill="none"/></svg></a></div>\n'
+    o += '<input type="text" id="message" placeholder="...enter a commit message" onchange="save();"/>\n'
     o += '<textarea id="editor">{}</textarea>\n'.format(content)
     here = os.path.dirname(os.path.abspath(__file__))
     AREA = False # config
@@ -2068,7 +2092,9 @@ def action(environ, start_response, key, host):
         f = '%s/%s.pdf' % (os.path.dirname(environ['SCRIPT_FILENAME']), name)
         o = open(f, 'rb').read()
     else:
-        mime, fname, o = 'text/html; charset=utf-8', key, hhead()
+        mime, fname, o = 'text/html; charset=utf-8', key, hhead(host)
+        ficon = '<svg height="20" width="20"><path d="M0,0L14,0L20,6L20,20L0,20Z" stroke-width="2" stroke="gray" fill="#EEE"/><path d="M4,4L12,4M4,8L16,8M4,12L16,12M4,16L16,16" stroke-width="1" stroke="gray" fill="none"/></svg>'
+        pyicon = '<svg height="20" width="20"><path d="M0,0L14,0L20,6L20,20L0,20Z" stroke-width="2" stroke="gray" fill="#FFF"/><path d="M4,4L12,4M4,8L16,8M4,12L16,12" stroke-width="1" stroke="gray" fill="none"/><g transform="scale(.15),translate(-40,-60)"><path style="fill:#366994;" d="M 99.75,67.46C71.71,67.46 73.46,79.62 73.46,79.62L73.5,92.21L100.25,92.21L100.25,96L62.87,96C62.87,96 44.93,93.96 44.93,122.25 C44.93,150.53 60.59,149.53 60.59,149.53L69.93,149.53L69.93,136.40C69.93,136.40 69.43,120.75 85.34,120.75C101.25,120.75 111.87,120.75 111.87,120.75C111.87,120.75 126.78,120.99 126.78,106.34C126.78,91.69 126.78,82.12 126.78,82.12C126.78,82.12 129.04,67.46 99.75,67.46z M85,75.93 C87.66,75.93 89.81,78.08 89.81,80.75C89.81,83.41 87.66,85.56 85,85.56C82.33,85.56 80.18,83.41 80.18,80.75 C 80.18,78.08 82.33,75.93 85,75.93z"/><path style="fill:#ffc331;" d="M100.54,177.31C128.57,177.31 126.82,165.15 126.82,165.15L126.79,152.56L100.04,152.56L100.04,148.78L137.42,148.78C137.42,148.78 155.35,150.81 155.35,122.53C155.35,94.24 139.70,95.25 139.70,95.25L130.35,95.25L130.35,108.37C130.35,108.37 130.86,124.03 114.95,124.03C99.04,124.03 88.42,124.03 88.421,124.03C88.42,124.03 73.51,123.79 73.51,138.43C73.51,153.08 73.51,162.65 73.51,162.65C73.51,162.65 71.25,177.31 100.54,177.31zM115.29,168.84C112.63,168.84 110.48,166.69 110.48,164.03C110.48,161.37 112.63,159.22 115.29,159.22C117.95,159.22 120.10,161.37 120.10,164.03C120.10,166.69 117.95,168.84 115.29,168.84z"/></g></svg>'
         if key in ('about', 'help', 'usage'): 
             o += table_about(host)
         elif key in ('test', 'parse'): 
@@ -2078,9 +2104,8 @@ def action(environ, start_response, key, host):
         elif key in ('random',): 
             o += table_test(False, 'Random', get_random_set())
         elif key == 'list':
-            ficon = '<svg height="20" width="20"><path d="M0,0L14,0L20,6L20,20L0,20Z" stroke-width="2" stroke="gray" fill="#EEE"/><path d="M4,4L12,4M4,8L16,8M4,12L16,12M4,16L16,16" stroke-width="1" stroke="gray" fill="none"/></svg>'
-            pyicon = '<svg height="20" width="20"><path d="M0,0L14,0L20,6L20,20L0,20Z" stroke-width="2" stroke="gray" fill="#FFF"/><path d="M4,4L12,4M4,8L16,8M4,12L16,12" stroke-width="1" stroke="gray" fill="none"/><g transform="scale(.15),translate(-40,-60)"><path style="fill:#366994;" d="M 99.75,67.46C71.71,67.46 73.46,79.62 73.46,79.62L73.5,92.21L100.25,92.21L100.25,96L62.87,96C62.87,96 44.93,93.96 44.93,122.25 C44.93,150.53 60.59,149.53 60.59,149.53L69.93,149.53L69.93,136.40C69.93,136.40 69.43,120.75 85.34,120.75C101.25,120.75 111.87,120.75 111.87,120.75C111.87,120.75 126.78,120.99 126.78,106.34C126.78,91.69 126.78,82.12 126.78,82.12C126.78,82.12 129.04,67.46 99.75,67.46z M85,75.93 C87.66,75.93 89.81,78.08 89.81,80.75C89.81,83.41 87.66,85.56 85,85.56C82.33,85.56 80.18,83.41 80.18,80.75 C 80.18,78.08 82.33,75.93 85,75.93z"/><path style="fill:#ffc331;" d="M100.54,177.31C128.57,177.31 126.82,165.15 126.82,165.15L126.79,152.56L100.04,152.56L100.04,148.78L137.42,148.78C137.42,148.78 155.35,150.81 155.35,122.53C155.35,94.24 139.70,95.25 139.70,95.25L130.35,95.25L130.35,108.37C130.35,108.37 130.86,124.03 114.95,124.03C99.04,124.03 88.42,124.03 88.421,124.03C88.42,124.03 73.51,123.79 73.51,138.43C73.51,153.08 73.51,162.65 73.51,162.65C73.51,162.65 71.25,177.31 100.54,177.31zM115.29,168.84C112.63,168.84 110.48,166.69 110.48,164.03C110.48,161.37 112.63,159.22 115.29,159.22C117.95,159.22 120.10,161.37 120.10,164.03C120.10,166.69 117.95,168.84 115.29,168.84z"/></g></svg>'
             i = 0
+            o += '<h1>List</h1><a href="/u?history">History</a>'
             o += '<table><tr><th width="2.5cm">#</th><th>blob</th><th width="2cm">commit</th><th width="1cm">author</th><th>age</th><th>message</th></tr>'
             for l in gitu().list():
                 i += 1
@@ -2089,11 +2114,13 @@ def action(environ, start_response, key, host):
                     icon = pyicon if re.search('\.py$', t[1]) else ficon
                     h = gitu().gethead2(t[1])
                     r = h.split(':')
-                    o += '<tr><td>%03d</td><td>%s <a href="u?@%s">%s</a></td><td style="font-family:courier;">%s</td><td>%s</td><td>%s</td><td>%s</td></tr>' % (i, icon, t[1], t[1], r[0], r[1], r[2], r[3]) 
+                    o += '<tr><td>%03d</td><td>%s <a href="u?@%s">%s</a></td><td style="font-family:courier;">%s</td><td>%s</td><td>%s</td><td>%s</td></tr>' % (i, icon, t[1], t[1], r[0][:10], r[1], r[2], r[3]) 
             o += '</table>'
+        elif key == 'history':
+            i = 0
+            o += '<h1>History</h1><a href="/u?list">List</a>'
             o += '<table><tr><th width="2.5cm">#</th><th>name</th><th width="2cm">commit</th><th width="1cm">author</th><th>age</th><th>message</th></tr>'
             aa = gitu()
-            i = 0
             for l in aa.history():
                 li = l.split(':')
                 i += 1
@@ -2101,14 +2128,16 @@ def action(environ, start_response, key, host):
                 liste = p.communicate()[0].strip()
                 li2 = liste.split()
                 if len(li2)>1:
-                    o += '<tr><td>%03d</td><td><a href="u?@%s">%s</a></td><td style="font-family:courier;">%s</td><td>%s</td><td>%s</td><td>%s</td></tr>' % (i, li2[1].decode('utf-8'), li2[1].decode('utf-8'), li[0], li[1], li[2], li[3])
+                    name = li2[1].decode('utf-8')[:30]
+                    o += '<tr><td>%03d</td><td><a href="u?@%s~%s">%s</a></td><td style="font-family:courier;">%s</td><td>%s</td><td>%s</td><td>%s</td></tr>' % (i, li2[1].decode('utf-8'), li[0][:10], name, li[0][:10], li[1], li[2], li[3])
             o += '</table>'                
         elif key in ('update',):
             here = os.path.dirname(os.path.abspath(__file__))
             # add security
-            #cmd = 'cd %s; ls' % here
-            #cmd = 'cd %s/..; rm -rf u; git clone git://github.com/pelinquin/u.git' % here
-            cmd = 'cd %s/..; rm -rf u; git clone https://github.com/pelinquin/u.git' % here
+            if host == 'pelinquin':
+                cmd = 'cd %s; ls' % here
+            else:
+                cmd = 'cd %s/..; rm -rf u; git clone https://github.com/pelinquin/u.git' % here # Usualy git://github...
             out, err = subprocess.Popen((cmd), shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
             o = 'Application Update...\n'
             o += 'Error:%s\n' % err if err else 'Message:%s\nUpdate OK\n' % out.decode('utf-8')
@@ -2121,10 +2150,17 @@ def action(environ, start_response, key, host):
     start_response('200 OK', [('Content-type', mime), ('Content-Disposition', 'filename={}'.format(fname))])
     return [o]
 
-def display(environ, start_response, gid):
+def rm(environ, start_response, gid):
     "_"
-    raw = gitu().cat(gid)
-    #raw = bytes(raw, 'utf-8').decode('unicode_escape')
+    o = '%s removed!' % gid
+    o += '\n%s' % gitu().rm(gid)
+    start_response('200 OK', [('Content-type', 'text/plain; charset=utf-8')])
+    return [o]
+
+
+def display(environ, start_response, gid, rev= None):
+    "_"
+    raw = gitu().cat_rev(gid, rev) if rev else gitu().cat(gid)
     here = os.path.dirname(os.path.abspath(__file__))
     head = '#!/usr/bin/python3\n# -*- coding: utf-8 -*-\nimport os,sys\np="%s"\nif p not in sys.path: sys.path.append(p)\nimport u\n' % here
     src = '/tmp/%s' % gid
@@ -2156,8 +2192,8 @@ def display(environ, start_response, gid):
 def application(environ, start_response):
     """ WSGI Web application """
     s, mime, o, myu, host, fname = urllib.parse.unquote(environ['QUERY_STRING']), 'text/plain; charset=utf-8', 'Error!', u(), environ['SERVER_NAME'], 'u.py'
-    act, mod, lng, way, gid, arg = None, None, None, None, None, None
-    if reg(re.match(r'\s*(%s$|)(_?)(%s|)(([@\^\$])(.+)|&?(.+|))\s*$' % ('$|'.join(__ACTIONS__), '|'.join(__OUT_LANG__)), s, re.I)):
+    act, mod, lng, way, gid, arg, rev = None, None, None, None, None, None, None
+    if reg(re.match(r'\s*(%s$|)(_?)(%s|)(([@\^\$!])(.+)|&?(.+|))\s*$' % ('$|'.join(__ACTIONS__), '|'.join(__OUT_LANG__)), s, re.I)):
         act, mod, lng, way, gid, arg = reg.v.group(1), reg.v.group(2), reg.v.group(3), reg.v.group(5), reg.v.group(6), reg.v.group(7)
     if gid and reg(re.match(r'([^~]+)~([a-fA-F\d]{6,20})$', gid)):
         gid, rev = reg.v.group(1), reg.v.group(2)
@@ -2168,13 +2204,15 @@ def application(environ, start_response):
         if way == '^':
             return save(environ, start_response, gid)
         elif way == '$':
-            return display(environ, start_response, gid)
+            return display(environ, start_response, gid, rev)
         elif way == '@':
-            #open('/tmp/log', 'w', encoding='utf-8').write(gitu().cat(gid))
+            #OPEN('/tmp/log', 'w', encoding='utf-8').write(gitu().cat(gid))
             if lng:
-                arg = gitu().cat(gid)
+                arg = gitu().cat_rev(gid, rev) if rev else gitu().cat(gid)
             else:
-                return ide(environ, start_response, gid, bool(re.search('\.py$', gid)))
+                return ide(environ, start_response, gid, rev)
+        elif way == '!':
+            return rm(environ, start_response, gid)
         else:
             pass
     if arg:
@@ -2243,5 +2281,5 @@ def command_line():
 if __name__ == '__main__':
     "Tangle Command line"
     command_line()
-    src = '/tmp/dagstuhl.py'
+
 # end

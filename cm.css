@@ -3,24 +3,22 @@
   /*padding-top:20;*/
   font-family: monospace;
   width: 50%;
+  /*height: 100%;*/
   position: relative;
   overflow: hidden;
 }
-
 .CodeMirror-scroll {
   overflow-x: auto;
   overflow-y: hidden;
   height: 100%;
   outline: none;
 }
-
 /* Vertical scrollbar */
 .CodeMirror-scrollbar {
   float: right;
   overflow-x: hidden;
   overflow-y: scroll;
-  /* This corrects for the 1px gap introduced to the left of the scrollbar
-     by the rule for .CodeMirror-scrollbar-inner. */
+  /* This corrects for the 1px gap introduced to the left of the scrollbar by the rule for .CodeMirror-scrollbar-inner. */
   margin-left: -1px;
 }
 .CodeMirror-scrollbar-inner {
@@ -28,21 +26,15 @@
   width: 1px;
 }
 .CodeMirror-scrollbar.cm-sb-overlap {
-  /* Ensure that the scrollbar appears in Lion, and that it overlaps the content
-     rather than sitting to the right of it. */
+  /* Ensure that the scrollbar appears in Lion, and that it overlaps the content rather than sitting to the right of it. */
   position: absolute;
   z-index: 1;
   float: none;
   right: 0;
   min-width: 12px;
 }
-.CodeMirror-scrollbar.cm-sb-nonoverlap {
-  min-width: 12px;
-}
-.CodeMirror-scrollbar.cm-sb-ie7 {
-  min-width: 18px;
-}
-
+.CodeMirror-scrollbar.cm-sb-nonoverlap {min-width: 12px;}
+.CodeMirror-scrollbar.cm-sb-ie7 {min-width: 18px;}
 .CodeMirror-gutter {
   position: absolute; left: 0; top: 0;
   z-index: 10;
@@ -58,12 +50,7 @@
   white-space: pre !important;
   cursor: default;
 }
-.CodeMirror-lines {
-  padding: .4em;
-  white-space: pre;
-  cursor: text;
-}
-
+.CodeMirror-lines {padding: .4em;white-space: pre;cursor: text;}
 .CodeMirror pre {
   -moz-border-radius: 0;
   -webkit-border-radius: 0;
@@ -78,20 +65,13 @@
   line-height: inherit;
   color: inherit;
 }
-
 .CodeMirror-wrap pre {
   word-wrap: break-word;
   white-space: pre-wrap;
   word-break: normal;
 }
-.CodeMirror-wrap .CodeMirror-scroll {
-  overflow-x: hidden;
-}
-
-.CodeMirror textarea {
-  outline: none !important;
-}
-
+.CodeMirror-wrap .CodeMirror-scroll {overflow-x:hidden;}
+.CodeMirror textarea { outline: none !important;}
 .CodeMirror pre.CodeMirror-cursor {
   z-index: 10;
   position: absolute;
@@ -107,25 +87,11 @@
   background: rgba(0, 200, 0, .4);
   filter: progid:DXImageTransform.Microsoft.gradient(startColorstr=#6600c800, endColorstr=#4c00c800);
 }
-/* Kludge to turn off filter in ie9+, which also accepts rgba */
-.cm-keymap-fat-cursor pre.CodeMirror-cursor:not(#nonsense_id) {
-  filter: progid:DXImageTransform.Microsoft.gradient(enabled=false);
-}
 .CodeMirror pre.CodeMirror-cursor.CodeMirror-overwrite {}
-.CodeMirror-focused pre.CodeMirror-cursor {
-  visibility: visible;
-}
-
+.CodeMirror-focused pre.CodeMirror-cursor {visibility: visible;}
 div.CodeMirror-selected { background: #d9d9d9; }
 .CodeMirror-focused div.CodeMirror-selected { background: #d7d4f0; }
-
-.CodeMirror-searching {
-  background: #ffa;
-  background: rgba(255, 255, 0, .4);
-}
-
-/* Default theme */
-
+.CodeMirror-searching {background: #ffa; background: rgba(255, 255, 0, .4);}
 .cm-s-default span.cm-keyword {color: #708;}
 .cm-s-default span.cm-atom {color: #219;}
 .cm-s-default span.cm-number {color: #164;}
@@ -149,20 +115,11 @@ div.CodeMirror-selected { background: #d9d9d9; }
 .cm-s-default span.cm-quote {color: #090;}
 .cm-s-default span.cm-hr {color: #999;}
 .cm-s-default span.cm-link {color: #00c;}
-
 span.cm-header, span.cm-strong {font-weight: bold;}
 span.cm-em {font-style: italic;}
 span.cm-emstrong {font-style: italic; font-weight: bold;}
 span.cm-link {text-decoration: underline;}
-
 span.cm-invalidchar {color: #f00;}
-
 div.CodeMirror span.CodeMirror-matchingbracket {color: #0f0;}
 div.CodeMirror span.CodeMirror-nonmatchingbracket {color: #f22;}
 
-@media print {
-  /* Hide the cursor when printing */
-  .CodeMirror pre.CodeMirror-cursor {
-    visibility: hidden;
-  }
-}
