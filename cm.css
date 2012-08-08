@@ -1,9 +1,17 @@
 .CodeMirror {
   line-height: 1em;
-  /*padding-top:20;*/
   font-family: monospace;
+}
+.CodeMirror {
   width: 50%;
-  /*height: 100%;*/
+  position: absolute;
+  top:18;
+  bottom: 0;
+  overflow: hidden;
+}
+.CodeMirror_old {
+  width: 50%;
+  height: 100%;
   position: relative;
   overflow: hidden;
 }
