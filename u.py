@@ -80,7 +80,7 @@ __RE_U__ = r'''     # RegExp
 __ARC_T__  = ('--', '->', '-<', '-=', '=-', '=>', '=<', '==', '<-', '<>', '<<', '<=', '>-', '>>', '><', '>=')
 __NODE_T__ = ('|',  '\'', '`',  '"',  ';',  ',',  '!',  '~',  '^',  '@',  '*',  '+',  '/',  '$',  '(',  '[' )
  
-__ACTIONS__ = ('download', 'source', 'update', 'about', 'help', 'usage', 'pdf', 'list', 'history', 'paper', 'beamer', 'log', 'test', 'parse', 'unparse', 'random', 'type', 'login', 'database')
+__ACTIONS__ = ('download', 'source', 'update', 'about', 'help', 'usage', 'pdf', 'list', 'history', 'paper', 'beamer', 'log', 'test', 'parse', 'unparse', 'random', 'signup', 'database')
 
 __OUT_LANG__ = {'c'          :['c',    ('/*', '*/', ''), 'gcc ansi pedantic'],
                 'objectivec' :['m',    ('/*', '*/', ''), ''],
@@ -2008,13 +2008,13 @@ def ulogo():
 def style_old():
     """h1,h2,h3,h6,p,li,b,a,td,th{font-family:helvetica neue,helvetica,arial,sans-serif;} a{text-decoration:none;} 
 table {border: 1px solid #666;width:100%;border-collapse:collapse;} td,th {border: 1px solid #666;padding:2pt;}
-h1{position:absolute;top:-8;left:60;} h2{position:absolute;top:0;left:50%;color:#DDD} h6{position:absolute;top:0;right:10;} 
+h1{position:absolute;top:-8;left:60;} h2{position:absolute;top:0;left:50%;color:#DDD} h6#digest{position:absolute;top:0;right:10;} 
 textarea.editor{resize:none;width:100%; color:white;background-color:#444;}"""
     return '<style>{}</style>\n'.format(style_old.__doc__)
 
-def table_test(par, title, tset):
+def table_test(par, tset):
     "_"
-    o, uobj = '<h1>%s Test set</h1>\n<table>' % title, u()
+    o, uobj = '<table>', u()
     if par:
         o += '<tr><th>#</th><th>Description</th><th>⊔ input</th><th>Nodes</th><th>Arcs</th></tr>\n'
         for x in tset: 
@@ -2036,7 +2036,7 @@ def table_test(par, title, tset):
 
 def table_about(host):
     "_"
-    o = '<h1>Help</h1>\n<table>'
+    o = '<table>'
     o += '<tr><th>#</th><th>Action</th><th>Example</th></tr>\n'
     n = 0
     for x in __ACTIONS__:
@@ -2050,13 +2050,13 @@ def table_about(host):
         o += '<tr><td><small>{:03d}</small></td><td>Input Model Type: {}</td><td><a target="_blank" href="u?_svg&{}">http://{}/u?_svg&{}</a></td></tr>\n'.format(n, x, d, host, d)
     return o + '</table>'
 
-def hhead(host):
+def hhead(key, host):
     "_"
-    return '<html>' + favicon() + style_old() + '\n<svg %s height="64">%s</svg>\n<h2>[server:%s]</h2>\n' % (_SVGNS, logo(), host)
+    return '<html>' + favicon() + style_old() + '\n<svg %s height="64">%s</svg>\n<h1>%s</h1>\n<h2 title="server">[%s]</h2>\n<a href="/u?help">Help</a>\n' % (_SVGNS, logo(), key.title(), host)
 
 def htail():
     "_"
-    return '<h6 title="base64 encoded short sha1 digest">%s</h6></html>' % __digest__.decode('utf-8')
+    return '<h6 id="digest" title="base64 encoded short sha1 digest">%s</h6></html>' % __digest__.decode('utf-8')
 
 def tex2pdf(txt):
     "TeX to PDF"
@@ -2079,14 +2079,21 @@ def save(environ, start_response, gid='start'):
     start_response('200 OK', [('Content-type', 'text/plain; charset=utf-8'),])
     if environ['REQUEST_METHOD'].lower() == 'post':  
         l = environ['wsgi.input'].read().decode('utf-8').split('\r\n')
-        gitu().save(gid, '\n'.join(l[4:-2]), l[3])
+        user = 'anonymous'
+        if 'HTTP_COOKIE' in environ:
+            sid = re.sub('^.*=', '', environ['HTTP_COOKIE'])
+            d = dbm.open('%s/rev.db' % __git_base__)
+            user = d[sid].decode('utf-8')
+            d.close()
+        g = gitu(user)
+        g.save(gid, '\n'.join(l[4:-2]), l[3])
     return ['ok']
 
 def ide(environ, start_response, gid='start', rev=None):
     is_python = bool(re.search('\.py$', gid))
     content = gitu().cat_rev(gid, rev) if rev else gitu().cat(gid)
     o = '<html><title id="title">%s</title>\n' % gid + favicon()
-    o += style('h6,input,a{font-family:helvetica neue,helvetica,arial,sans-serif;color:Dodgerblue;}a{font-size:.8em;}html,body,textarea,object,input,div{margin:0;padding:0;}textarea#editor{position:absolute;left:0;top:0;resize:none;width:50%;height:100%;padding-top:20;}object#reader{position:absolute;right:0;top:0;width:50%;height:100%;background-color:#F1F4FF;}select#lang{position:absolute;right:50%;top:22;z-index:11;}input#message{position:absolute;right:50%;top:0;z-index:11;color:Dodgerblue;}a#list{position:absolute;left:0;top:0;z-index:11;}a#history{position:absolute;left:18;top:0;z-index:11;}h6#sid{position:absolute;right:50%;bottom:0;z-index:11;}a#login{position:absolute;left:40;top:0;z-index:11;}a#user{position:absolute;left:80;top:0;z-index:11;}')
+    o += style('h6,input,a{font-family:helvetica neue,helvetica,arial,sans-serif;color:Dodgerblue;}a,input{font-size:.8em;}html,body,textarea,object,input,div{margin:0;padding:0;}textarea#editor{position:absolute;left:0;top:0;resize:none;width:50%;height:100%;padding-top:20;}object#reader{position:absolute;right:0;top:0;width:50%;height:100%;background-color:#F1F4FF;}select#lang{position:absolute;right:50%;top:22;z-index:11;}input#message{position:absolute;right:50%;top:0;}a#list{position:absolute;left:0;top:0;}a#history{position:absolute;left:18;top:0;}h6#sid{position:absolute;right:50%;bottom:0;z-index:11;}input#login{position:absolute;left:36;top:0;}input#pw{position:absolute;left:125;top:0;}input#send{position:absolute;left:215;top:0;}a#msg{position:absolute;left:310;top:0;color:red}a#up{position:absolute;left:262;top:0;}')
     o += script("""function post(url, data, cb) {var req = new XMLHttpRequest();req.onreadystatechange = processRequest;function processRequest () {if (req.readyState == 4) {if (req.status == 200) {if (cb) { cb(req.responseText); }} else {alert('Error Post status:'+ req.status);}}} this.doPost = function() {req.open('POST', url, true);req.send(data);} };
 window.onload = run;
 function save() {
@@ -2110,15 +2117,44 @@ document.getElementById("reader").setAttribute('data', url);
 """ % (gid, is_python, rev, gid))
     if not is_python:
         o += '<select id="lang" onchange="run();" title="Refresh:\'Alt R\'">' + ''.join(['<option>{}</option>'.format(i) for i in ['_svg', '_xml', '_tikz'] + list(__OUT_LANG__) ]) + '</select>\n'
+    # begin authentication
+    user, h = 'anonymous', ''
     if 'HTTP_COOKIE' in environ:
         sid = re.sub('^.*=', '', environ['HTTP_COOKIE'])
+        d = dbm.open('%s/rev.db' % __git_base__)
+        user = d[sid].decode('utf-8')
+        d.close()
     else:
-        rev = dbm.open('%s/rev.db' % __git_base__, 'c')
-        rev['_'] = '%d' % (int(rev['_'])+1) if '_' in rev else '0'
-        sid = base64.urlsafe_b64encode(hashlib.sha1(rev['_']).digest())[:-18].decode('utf-8')
-        rev.close()
-    o += '<a id="login" title="log in with existing account" href="u?login">Login</a><a id="user" title="create a new account" href="u?login">Signup</a>\n' 
-    o += '<h6 title="session id" id="sid">%s</h6>\n' % sid
+        d = dbm.open('%s/rev.db' % __git_base__, 'c')
+        d['_'] = '%d' % (int(d['_'])+1) if '_' in d else '0'
+        sid = base64.urlsafe_b64encode(hashlib.sha1(d['_']).digest())[:-18].decode('utf-8')
+        d[sid] = 'anonymous'
+        d.close()
+    authen, msg = False, ''
+    if environ['REQUEST_METHOD'].lower() == 'post': 
+        d, x = dbm.open('%s/rev.db' % __git_base__, 'c'), urllib.parse.unquote(environ['wsgi.input'].read().decode('utf-8'))
+        if reg(re.match(r'login=([^&]+)&pw=([^&]+)$', x)):
+            user, pw = reg.v.group(1), reg.v.group(2)
+            if (user in d) and (d[user] == base64.urlsafe_b64encode(hashlib.sha1(pw.encode('utf-8')).digest())[:-18]):
+                d[sid], authen = user, True
+            else:
+                msg = 'wrong login!' 
+        else: # logout
+            d[sid] = 'anonymous'
+        d.close()
+    else:
+        authen = False if user == 'anonymous' else True
+    o += '<form method="post">' 
+    if authen:
+        o += '<input id="login" title="user" style="border:none" value="%s" size="10"/>' % user
+        o += '<input id="send" type="submit" title="logout" name="logout" value="Logout"/>\n'
+    else:
+        o += '<input id="login" name="login" title="log in with existing account" placeholder="Username" size="10" value=""/>'
+        o += '<input id="pw"    name="pw" type="password" title="password" placeholder="Password" size="10" value=""/>' 
+        o += '<input id="send"  type="submit" title="submit login/password" value="Login"/>' 
+        o += '<a id="up" href="u?signup" title="create a new account">Signup<a/>\n'
+    o += '</form><a id="msg" title="error message">%s</a>'% msg
+    # end authentication
     o += '<a id="list" href="u?list" title="list"><svg height="16" width="16"><path d="M0,0L16,0L16,16L0,16Z" stroke-width="0" stroke="black" fill="Dodgerblue"/><path d="M4,4L12,4M4,8L12,8M4,12L12,12" stroke-width="2" stroke="white" fill="none"/></svg></a>\n'
     o += '<a id="history" title="history" href="u?history"><svg height="16" width="16"><path d="M0,0L16,0L16,16L0,16Z" stroke-width="0" stroke="black" fill="Dodgerblue"/><path d="M4,4L4,12M4,8L12,8M12,4L12,12" stroke-width="2" stroke="white" fill="none"/></svg></a>\n'
     o += '<input type="text" id="message" placeholder="...enter a commit message" onchange="save();"/>\n'
@@ -2132,17 +2168,55 @@ document.getElementById("reader").setAttribute('data', url);
     o += '</html>\n'
     return [o.encode('utf-8')]
 
+def check_user(login,pw):
+    """ """
+    base='%s/rev.db' % __git_base__
+    result = False
+    if login and pw:
+        if os.path.isfile(base):
+            db = dbhash.open(base)
+            if db.has_key(login):
+                if db[login] == hashlib.sha1(pw).hexdigest():
+                    result = True
+            db.close()    
+    return result
+
 def action(environ, start_response, key, host):
-    if key == 'login':
-        mime, fname, o = 'text/html; charset=utf-8', key, hhead(host)
-        o += '<p>Login</p><input id="login" name="login" title="Login" size="7" value=""/>'
-        o += '<input id="pw" name="pw" type="password" title="Password" size="7" value=""/>'
-        o += '<input type="button" value="set"/>'
+    if key == 'signup':
+        mime, fname, o = 'text/html; charset=utf-8', key, hhead(key, host)
+        msg, passed = 'Create a new account!', False
+        o += '<h1>Signup</h1><a href="/u?about">About</a>|<a href="/u?list">List</a>|<a href="/u?history">History</a><br/>\n'
+        if environ['REQUEST_METHOD'].lower() == 'post': 
+            msg = '...error, try again!'
+            x = urllib.parse.unquote(environ['wsgi.input'].read().decode('utf-8'))
+            if reg(re.match(r'login=([^&]{4,20})&pw=([^&]{4,20})&pw2=([^&]{4,20})$', x)):
+                user, pw, pw2 = reg.v.group(1), reg.v.group(2), reg.v.group(3)
+                if user and pw and pw2 and not re.search(user, pw) and pw == pw2:
+                    d = dbm.open('%s/rev.db' % __git_base__, 'c')
+                    if user not in d:
+                        if 'HTTP_COOKIE' in environ:
+                            sid = re.sub('^.*=', '', environ['HTTP_COOKIE'])
+                        else:
+                            d['_'] = '%d' % (int(d['_'])+1) if '_' in d else '0'
+                            sid = base64.urlsafe_b64encode(hashlib.sha1(d['_']).digest())[:-18].decode('utf-8')
+                        d[sid], d[user] = user, base64.urlsafe_b64encode(hashlib.sha1(pw.encode('utf-8')).digest())[:-18].decode('utf-8')
+                        passed, msg = True, 'New account for \'%s\' created!' % user
+                    d.close()
+        o += '<a id="msg" title="error message">%s</a>\n' % msg
+        if not passed:
+            o += '<form method="post">\n' 
+            o += '<input id="login" name="login" title="select a user name" placeholder="Username" size="20" value=""/><br/>\n'
+            o += '<input id="pw"    name="pw" type="password" title="password" placeholder="Password" size="20" value=""/><br/>\n'
+            o += '<input id="pw2"   name="pw2" type="password" title="password again" placeholder="Password again" size="20" value=""/><br/>\n'
+            o += '<input id="user"  type="submit" title="signup" value="Signup"/>\n'
+            o += '</form>\n'
+        o += '<h6>Login name shall be [2,10] length<br/>Password name shall be [2,10] length<br/>Two passwords shall equal<br/>Login shall not be already used<br/>Only ten users for the same ip address<br/>Password shall not contain user name</h6>\n'
+        o += htail()
+        o = o.encode('utf-8')
     elif key == 'database':
-        rev, o = dbm.open('%s/rev.db' % __git_base__, 'r'), ''
-        for item in rev.keys():
-            o +=  ('%s -> %s\n' % (item, rev[item]))
-        rev.close()
+        d, o = dbm.open('%s/rev.db' % __git_base__, 'r'), ''
+        for item in d.keys(): o +=  ('%s -> %s\n' % (item.decode('utf-8'), d[item].decode('utf-8')))
+        d.close()
         mime, fname = 'text/plain', 'db'
     elif key in ('pdf', 'paper', 'beamer'):
         mime, name = 'application/pdf', 'beamer_u' if key == 'beamer' else 'u'
@@ -2150,20 +2224,20 @@ def action(environ, start_response, key, host):
         f = '%s/%s.pdf' % (os.path.dirname(environ['SCRIPT_FILENAME']), name)
         o = open(f, 'rb').read()
     else:
-        mime, fname, o = 'text/html; charset=utf-8', key, hhead(host)
+        mime, fname, o = 'text/html; charset=utf-8', key, hhead(key, host)
         ficon = '<svg height="20" width="20"><path d="M0,0L14,0L20,6L20,20L0,20Z" stroke-width="2" stroke="gray" fill="#EEE"/><path d="M4,4L12,4M4,8L16,8M4,12L16,12M4,16L16,16" stroke-width="1" stroke="gray" fill="none"/></svg>'
         pyicon = '<svg height="20" width="20"><path d="M0,0L14,0L20,6L20,20L0,20Z" stroke-width="2" stroke="gray" fill="#FFF"/><path d="M4,4L12,4M4,8L16,8M4,12L16,12" stroke-width="1" stroke="gray" fill="none"/><g transform="scale(.15),translate(-40,-60)"><path style="fill:#366994;" d="M 99.75,67.46C71.71,67.46 73.46,79.62 73.46,79.62L73.5,92.21L100.25,92.21L100.25,96L62.87,96C62.87,96 44.93,93.96 44.93,122.25 C44.93,150.53 60.59,149.53 60.59,149.53L69.93,149.53L69.93,136.40C69.93,136.40 69.43,120.75 85.34,120.75C101.25,120.75 111.87,120.75 111.87,120.75C111.87,120.75 126.78,120.99 126.78,106.34C126.78,91.69 126.78,82.12 126.78,82.12C126.78,82.12 129.04,67.46 99.75,67.46z M85,75.93 C87.66,75.93 89.81,78.08 89.81,80.75C89.81,83.41 87.66,85.56 85,85.56C82.33,85.56 80.18,83.41 80.18,80.75 C 80.18,78.08 82.33,75.93 85,75.93z"/><path style="fill:#ffc331;" d="M100.54,177.31C128.57,177.31 126.82,165.15 126.82,165.15L126.79,152.56L100.04,152.56L100.04,148.78L137.42,148.78C137.42,148.78 155.35,150.81 155.35,122.53C155.35,94.24 139.70,95.25 139.70,95.25L130.35,95.25L130.35,108.37C130.35,108.37 130.86,124.03 114.95,124.03C99.04,124.03 88.42,124.03 88.421,124.03C88.42,124.03 73.51,123.79 73.51,138.43C73.51,153.08 73.51,162.65 73.51,162.65C73.51,162.65 71.25,177.31 100.54,177.31zM115.29,168.84C112.63,168.84 110.48,166.69 110.48,164.03C110.48,161.37 112.63,159.22 115.29,159.22C117.95,159.22 120.10,161.37 120.10,164.03C120.10,166.69 117.95,168.84 115.29,168.84z"/></g></svg>'
         if key in ('about', 'help', 'usage'): 
             o += table_about(host)
         elif key in ('test', 'parse'): 
-            o += table_test(True, 'Parsing', __AST_SET__)
+            o += table_test(True, __AST_SET__)
         elif key in ('unparse',): 
-            o += table_test(False, 'Unparsing', __AST_SET__)
+            o += table_test(False, __AST_SET__)
         elif key in ('random',): 
-            o += table_test(False, 'Random', get_random_set())
+            o += table_test(False, get_random_set())
         elif key == 'list':
             i = 0
-            o += '<h1>List</h1><a href="/u?history">History</a>'
+            o += '| <a href="/u?history">History</a>'
             o += '<table><tr><th width="2.5cm">#</th><th>blob</th><th width="2cm">commit</th><th width="1cm">author</th><th>age</th><th>message</th></tr>'
             for l in gitu().list():
                 i += 1
@@ -2176,7 +2250,7 @@ def action(environ, start_response, key, host):
             o += '</table>'
         elif key == 'history':
             i = 0
-            o += '<h1>History</h1><a href="/u?list">List</a>'
+            o += '| <a href="/u?list">List</a>'
             o += '<table><tr><th width="2.5cm">#</th><th>name</th><th width="2cm">commit</th><th width="1cm">author</th><th>age</th><th>message</th></tr>'
             aa = gitu()
             for l in aa.history():
@@ -2197,10 +2271,11 @@ def action(environ, start_response, key, host):
             else:
                 cmd = 'cd %s/..; rm -rf u; git clone https://github.com/pelinquin/u.git' % here # Usualy git://github...
             out, err = subprocess.Popen((cmd), shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE).communicate()
-            o = 'Application Update...\n'
+            o += '<pre>Application Update...\n'
             o += 'Error:%s\n' % err if err else 'Message:%s\nUpdate OK\n' % out.decode('utf-8')
-        elif key in ('type',):
-            o += '<pre>TYPE</pre>'
+            o += '</pre><br/><a href="u?help">Reload the new version</a>'
+        elif key in ('source', 'download'):
+            o += '<br/><a href="u">Python3 Source code</a>'
         else:
             o += '<pre>Keywork:%s</pre>' % key
         o += htail()
