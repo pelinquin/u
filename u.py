@@ -80,7 +80,7 @@ __RE_U__ = r'''     # RegExp
 __ARC_T__  = ('--', '->', '-<', '-=', '=-', '=>', '=<', '==', '<-', '<>', '<<', '<=', '>-', '>>', '><', '>=')
 __NODE_T__ = ('|',  '\'', '`',  '"',  ';',  ',',  '!',  '~',  '^',  '@',  '*',  '+',  '/',  '$',  '(',  '[' )
  
-__ACTIONS__ = ('download', 'source', 'update', 'about', 'help', 'usage', 'pdf', 'list', 'history', 'paper', 'beamer', 'log', 'test', 'parse', 'unparse', 'random', 'signup', 'database')
+__ACTIONS__ = ('download', 'source', 'update', 'about', 'help', 'usage', 'pdf', 'list', 'history', 'paper', 'beamer', 'log', 'test', 'parse', 'unparse', 'random', 'signup', 'change', 'database')
 
 __OUT_LANG__ = {'c'          :['c',    ('/*', '*/', ''), 'gcc ansi pedantic'],
                 'objectivec' :['m',    ('/*', '*/', ''), ''],
@@ -1704,6 +1704,13 @@ def rclogo(r=.75, x=-7, y=-4):
 
 def rpilogo():
     "provision!"
+    return r"""\fill[#000000] svg "m 158.37,1.65c-3.61,0.11 -7.51,1.44 -11.93,4.93C135.61,2.41 125.11,0.96 115.71,9.46 101.22,7.58 96.50,11.46 92.93,16 89.75,15.93 69.11,12.72 59.65,26.84 35.87,24.03 28.35,40.83 36.87,56.5c-4.85,7.51 -9.88,14.94 1.46,29.28 -4.01,7.98 -1.52,16.64 7.93,27.12 -2.49,11.22 2.41,19.14 11.21,25.31 -1.64,15.35 14.08,24.28 18.78,27.46 1.80,8.94 5.56,17.39 23.53,22.06 2.96,13.33 13.76,15.63 24.21,18.43 -34.56,20.08 -64.20,46.52 -64,111.37l-5.06,9.03C15.33,350.69 -20.31,428.16 35.43,491.12c3.64,19.70 9.74,33.86 15.18,49.53 8.13,63.13 61.21,92.69 75.21,96.18 20.51,15.62 42.36,30.45 71.93,40.84 27.87,28.74 58.07,39.70 88.43,39.68 0.44,-2.8e-4 0.89,0.00 1.34,0 30.36,0.01 60.56,-10.93 88.43,-39.68 29.56,-10.38 51.42,-25.21 71.93,-40.84 14.00,-3.49 67.08,-33.05 75.21,-96.18 5.43,-15.66 11.54,-29.82 15.18,-49.53 55.75,-62.96 20.09,-140.42 -19.53,-164.53L513.75,317.56c0.20,-64.85 -29.43,-91.28 -64,-111.37 10.45,-2.79 21.25,-5.10 24.21,-18.43 17.96,-4.66 21.72,-13.11 23.53,-22.06 4.69,-3.18 20.42,-12.11 18.78,-27.46 8.80,-6.17 13.71,-14.08 11.21,-25.31 9.46,-10.48 11.95,-19.14 7.93,-27.12C546.79,71.44 541.76,64.01 536.90,56.5 545.42,40.83 537.90,24.03 514.12,26.84 504.66,12.72 484.02,15.93 480.84,16 477.27,11.46 472.55,7.58 458.06,9.46 448.67,0.962 438.17,2.41 427.34,6.59 414.48,-3.55 405.97,4.58 396.25,7.65 380.67,2.56 377.11,9.53 369.46,12.37 352.49,8.78 347.33,16.59 339.18,24.84l-9.46,-0.18c-25.61,15.09 -38.33,45.82 -42.84,61.62 -4.51,-15.80 -17.20,-46.53 -42.81,-61.62l-9.46,0.18C226.44,16.59 221.28,8.78 204.31,12.37 196.66,9.53 193.10,2.56 177.53,7.65c-6.37,-2.01 -12.24,-6.21 -19.15,-6 z"
+\begin{scope} \fill[#75a928] svg "m 107.39,68.05c67.94,35.03 107.44,63.36 129.08,87.50 -11.08,44.41 -68.89,46.44 -90.03,45.19 4.32,-2.01 7.93,-4.42 9.22,-8.13 -5.30,-3.76 -24.11,-0.39 -37.24,-7.77 5.04,-1.04 7.40,-2.06 9.76,-5.78 -12.40,-3.95 -25.76,-7.36 -33.62,-13.92 4.24,0.05 8.20,0.94 13.74,-2.89 -11.11,-5.98 -22.96,-10.73 -32.18,-19.88 5.74,-0.14 11.93,-0.05 13.74,-2.16 -10.17,-6.30 -18.75,-13.30 -25.85,-20.97 8.03,0.97 11.43,0.13 13.37,-1.26 -7.68,-7.87 -17.41,-14.52 -22.05,-24.22 5.96,2.05 11.43,2.84 15.36,-0.18 -2.61,-5.89 -13.80,-9.36 -20.24,-23.14 6.28,0.60 12.94,1.37 14.28,0C61.80,58.51 56.79,51.83 51.88,44.91 65.33,44.71 85.71,44.96 84.79,43.82l-8.31,-8.49c13.13,-3.53 26.58,0.56 36.33,3.61 4.38,-3.45 -0.07,-7.82 -5.42,-12.29 11.16,1.49 21.25,4.05 30.37,7.59 4.87,-4.39 -3.16,-8.79 -7.05,-13.19 17.24,3.27 24.55,7.87 31.81,12.47 5.26,-5.05 0.30,-9.34 -3.25,-13.74 13.00,4.81 19.70,11.03 26.75,17.17 2.39,-3.22 6.07,-5.59 1.62,-13.37 9.23,5.32 16.18,11.59 21.33,18.62 5.71,-3.63 3.40,-8.61 3.43,-13.19 9.59,7.80 15.68,16.11 23.14,24.22 1.50,-1.09 2.81,-4.80 3.97,-10.66 22.89,22.21 55.24,78.15 8.31,100.34C207.95,109.95 160.25,86.01 107.39,68.05 z" svg "M 467.92,68.05C399.97,103.08 360.47,131.42 338.83,155.56c11.08,44.41 68.89,46.44 90.03,45.19 -4.32,-2.01 -7.93,-4.42 -9.22,-8.13 5.30,-3.76 24.11,-0.39 37.24,-7.77 -5.04,-1.04 -7.40,-2.06 -9.76,-5.78 12.40,-3.95 25.76,-7.36 33.62,-13.92 -4.24,0.05 -8.20,0.94 -13.74,-2.89 11.11,-5.98 22.96,-10.73 32.18,-19.88 -5.74,-0.14 -11.93,-0.05 -13.74,-2.16 10.17,-6.30 18.75,-13.30 25.85,-20.97 -8.03,0.97 -11.43,0.13 -13.37,-1.26 7.68,-7.87 17.41,-14.52 22.05,-24.22 -5.96,2.05 -11.43,2.84 -15.36,-0.18 2.61,-5.89 13.80,-9.36 20.24,-23.14 -6.28,0.60 -12.94,1.37 -14.28,0 2.92,-11.88 7.92,-18.57 12.83,-25.49 -13.45,-0.19 -33.82,0.05 -32.90,-1.08l8.31,-8.49c-13.13,-3.53 -26.58,0.56 -36.33,3.61 -4.38,-3.45 0.07,-7.82 5.42,-12.29 -11.16,1.49 -21.25,4.05 -30.37,7.59 -4.87,-4.39 3.16,-8.79 7.05,-13.19 -17.24,3.27 -24.55,7.87 -31.81,12.47 -5.26,-5.05 -0.30,-9.34 3.25,-13.74 -13.00,4.81 -19.70,11.03 -26.75,17.17 -2.39,-3.22 -6.07,-5.59 -1.62,-13.37 -9.23,5.32 -16.18,11.59 -21.33,18.62 -5.71,-3.63 -3.40,-8.61 -3.43,-13.19 -9.59,7.80 -15.68,16.11 -23.14,24.22 -1.50,-1.09 -2.81,-4.80 -3.97,-10.66 -22.89,22.21 -55.24,78.15 -8.31,100.34 39.91,-32.94 87.61,-56.88 140.47,-74.84 z" \end{scope};
+\begin{scope} \fill[#bc1142] svg "m 369.94,520.36c0.88,52.75 -60.11,88.24 -107.70,71.02 -47.41,-11.85 -72.65,-74.37 -40.86,-113.39 30.26,-42.28 100.43,-43.46 132.37,-2.53 10.26,12.58 16.23,28.65 16.18,44.91 z" svg "m 241.45,305.96c21.06,15.08 33.52,41.43 29.26,67.33 -2.75,25.76 -16.19,50.39 -35.61,67.44 -20.28,16.78 -49.20,22.53 -74.48,15.96 -27.65,-9.94 -47.47,-39.97 -43.36,-69.50 1.12,-35.31 22.02,-70.38 55.62,-83.55 21.97,-9.78 47.87,-11.88 68.58,2.31 z" svg "m 332.48,301.96c-50.42,44.57 -26.96,87.00 -12.16,113.94 19.23,22.30 48.98,57.51 107.13,29.76 50.42,-44.57 26.96,-87.00 12.16,-113.94 -18.60,-21.30 -50.01,-58.40 -107.13,-29.76 z" svg "M 72.91,342.08C109.32,332.33 85.20,492.72 55.57,479.56 22.99,453.35 12.49,376.58 72.91,342.08 z" svg "m 493.67,340.08c-36.41,-9.75 -12.29,150.63 17.33,137.47 32.58,-26.21 43.08,-102.97 -17.33,-137.47 z" svg "m 369.97,220.65c62.83,-10.61 115.11,26.72 113.01,94.85 -2.06,26.12 -136.15,-90.96 -113.01,-94.85 z" svg "M 196.35,218.65C133.52,208.04 81.24,245.37 83.34,313.51 85.41,339.63 219.50,222.54 196.35,218.65 z" svg "m 286.61,202.75c-37.50,-0.97 -73.49,27.83 -73.58,44.54 -0.10,20.30 29.65,41.09 73.83,41.62 45.12,0.32 73.91,-16.64 74.06,-37.59 0.16,-23.73 -41.03,-48.93 -74.31,-48.57 z" svg "m 288.90,619.11c32.69,-1.42 76.57,10.53 76.65,26.39 0.54,15.40 -39.78,50.21 -78.82,49.53 -40.42,1.74 -80.06,-33.11 -79.54,-45.19 -0.60,-17.71 49.22,-31.54 81.71,-30.73 z" svg "m 168.13,525.10c23.27,28.04 33.89,77.31 14.46,91.84 -18.37,11.08 -63.01,6.52 -94.73,-39.05 -21.39,-38.24 -18.63,-77.15 -3.61,-88.58 22.46,-13.68 57.17,4.79 83.88,35.79 z" svg "m 405.02,516.21c-25.18,29.50 -39.21,83.30 -20.83,100.64 17.56,13.46 64.72,11.58 99.56,-36.75 25.29,-32.46 16.82,-86.68 2.37,-101.07 -21.46,-16.60 -52.27,4.64 -81.09,37.18 z" \end{scope};
+"""
+
+def rpilogo_svg():
+    "provision!"
     return """<svg xmlns="http://www.w3.org/2000/svg">
 <path d="m 158.37,1.65c-3.61,0.112 -7.51,1.446 -11.93,4.93C135.61,2.416 125.11,0.962 115.71,9.46 101.22,7.582 96.50,11.46 92.93,16 89.75,15.93 69.11,12.72 59.65,26.84 35.87,24.03 28.35,40.83 36.87,56.5c-4.85,7.51 -9.88,14.94 1.46,29.28 -4.01,7.98 -1.52,16.64 7.93,27.12 -2.49,11.22 2.41,19.14 11.21,25.31 -1.64,15.35 14.08,24.28 18.78,27.46 1.80,8.94 5.56,17.39 23.53,22.06 2.96,13.33 13.76,15.63 24.21,18.43 -34.56,20.08 -64.20,46.52 -64,111.37l-5.06,9.03C15.33,350.69 -20.31,428.16 35.43,491.12c3.64,19.7 9.74,33.86 15.18,49.53 8.13,63.13 61.21,92.69 75.21,96.18 20.51,15.62 42.36,30.45 71.93,40.84 27.87,28.74 58.07,39.7 88.43,39.68 0.44,0 0.89,0 1.34,0 30.36,0.01 60.56,-10.93 88.43,-39.68 29.56,-10.38 51.42,-25.21 71.93,-40.84 14.00,-3.49 67.08,-33.05 75.21,-96.18 5.43,-15.66 11.54,-29.82 15.18,-49.53 55.75,-62.96 20.09,-140.42 -19.53,-164.53L513.75,317.56c0.20,-64.85 -29.43,-91.28 -64,-111.37 10.45,-2.79 21.25,-5.1 24.21,-18.43 17.96,-4.66 21.72,-13.11 23.53,-22.06 4.69,-3.18 20.42,-12.11 18.78,-27.46 8.80,-6.17 13.71,-14.08 11.21,-25.31 9.46,-10.48 11.95,-19.14 7.93,-27.12C546.79,71.44 541.76,64.01 536.90,56.5 545.42,40.83 537.90,24.03 514.12,26.84 504.66,12.72 484.02,15.93 480.84,16 477.27,11.46 472.55,7.58 458.06,9.46 448.67,0.9632 438.17,2.41 427.34,6.59 414.48,-3.551 405.97,4.58 396.25,7.65 380.67,2.56 377.11,9.538 369.46,12.37 352.49,8.788 347.33,16.59 339.18,24.84l-9.46,-0.18c-25.61,15.09 -38.33,45.82 -42.84,61.62 -4.51,-15.8 -17.20,-46.53 -42.81,-61.62l-9.46,0.18C226.44,16.59 221.28,8.785 204.31,12.37 196.66,9.533 193.10,2.569 177.53,7.65c-6.37,-2.011 -12.24,-6.216 -19.15,-6z" style="fill:#000"/>
 <g style="fill:#75a928">
@@ -2093,7 +2100,7 @@ def ide(environ, start_response, gid='start', rev=None):
     is_python = bool(re.search('\.py$', gid))
     content = gitu().cat_rev(gid, rev) if rev else gitu().cat(gid)
     o = '<html><title id="title">%s</title>\n' % gid + favicon()
-    o += style('h6,input,a{font-family:helvetica neue,helvetica,arial,sans-serif;color:Dodgerblue;}a,input{font-size:.8em;}html,body,textarea,object,input,div{margin:0;padding:0;}textarea#editor{position:absolute;left:0;top:0;resize:none;width:50%;height:100%;padding-top:20;}object#reader{position:absolute;right:0;top:0;width:50%;height:100%;background-color:#F1F4FF;}select#lang{position:absolute;right:50%;top:22;z-index:11;}input#message{position:absolute;right:50%;top:0;}a#list{position:absolute;left:0;top:0;}a#history{position:absolute;left:18;top:0;}h6#sid{position:absolute;right:50%;bottom:0;z-index:11;}input#login{position:absolute;left:36;top:0;}input#pw{position:absolute;left:125;top:0;}input#send{position:absolute;left:215;top:0;}a#msg{position:absolute;left:310;top:0;color:red}a#up{position:absolute;left:262;top:0;}')
+    o += style('h6,input,a{font-family:helvetica neue,helvetica,arial,sans-serif;color:Dodgerblue;}a,input{font-size:.7em;}html,body,textarea,object,input,div,a{margin:0;padding:0;}textarea#editor{position:absolute;left:0;top:0;resize:none;width:50%;height:100%;padding-top:20;}object#reader{position:absolute;right:0;top:0;width:50%;height:100%;background-color:#F1F4FF;}select#lang{position:absolute;right:50%;top:22;z-index:11;}input#message{position:absolute;right:50%;top:0;}a#list{position:absolute;left:0;top:0;}a#history{position:absolute;left:18;top:0;}h6#sid{position:absolute;right:50%;bottom:0;z-index:11;}input#login{position:absolute;left:36;top:0;}input#pw{position:absolute;left:125;top:0;}input#send{position:absolute;left:215;top:0;padding:0;border:none;background:Dodgerblue;color:white}a#msg{position:absolute;left:310;top:0;color:red}a#up{position:absolute;left:262;top:0;}')
     o += script("""function post(url, data, cb) {var req = new XMLHttpRequest();req.onreadystatechange = processRequest;function processRequest () {if (req.readyState == 4) {if (req.status == 200) {if (cb) { cb(req.responseText); }} else {alert('Error Post status:'+ req.status);}}} this.doPost = function() {req.open('POST', url, true);req.send(data);} };
 window.onload = run;
 function save() {
@@ -2149,8 +2156,8 @@ document.getElementById("reader").setAttribute('data', url);
         o += '<input id="login" title="user" style="border:none" value="%s" size="10"/>' % user
         o += '<input id="send" type="submit" title="logout" name="logout" value="Logout"/>\n'
     else:
-        o += '<input id="login" name="login" title="log in with existing account" placeholder="Username" size="10" value=""/>'
-        o += '<input id="pw"    name="pw" type="password" title="password" placeholder="Password" size="10" value=""/>' 
+        o += '<input id="login" name="login" title="log in with existing account" placeholder="Username" size="9" value=""/>'
+        o += '<input id="pw"    name="pw" type="password" title="password" placeholder="Password" size="9" value=""/>' 
         o += '<input id="send"  type="submit" title="submit login/password" value="Login"/>' 
         o += '<a id="up" href="u?signup" title="create a new account">Signup<a/>\n'
     o += '</form><a id="msg" title="error message">%s</a>'% msg
@@ -2181,39 +2188,46 @@ def check_user(login,pw):
             db.close()    
     return result
 
+def signup(environ, ch=False):
+    msg, passed = 'Change your password' if ch else 'Create a new account!', False
+    o = '| <a href="/u?list">List</a> | <a href="/u?history">History</a><br/>\n'
+    if environ['REQUEST_METHOD'].lower() == 'post': 
+        msg = '...error, try again!'
+        x = urllib.parse.unquote(environ['wsgi.input'].read().decode('utf-8'))
+        #msg = x
+        if reg(re.match(r'login=([^&]{4,20})&pw=([^&]{4,20})&pw2=([^&]{4,20})$', x)):
+            user, pw, pw2 = reg.v.group(1), reg.v.group(2), reg.v.group(3)
+            d = dbm.open('%s/rev.db' % __git_base__, 'c')
+            if ch:
+                if pw != pw2:
+                    d[user] = base64.urlsafe_b64encode(hashlib.sha1(pw2.encode('utf-8')).digest())[:-18].decode('utf-8')
+                    passed, msg = True, 'Password for \'%s\' changed!' % user 
+            else:
+                if pw == pw2 and not re.search(user, pw) and user not in d:
+                    if 'HTTP_COOKIE' in environ:
+                        sid = re.sub('^.*=', '', environ['HTTP_COOKIE'])
+                    else:
+                        d['_'] = '%d' % (int(d['_'])+1) if '_' in d else '0'
+                        sid = base64.urlsafe_b64encode(hashlib.sha1(d['_']).digest())[:-18].decode('utf-8')
+                        #sid = base64.urlsafe_b64encode(hashlib.sha1(time.time()).digest())[:-18].decode('utf-8')
+                    d[sid], d[user] = user, base64.urlsafe_b64encode(hashlib.sha1(pw.encode('utf-8')).digest())[:-18].decode('utf-8')
+                    passed, msg = True, 'New account for \'%s\' created!' % user
+            d.close()
+    o += '<a id="msg" title="error message">%s</a>\n' % msg
+    if not passed:
+        o += '<form method="post">\n' 
+        #o += '<input id="cb" type="checkbox" name="cb" onclick="submit();"/><br/>\n'
+        o += '<input id="login" name="login" title="select a user name" placeholder="Username" size="20" value=""/><br/>\n'
+        l1, l2 = 'old password' if ch else 'password', 'new password' if ch else 'password again'
+        o += '<input id="pw"    name="pw" type="password" title="...%s" placeholder="%s" size="20" value=""/><br/>\n' % (l1, l1.title())
+        o += '<input id="pw2"   name="pw2" type="password" title="...%s" placeholder="%s" size="20" value=""/><br/>\n' % (l2, l2.title())
+        o += '<input id="user"  type="submit" title="submit" value="Send"/>\n'
+        o += '</form>\n'
+    o += '<h6>Login name shall be [4,20] length<br/>Password shall be [4,20] length<br/>The two passwords shall equal<br/>Login shall not be already in the database<br/>Only ten users for the same ip address<br/>Password shall not contain user name</h6>\n'
+    return o
+
 def action(environ, start_response, key, host):
-    if key == 'signup':
-        mime, fname, o = 'text/html; charset=utf-8', key, hhead(key, host)
-        msg, passed = 'Create a new account!', False
-        o += '<h1>Signup</h1><a href="/u?about">About</a>|<a href="/u?list">List</a>|<a href="/u?history">History</a><br/>\n'
-        if environ['REQUEST_METHOD'].lower() == 'post': 
-            msg = '...error, try again!'
-            x = urllib.parse.unquote(environ['wsgi.input'].read().decode('utf-8'))
-            if reg(re.match(r'login=([^&]{4,20})&pw=([^&]{4,20})&pw2=([^&]{4,20})$', x)):
-                user, pw, pw2 = reg.v.group(1), reg.v.group(2), reg.v.group(3)
-                if user and pw and pw2 and not re.search(user, pw) and pw == pw2:
-                    d = dbm.open('%s/rev.db' % __git_base__, 'c')
-                    if user not in d:
-                        if 'HTTP_COOKIE' in environ:
-                            sid = re.sub('^.*=', '', environ['HTTP_COOKIE'])
-                        else:
-                            d['_'] = '%d' % (int(d['_'])+1) if '_' in d else '0'
-                            sid = base64.urlsafe_b64encode(hashlib.sha1(d['_']).digest())[:-18].decode('utf-8')
-                        d[sid], d[user] = user, base64.urlsafe_b64encode(hashlib.sha1(pw.encode('utf-8')).digest())[:-18].decode('utf-8')
-                        passed, msg = True, 'New account for \'%s\' created!' % user
-                    d.close()
-        o += '<a id="msg" title="error message">%s</a>\n' % msg
-        if not passed:
-            o += '<form method="post">\n' 
-            o += '<input id="login" name="login" title="select a user name" placeholder="Username" size="20" value=""/><br/>\n'
-            o += '<input id="pw"    name="pw" type="password" title="password" placeholder="Password" size="20" value=""/><br/>\n'
-            o += '<input id="pw2"   name="pw2" type="password" title="password again" placeholder="Password again" size="20" value=""/><br/>\n'
-            o += '<input id="user"  type="submit" title="signup" value="Signup"/>\n'
-            o += '</form>\n'
-        o += '<h6>Login name shall be [2,10] length<br/>Password name shall be [2,10] length<br/>Two passwords shall equal<br/>Login shall not be already used<br/>Only ten users for the same ip address<br/>Password shall not contain user name</h6>\n'
-        o += htail()
-        o = o.encode('utf-8')
-    elif key == 'database':
+    if key == 'database':
         d, o = dbm.open('%s/rev.db' % __git_base__, 'r'), ''
         for item in d.keys(): o +=  ('%s -> %s\n' % (item.decode('utf-8'), d[item].decode('utf-8')))
         d.close()
@@ -2229,6 +2243,10 @@ def action(environ, start_response, key, host):
         pyicon = '<svg height="20" width="20"><path d="M0,0L14,0L20,6L20,20L0,20Z" stroke-width="2" stroke="gray" fill="#FFF"/><path d="M4,4L12,4M4,8L16,8M4,12L16,12" stroke-width="1" stroke="gray" fill="none"/><g transform="scale(.15),translate(-40,-60)"><path style="fill:#366994;" d="M 99.75,67.46C71.71,67.46 73.46,79.62 73.46,79.62L73.5,92.21L100.25,92.21L100.25,96L62.87,96C62.87,96 44.93,93.96 44.93,122.25 C44.93,150.53 60.59,149.53 60.59,149.53L69.93,149.53L69.93,136.40C69.93,136.40 69.43,120.75 85.34,120.75C101.25,120.75 111.87,120.75 111.87,120.75C111.87,120.75 126.78,120.99 126.78,106.34C126.78,91.69 126.78,82.12 126.78,82.12C126.78,82.12 129.04,67.46 99.75,67.46z M85,75.93 C87.66,75.93 89.81,78.08 89.81,80.75C89.81,83.41 87.66,85.56 85,85.56C82.33,85.56 80.18,83.41 80.18,80.75 C 80.18,78.08 82.33,75.93 85,75.93z"/><path style="fill:#ffc331;" d="M100.54,177.31C128.57,177.31 126.82,165.15 126.82,165.15L126.79,152.56L100.04,152.56L100.04,148.78L137.42,148.78C137.42,148.78 155.35,150.81 155.35,122.53C155.35,94.24 139.70,95.25 139.70,95.25L130.35,95.25L130.35,108.37C130.35,108.37 130.86,124.03 114.95,124.03C99.04,124.03 88.42,124.03 88.421,124.03C88.42,124.03 73.51,123.79 73.51,138.43C73.51,153.08 73.51,162.65 73.51,162.65C73.51,162.65 71.25,177.31 100.54,177.31zM115.29,168.84C112.63,168.84 110.48,166.69 110.48,164.03C110.48,161.37 112.63,159.22 115.29,159.22C117.95,159.22 120.10,161.37 120.10,164.03C120.10,166.69 117.95,168.84 115.29,168.84z"/></g></svg>'
         if key in ('about', 'help', 'usage'): 
             o += table_about(host)
+        elif key == 'signup': 
+            o += signup(environ)
+        elif key == 'change': 
+            o += signup(environ, True)
         elif key in ('test', 'parse'): 
             o += table_test(True, __AST_SET__)
         elif key in ('unparse',): 
