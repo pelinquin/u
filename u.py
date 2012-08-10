@@ -42,7 +42,7 @@ __license__  = 'GPLv3'
 __url__      = 'github.com/pelinquin/u'
 __git_base__ = '/u'
 
-import sys, os, re, hashlib, subprocess, urllib.parse, base64, random, functools, datetime, shutil, html, ast, http.client, dbm
+import sys, os, re, hashlib, subprocess, urllib.parse, base64, random, functools, datetime, shutil, html, ast, http.client, dbm, tempfile, time
 
 __digest__ = base64.urlsafe_b64encode(hashlib.sha1(open(__file__, 'r', encoding='utf-8').read().encode('utf-8')).digest())[:5]
 
@@ -700,6 +700,7 @@ A list of all links between two tokens+port and link attributes
 
     def layout(self, uast, rankdir='LR'):
         "Computes 2D automatic layout for graphics (tikz and svg) generation"
+        log('dot')
         nodes, arcs = uast
         bbx, bby, pos, d = None, None, {}, 'digraph G { rankdir=%s ' % rankdir 
         child = self.getchild(nodes)
@@ -2067,7 +2068,9 @@ def htail():
 
 def tex2pdf(txt):
     "TeX to PDF"
-    src = 'tikzfile' # better use tmpfile module
+    src = 'tikzfile' # better use tempfile module
+    dir = tempfile.mkdtemp()
+    #open(src1, 'w', encoding='utf-8').write(txt)
     open('/tmp/%s.tex' % src, 'w', encoding='utf-8').write(txt)
     subprocess.Popen(('cd /tmp; pdflatex -interaction=batchmode %s.tex 1>/dev/null' % src), shell=True).communicate()
     return open('/tmp/%s.pdf' % src, 'rb').read()
@@ -2104,6 +2107,7 @@ def ide(environ, start_response, gid='start', rev=None):
     o += script("""function post(url, data, cb) {var req = new XMLHttpRequest();req.onreadystatechange = processRequest;function processRequest () {if (req.readyState == 4) {if (req.status == 200) {if (cb) { cb(req.responseText); }} else {alert('Error Post status:'+ req.status);}}} this.doPost = function() {req.open('POST', url, true);req.send(data);} };
 window.onload = run;
 function save() {
+alert ('save');
 var name = document.getElementById("title").firstChild.nodeValue;
 document.getElementById("title").firstChild.nodeValue = name.replace(/^\*(.*)$/,'$1');
 if (typeof ed != 'undefined') {var v=ed.getValue();} else { var v=document.getElementById("editor").value; }
@@ -2228,10 +2232,13 @@ def signup(environ, ch=False):
 
 def action(environ, start_response, key, host):
     if key == 'database':
+        mime, fname = 'text/plain', 'db'
         d, o = dbm.open('%s/rev.db' % __git_base__, 'r'), ''
         for item in d.keys(): o +=  ('%s -> %s\n' % (item.decode('utf-8'), d[item].decode('utf-8')))
-        d.close()
+        d.close() 
+    elif key == 'log':
         mime, fname = 'text/plain', 'db'
+        o = open('/tmp/log', 'r').read()
     elif key in ('pdf', 'paper', 'beamer'):
         mime, name = 'application/pdf', 'beamer_u' if key == 'beamer' else 'u'
         fname = '{}.pdf'.format(name)
@@ -2339,10 +2346,15 @@ def display(environ, start_response, gid, rev= None):
     start_response('200 OK', [('Content-type', mime), ('Content-Disposition', 'filename={}'.format(pdfname))])
     return [o]
 
+def log(s):
+    "append log"
+    open('/tmp/log', 'a', encoding='utf-8').write('%s:%s\n' % (datetime.datetime.now(), s))
+
 def application(environ, start_response):
     """ WSGI Web application """
     s, mime, o, myu, host, fname = urllib.parse.unquote(environ['QUERY_STRING']), 'text/plain; charset=utf-8', 'Error!', u(), environ['SERVER_NAME'], 'u.py'
     act, mod, lng, way, gid, arg, rev = None, None, None, None, None, None, None
+    log(s)
     if reg(re.match(r'\s*(%s$|)(_?)(%s|)(([@\^\$!])(.+)|&?(.+|))\s*$' % ('$|'.join(__ACTIONS__), '|'.join(__OUT_LANG__)), s, re.I)):
         act, mod, lng, way, gid, arg = reg.v.group(1), reg.v.group(2), reg.v.group(3), reg.v.group(5), reg.v.group(6), reg.v.group(7)
     if gid and reg(re.match(r'([^~]+)~([a-fA-F\d]{6,20})$', gid)):
@@ -2359,6 +2371,7 @@ def application(environ, start_response):
             if lng:
                 arg = gitu().cat_rev(gid, rev) if rev else gitu().cat(gid)
             else:
+                log('ide')
                 return ide(environ, start_response, gid, rev)
         elif way == '!':
             return rm(environ, start_response, gid)
@@ -2367,13 +2380,15 @@ def application(environ, start_response):
     if arg:
         if lng:
             if lng in ('xml', 'svg') and mod: mime = 'application/xhtml+xml; charset=utf-8'
-            if lng == 'tikz' and mod: mime = 'application/pdf'
+            elif lng == 'tikz' and mod: mime = 'application/pdf'
+            #elif lng == 'tikz' and mod: mime = 'text/plain'
             if lng == 'svg' and environ['REQUEST_METHOD'].lower() == 'post': 
                 raw = environ['wsgi.input'].read().decode('utf-8')
                 o = myu.gen_svg(myu.parse(arg), eval(urllib.parse.unquote(raw[2:])))
             else:
                 o = eval('myu.headfoot(myu.gen_{}, lng, host)(myu.parse(arg))'.format(lng))
             if lng == 'tikz' and mod: o = tex2pdf(o)
+            #if lng == 'tikz' and mod: o = 'hello'
         else:
             o = myu.headfoot(myu.gen_ast, 'python', host)(myu.parse(arg))
         if lng != 'tikz' or not mod:
