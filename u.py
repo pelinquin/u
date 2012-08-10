@@ -2100,7 +2100,7 @@ def ide(environ, start_response, gid='start', rev=None):
     is_python = bool(re.search('\.py$', gid))
     content = gitu().cat_rev(gid, rev) if rev else gitu().cat(gid)
     o = '<html><title id="title">%s</title>\n' % gid + favicon()
-    o += style('h6,input,a{font-family:helvetica neue,helvetica,arial,sans-serif;color:Dodgerblue;}a,input{font-size:.7em;}html,body,textarea,object,input,div,a{margin:0;padding:0;}textarea#editor{position:absolute;left:0;top:0;resize:none;width:50%;height:100%;padding-top:20;}object#reader{position:absolute;right:0;top:0;width:50%;height:100%;background-color:#F1F4FF;}select#lang{position:absolute;right:50%;top:22;z-index:11;}input#message{position:absolute;right:50%;top:0;}a#list{position:absolute;left:0;top:0;}a#history{position:absolute;left:18;top:0;}h6#sid{position:absolute;right:50%;bottom:0;z-index:11;}input#login{position:absolute;left:36;top:0;}input#pw{position:absolute;left:125;top:0;}input#send{position:absolute;left:215;top:0;padding:0;border:none;background:Dodgerblue;color:white}a#msg{position:absolute;left:310;top:0;color:red}a#up{position:absolute;left:262;top:0;}')
+    o += style('h6,input,a{font-family:helvetica neue,helvetica,arial,sans-serif;color:Dodgerblue;}a,input{font-size:.7em;}html,body,textarea,object,input,div,a{margin:0;padding:0;}textarea#editor{position:absolute;left:0;top:0;resize:none;width:50%;height:100%;padding-top:20;}object#reader{position:absolute;right:0;top:0;width:50%;height:100%;background-color:#F1F4FF;}select#lang{position:absolute;right:50%;top:22;z-index:11;}input#message{position:absolute;right:50%;top:0;}a#list{position:absolute;left:0;top:0;}a#history{position:absolute;left:18;top:0;}h6#sid{position:absolute;right:50%;bottom:0;z-index:11;}input#login{position:absolute;left:36;top:0;}input#pw{position:absolute;left:100;top:0;}input#send{position:absolute;left:170;top:0;padding:0;border:none;background:Dodgerblue;color:white}a#msg{position:absolute;left:260;top:0;color:red}a#up{position:absolute;left:210;top:0;}')
     o += script("""function post(url, data, cb) {var req = new XMLHttpRequest();req.onreadystatechange = processRequest;function processRequest () {if (req.readyState == 4) {if (req.status == 200) {if (cb) { cb(req.responseText); }} else {alert('Error Post status:'+ req.status);}}} this.doPost = function() {req.open('POST', url, true);req.send(data);} };
 window.onload = run;
 function save() {
@@ -2156,15 +2156,15 @@ document.getElementById("reader").setAttribute('data', url);
         o += '<input id="login" title="user" style="border:none" value="%s" size="10"/>' % user
         o += '<input id="send" type="submit" title="logout" name="logout" value="Logout"/>\n'
     else:
-        o += '<input id="login" name="login" title="log in with existing account" placeholder="Username" size="9" value=""/>'
-        o += '<input id="pw"    name="pw" type="password" title="password" placeholder="Password" size="9" value=""/>' 
+        o += '<input id="login" name="login" title="log in with existing account" placeholder="Username" size="8" value=""/>'
+        o += '<input id="pw"    name="pw" type="password" title="password" placeholder="Password" size="8" value=""/>' 
         o += '<input id="send"  type="submit" title="submit login/password" value="Login"/>' 
         o += '<a id="up" href="u?signup" title="create a new account">Signup<a/>\n'
     o += '</form><a id="msg" title="error message">%s</a>'% msg
     # end authentication
     o += '<a id="list" href="u?list" title="list"><svg height="16" width="16"><path d="M0,0L16,0L16,16L0,16Z" stroke-width="0" stroke="black" fill="Dodgerblue"/><path d="M4,4L12,4M4,8L12,8M4,12L12,12" stroke-width="2" stroke="white" fill="none"/></svg></a>\n'
     o += '<a id="history" title="history" href="u?history"><svg height="16" width="16"><path d="M0,0L16,0L16,16L0,16Z" stroke-width="0" stroke="black" fill="Dodgerblue"/><path d="M4,4L4,12M4,8L12,8M12,4L12,12" stroke-width="2" stroke="white" fill="none"/></svg></a>\n'
-    o += '<input type="text" id="message" placeholder="...enter a commit message" onchange="save();"/>\n'
+    o += '<input type="text" id="message" placeholder="...enter a commit message" onchange="save();" size="21"/>\n'
     o += '<textarea id="editor">{}</textarea>\n'.format(content)
     here = os.path.dirname(os.path.abspath(__file__))
     AREA = False # config
@@ -2190,7 +2190,7 @@ def check_user(login,pw):
 
 def signup(environ, ch=False):
     msg, passed = 'Change your password' if ch else 'Create a new account!', False
-    o = '| <a href="/u?list">List</a> | <a href="/u?history">History</a><br/>\n'
+    o = '| <a href="/u?change">Change password</a> | <a href="/u?signup">Signup</a> | <a href="/u?list">List</a> | <a href="/u?history">History</a><br/>\n'
     if environ['REQUEST_METHOD'].lower() == 'post': 
         msg = '...error, try again!'
         x = urllib.parse.unquote(environ['wsgi.input'].read().decode('utf-8'))
@@ -2223,7 +2223,7 @@ def signup(environ, ch=False):
         o += '<input id="pw2"   name="pw2" type="password" title="...%s" placeholder="%s" size="20" value=""/><br/>\n' % (l2, l2.title())
         o += '<input id="user"  type="submit" title="submit" value="Send"/>\n'
         o += '</form>\n'
-    o += '<h6>Login name shall be [4,20] length<br/>Password shall be [4,20] length<br/>The two passwords shall equal<br/>Login shall not be already in the database<br/>Only ten users for the same ip address<br/>Password shall not contain user name</h6>\n'
+    o += '<h6>Login name shall be [4,20] length<br/>Password shall be [4,20] length<br/>The two passwords shall equal<br/>Login shall not be already in the database<br/>Maximum ten users for the same ip address<br/>Password shall not contain user name</h6>\n'
     return o
 
 def action(environ, start_response, key, host):
