@@ -80,7 +80,7 @@ __RE_U__ = r'''     # RegExp
 __ARC_T__  = ('--', '->', '-<', '-=', '=-', '=>', '=<', '==', '<-', '<>', '<<', '<=', '>-', '>>', '><', '>=')
 __NODE_T__ = ('|',  '\'', '`',  '"',  ';',  ',',  '!',  '~',  '^',  '@',  '*',  '+',  '/',  '$',  '(',  '[' )
  
-__ACTIONS__ = ('download', 'source', 'update', 'about', 'help', 'usage', 'pdf', 'list', 'history', 'paper', 'beamer', 'log', 'test', 'parse', 'unparse', 'random', 'signup', 'change', 'database')
+__ACTIONS__ = ('download', 'source', 'update', 'about', 'help', 'usage', 'pdf', 'list', 'history', 'paper', 'beamer', 'log', 'test', 'parse', 'unparse', 'random', 'signup', 'change', 'database', 'bug', 'pi')
 
 __OUT_LANG__ = {'c'          :['c',    ('/*', '*/', ''), 'gcc ansi pedantic'],
                 'objectivec' :['m',    ('/*', '*/', ''), ''],
@@ -700,7 +700,7 @@ A list of all links between two tokens+port and link attributes
 
     def layout(self, uast, rankdir='LR'):
         "Computes 2D automatic layout for graphics (tikz and svg) generation"
-        log('dot')
+        #log('dot')
         nodes, arcs = uast
         bbx, bby, pos, d = None, None, {}, 'digraph G { rankdir=%s ' % rankdir 
         child = self.getchild(nodes)
@@ -1858,7 +1858,6 @@ class gitu:
     def commit(self, li, msg):
         "_"
         # remove bad blobs!
-        #open('/tmp/log', 'w', encoding='utf-8').write(li)
         #for f in ('1', 'tata~b54d625aa203ea55cc14a4b77bb942d818d45738~57c1518fe1'):
         #    li = re.sub(r'100644 blob\s[0-9a-f]{40}\t%s\n' % f, '', li)
         li = li.encode('utf-8')
@@ -2102,12 +2101,14 @@ def save(environ, start_response, gid='start'):
 def ide(environ, start_response, gid='start', rev=None):
     is_python = bool(re.search('\.py$', gid))
     content = gitu().cat_rev(gid, rev) if rev else gitu().cat(gid)
-    o = '<html><title id="title">%s</title>\n' % gid + favicon()
+    o = '<html>\n' 
+    o += '<meta http-equiv="Content-Type" content="text/html; charset=utf-8">\n'
+    o += '<title id="title">%s</title>\n' % gid + favicon()
     o += style('h6,input,a{font-family:helvetica neue,helvetica,arial,sans-serif;color:Dodgerblue;}a,input{font-size:.7em;}html,body,textarea,object,input,div,a{margin:0;padding:0;}textarea#editor{position:absolute;left:0;top:0;resize:none;width:50%;height:100%;padding-top:20;}object#reader{position:absolute;right:0;top:0;width:50%;height:100%;background-color:#F1F4FF;}select#lang{position:absolute;right:50%;top:22;z-index:11;}input#message{position:absolute;right:50%;top:0;}a#list{position:absolute;left:0;top:0;}a#history{position:absolute;left:18;top:0;}h6#sid{position:absolute;right:50%;bottom:0;z-index:11;}input#login{position:absolute;left:36;top:0;}input#pw{position:absolute;left:100;top:0;}input#send{position:absolute;left:170;top:0;padding:0;border:none;background:Dodgerblue;color:white}a#msg{position:absolute;left:260;top:0;color:red}a#up{position:absolute;left:210;top:0;}')
     o += script("""function post(url, data, cb) {var req = new XMLHttpRequest();req.onreadystatechange = processRequest;function processRequest () {if (req.readyState == 4) {if (req.status == 200) {if (cb) { cb(req.responseText); }} else {alert('Error Post status:'+ req.status);}}} this.doPost = function() {req.open('POST', url, true);req.send(data);} };
 window.onload = run;
 function save() {
-alert ('save');
+//alert ('save');
 var name = document.getElementById("title").firstChild.nodeValue;
 document.getElementById("title").firstChild.nodeValue = name.replace(/^\*(.*)$/,'$1');
 if (typeof ed != 'undefined') {var v=ed.getValue();} else { var v=document.getElementById("editor").value; }
@@ -2121,6 +2122,7 @@ var url = 'u?';
 if (py == 'True') { url += '$' + gid + rev} else { url += document.getElementById("lang").value + '@' + gid + rev; }
 // triks for Webkit refresh [BUG 123536]
 document.getElementById("reader").style.webkitTransform = 'scale(1)'; document.getElementById("reader").setAttribute('data', ''); // Webkit BUG 123536
+//alert('update');
 document.getElementById("reader").setAttribute('data', url);
 //document.getElementById("message").value = '';
 //document.getElementById("message").blur();
@@ -2176,6 +2178,7 @@ document.getElementById("reader").setAttribute('data', url);
         o += style(open('%s/cm.css' % here, 'r', encoding='utf-8').read()) + script(open('%s/cm.js' % here, 'r', encoding='utf-8').read())
     o += '<object id="reader" data=""></object>\n'
     start_response('200 OK', [('Content-type', 'text/html; charset=utf-8'), ('set-cookie', 'sid=%s' % sid) ])
+    #start_response('200 OK', [('Content-type', 'text/html;'), ('set-cookie', 'sid=%s' % sid) ])
     o += '</html>\n'
     return [o.encode('utf-8')]
 
@@ -2240,7 +2243,7 @@ def action(environ, start_response, key, host):
         mime, fname = 'text/plain', 'db'
         o = open('/tmp/log', 'r').read()
     elif key in ('pdf', 'paper', 'beamer'):
-        mime, name = 'application/pdf', 'beamer_u' if key == 'beamer' else 'u'
+        mime, name = 'application/pdf; charset=utf-8', 'beamer_u' if key == 'beamer' else 'u'
         fname = '{}.pdf'.format(name)
         f = '%s/%s.pdf' % (os.path.dirname(environ['SCRIPT_FILENAME']), name)
         o = open(f, 'rb').read()
@@ -2337,7 +2340,8 @@ def display(environ, start_response, gid, rev= None):
         mime = 'text/plain; charset=utf-8'
     else:
         if os.path.isfile(pdf): 
-            mime = 'application/pdf; charset=utf-8'
+            #mime = 'application/pdf; charset=utf-8'
+            mime = 'application/pdf'
             o = open(pdf, 'rb').read()
         else:
             pdf = 'no pdf generated!'
@@ -2350,6 +2354,21 @@ def log(s):
     "append log"
     open('/tmp/log', 'a', encoding='utf-8').write('%s:%s\n' % (datetime.datetime.now(), s))
 
+def bug(environ, start_response):
+    ""
+    o = '<html>'
+    o += '<head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"></head>'
+    #o += '<head><meta http-equiv="Content-Type" content="text/html"></head>'
+    o += '<object style="background:red;" alt="none" data="/u?_tikz&A" width="300" height="300"></object>'
+    o += '</html>\n'
+    start_response('200 OK', [('Content-type', 'text/html; charset=utf-8') ])
+    return [o.encode('utf-8')]
+
+def pi(environ, start_response):
+    "_"
+    start_response('200 OK', [('Content-type', 'image/jpeg') ])
+    return [open('%s/pi_sfrbox.jpg' % os.path.dirname(os.path.abspath(__file__)), 'rb').read()]
+
 def application(environ, start_response):
     """ WSGI Web application """
     s, mime, o, myu, host, fname = urllib.parse.unquote(environ['QUERY_STRING']), 'text/plain; charset=utf-8', 'Error!', u(), environ['SERVER_NAME'], 'u.py'
@@ -2360,6 +2379,8 @@ def application(environ, start_response):
     if gid and reg(re.match(r'([^~]+)~([a-fA-F\d]{6,20})$', gid)):
         gid, rev = reg.v.group(1), reg.v.group(2)
     o = 'act:"%s" mod:"%s" lng:"%s" way:"%s" gid:"%s" arg:"%s"\n' % (act, mod, lng, way, gid, arg)
+    if act == 'bug': return bug(environ, start_response)
+    if act == 'pi':  return pi(environ, start_response)
     if act:
         return action(environ, start_response, act.lower(), host)
     elif gid:
@@ -2380,15 +2401,15 @@ def application(environ, start_response):
     if arg:
         if lng:
             if lng in ('xml', 'svg') and mod: mime = 'application/xhtml+xml; charset=utf-8'
-            elif lng == 'tikz' and mod: mime = 'application/pdf'
-            #elif lng == 'tikz' and mod: mime = 'text/plain'
+            elif lng == 'tikz' and mod: 
+                #mime = 'application/pdf; charset=utf-8'
+                mime = 'application/pdf'
             if lng == 'svg' and environ['REQUEST_METHOD'].lower() == 'post': 
                 raw = environ['wsgi.input'].read().decode('utf-8')
                 o = myu.gen_svg(myu.parse(arg), eval(urllib.parse.unquote(raw[2:])))
             else:
                 o = eval('myu.headfoot(myu.gen_{}, lng, host)(myu.parse(arg))'.format(lng))
             if lng == 'tikz' and mod: o = tex2pdf(o)
-            #if lng == 'tikz' and mod: o = 'hello'
         else:
             o = myu.headfoot(myu.gen_ast, 'python', host)(myu.parse(arg))
         if lng != 'tikz' or not mod:
