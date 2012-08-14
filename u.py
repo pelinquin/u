@@ -1494,12 +1494,20 @@ class latex:
         for c in base:
             self.tex += r'\newcommand{\%s}{%s}' % (c, base[c]) + '\n' 
         self.tex += r'\renewcommand{\u}{$\sqcup$}' + '\n'
-        self.tex += r'\def\wordsl#1{\wordsloopiter#1 \nil} \def\wordsloopiter#1 #2\nil{ \textcolor{brown}{\langle #1 \rangle} \ifx&#2& \let\next\relax \else \def\next{\wordsloopiter#2\nil} \fi \next}' + '\n'
-        self.tex += r'\newcommand{\prereq}{}'
-        #self.tex += r'\newcommand{\req}[3]{{\fbox{\parbox{.95\linewidth}{ {\sc Req.} {\tiny \textcolor{blue}{$\langle \prereq{}#1 \rangle$} } }  \em #2 $\circ$   \hfill {\tiny $\wordsl{#3}$ } } } }' + '\n'
 
+
+        self.tex += r'\newcommand{\prereq}{Default}'
+
+        #LAB!
+        #self.tex += r'\newcommand{\req}[3]{{\fbox{\parbox{.95\linewidth}{ {\sc Req.} {\tiny \textcolor{blue}{$\langle \prereq{}#1 \rangle$} } }  \em #2 $\circ$   \hfill {\tiny $\wordsl{#3}$ } } } }' + '\n'
         #self.tex += r'\newcommand{\req}[3]{\paragraph{{\sc Req.} {\tiny \textcolor{blue}{$\langle \prereq{}#1 \rangle$} } }  {\em #2 $\circ$ } \hfill {\tiny $\wordsl{#3}$ } }' + '\n'
-        self.tex += r'\newcommand{\req}[3]{\paragraph{\marginpar{\sc \textcolor{green}{Req.}}{\tiny \textcolor{blue}{$\langle \prereq{}#1 \rangle$} } }  {\em #2 $\circ$ } \hfill {\tiny $\wordsl{#3}$ } }' + '\n'
+        #self.tex += r'\newcommand{\req}[3]{\paragraph{\marginpar{\sc \textcolor{green}{Req.}}{\tiny \textcolor{blue}{$\langle \prereq{}#1 \rangle$} } }  {\em #2 $\circ$ } \hfill {\tiny $\wordsl{#3}$ } }' + '\n'
+
+
+        self.tex += r'\def\wordsl#1{\wordsloopiter#1 \nil} \def\wordsloopiter#1 #2\nil{ \textcolor{brown}{\langle #1 \rangle} \ifx&#2& \let\next\relax \else \def\next{\wordsloopiter#2\nil} \fi \next}' + '\n'
+        self.tex += r'\newcommand{\req}[3]{\paragraph{{\sc Req.} {\tiny \textcolor{blue}{$\langle \prereq{}#1 \rangle$} } } {\em #2 $\circ$ } \hfill {\tiny $\wordsl{#3}$ } \index{Req[\prereq{}#1]}}' + '\n'
+    
+
         if beam: 
             self.tex += r'\title[%s]{%s} %s' % (self.digest, title, self.today) + '\n'
             if subtitle:
@@ -1567,6 +1575,10 @@ class article (latex):
         if kw:
             self.tex += r'\vspace{.4cm}\par\indent {\small {\bf Keywords\/}: ' + ', '.join(kw) + '.}'
         self.tex += r'\end{abstract}' + '\n'
+
+    def index(self):
+        "_"
+        self.tex += r'\printindex' + '\n'
 
     def end(self, note=False):
         "_"
@@ -2072,8 +2084,8 @@ def save(environ, start_response, gid='start'):
     if environ['REQUEST_METHOD'].lower() == 'post':  
         l = environ['wsgi.input'].read().decode('utf-8').split('\r\n')
         user = 'anonymous'
-        if 'HTTP_COOKIE' in environ:
-            sid = re.sub('^.*=', '', environ['HTTP_COOKIE'])
+        sid = parse_sid(environ)
+        if sid:
             d = dbm.open('%s/rev.db' % __git_base__)
             user = d[sid].decode('utf-8')
             d.close()
@@ -2087,7 +2099,7 @@ def ide(environ, start_response, gid='start', rev=None):
     o = '<html>\n' 
     o += '<meta http-equiv="Content-Type" content="text/html; charset=utf-8">\n'
     o += '<title id="title">%s</title>\n' % gid + favicon()
-    o += style('h6,input,a{font-family:helvetica neue,helvetica,arial,sans-serif;color:Dodgerblue;}a,input{font-size:.7em;}html,body,textarea,object,input,div,a{margin:0;padding:0;}textarea#editor{position:absolute;left:0;top:0;resize:none;width:50%;height:100%;padding-top:20;}object#reader{position:absolute;right:0;top:0;width:50%;height:100%;background-color:#F1F4FF;}select#lang{position:absolute;right:50%;top:22;z-index:11;}input#message{position:absolute;right:50%;top:0;}a#list{position:absolute;left:0;top:0;}a#history{position:absolute;left:18;top:0;}h6#sid{position:absolute;right:50%;bottom:0;z-index:11;}input#login{position:absolute;left:36;top:0;}input#pw{position:absolute;left:100;top:0;}input#send{position:absolute;left:170;top:0;padding:0;border:none;background:Dodgerblue;color:white}a#msg{position:absolute;left:260;top:0;color:red}a#up{position:absolute;left:210;top:0;}')
+    o += style('h6,input,a{font-family:helvetica neue,helvetica,arial,sans-serif;color:Dodgerblue;}a,input{font-size:.7em;}html,body,textarea,object,input,div,a{margin:0;padding:0;}textarea#editor{position:absolute;left:0;top:0;resize:none;width:50%;height:100%;padding-top:20;}object#reader{position:absolute;right:0;top:0;width:50%;height:100%;background-color:#F1F4FF;}select#lang{position:absolute;right:50%;top:22;z-index:11;}input#message{position:absolute;right:50%;top:0;}a#list{position:absolute;left:0;top:0;}a#history{position:absolute;left:18;top:0;}h6#sid{position:absolute;right:50%;bottom:0;z-index:11;}input#login{position:absolute;left:36;top:0;}input#pw{position:absolute;left:100;top:0;}input#send{position:absolute;left:170;top:0;padding:0;border:none;background:Dodgerblue;color:white}a#msg{position:absolute;left:260;top:0;color:red}a#up{position:absolute;left:210;top:0;}a#altreader{position:absolute;right:210;top:100;display:none;}')
     o += script("""function post(url, data, cb) {var req = new XMLHttpRequest();req.onreadystatechange = processRequest;function processRequest () {if (req.readyState == 4) {if (req.status == 200) {if (cb) { cb(req.responseText); }} else {alert('Error Post status:'+ req.status);}}} this.doPost = function() {req.open('POST', url, true);req.send(data);} };
 window.onload = run;
 function save() {
@@ -2114,16 +2126,15 @@ document.getElementById("reader").setAttribute('data', url);
     if not is_python:
         o += '<select id="lang" onchange="run();" title="Refresh:\'Alt R\'">' + ''.join(['<option>{}</option>'.format(i) for i in ['_svg', '_xml', '_tikz'] + list(__OUT_LANG__) ]) + '</select>\n'
     # begin authentication
-    user, h = 'anonymous', ''
-    if 'HTTP_COOKIE' in environ:
-        sid = re.sub('^.*=', '', environ['HTTP_COOKIE'])
+    user, h, sid = 'anonymous', '', parse_sid(environ)
+    if sid:
         d = dbm.open('%s/rev.db' % __git_base__)
         user = d[sid].decode('utf-8')
         d.close()
     else:
         d = dbm.open('%s/rev.db' % __git_base__, 'c')
         d['_'] = '%d' % (int(d['_'])+1) if '_' in d else '0'
-        sid = base64.urlsafe_b64encode(hashlib.sha1(d['_']).digest())[:-18].decode('utf-8')
+        sid = hash(d['_'])
         d[sid] = 'anonymous'
         d.close()
     authen, msg = False, ''
@@ -2131,7 +2142,7 @@ document.getElementById("reader").setAttribute('data', url);
         d, x = dbm.open('%s/rev.db' % __git_base__, 'c'), urllib.parse.unquote(environ['wsgi.input'].read().decode('utf-8'))
         if reg(re.match(r'login=([^&]+)&pw=([^&]+)$', x)):
             user, pw = reg.v.group(1), reg.v.group(2)
-            if (user in d) and (d[user] == base64.urlsafe_b64encode(hashlib.sha1(pw.encode('utf-8')).digest())[:-18]):
+            if (user in d) and (d[user].decode('utf-8') == hash(pw.encode('utf-8'))):
                 d[sid], authen = user, True
             else:
                 msg = 'wrong login!' 
@@ -2159,9 +2170,9 @@ document.getElementById("reader").setAttribute('data', url);
     AREA = False # config
     if os.path.isfile('%s/cm.css' % here) and os.path.isfile('%s/cm.js' % here) and not AREA:
         o += style(open('%s/cm.css' % here, 'r', encoding='utf-8').read()) + script(open('%s/cm.js' % here, 'r', encoding='utf-8').read())
-    o += '<object id="reader" data=""></object>\n'
+    o += '<a id="altreader">PDF generation...</a>\n'
+    o += '<object id="reader" data=""/>\n'
     start_response('200 OK', [('Content-type', 'text/html; charset=utf-8'), ('set-cookie', 'sid=%s' % sid) ])
-    #start_response('200 OK', [('Content-type', 'text/html;'), ('set-cookie', 'sid=%s' % sid) ])
     o += '</html>\n'
     return [o.encode('utf-8')]
 
@@ -2178,6 +2189,17 @@ def check_user(login,pw):
             db.close()    
     return result
 
+def parse_sid(environ):
+    ""
+    if 'HTTP_COOKIE' in environ:
+        if reg(re.match(r'sid=([^;]+)',environ['HTTP_COOKIE'])):
+            return reg.v.group(1)
+    return None
+
+def hash(s):
+    "_"
+    return base64.urlsafe_b64encode(hashlib.sha1(s).digest())[:-18].decode('utf-8')
+
 def signup(environ, ch=False):
     msg, passed = 'Change your password' if ch else 'Create a new account!', False
     o = '| <a href="/u?change">Change password</a> | <a href="/u?signup">Signup</a> | <a href="/u?list">List</a> | <a href="/u?history">History</a><br/>\n'
@@ -2190,17 +2212,16 @@ def signup(environ, ch=False):
             d = dbm.open('%s/rev.db' % __git_base__, 'c')
             if ch:
                 if pw != pw2:
-                    d[user] = base64.urlsafe_b64encode(hashlib.sha1(pw2.encode('utf-8')).digest())[:-18].decode('utf-8')
+                    d[user] = hash(pw2.encode('utf-8'))
                     passed, msg = True, 'Password for \'%s\' changed!' % user 
             else:
                 if pw == pw2 and not re.search(user, pw) and user not in d:
-                    if 'HTTP_COOKIE' in environ:
-                        sid = re.sub('^.*=', '', environ['HTTP_COOKIE'])
-                    else:
+                    sid = parse_sid(environ)
+                    if sid == None:
                         d['_'] = '%d' % (int(d['_'])+1) if '_' in d else '0'
-                        sid = base64.urlsafe_b64encode(hashlib.sha1(d['_']).digest())[:-18].decode('utf-8')
-                        #sid = base64.urlsafe_b64encode(hashlib.sha1(time.time()).digest())[:-18].decode('utf-8')
-                    d[sid], d[user] = user, base64.urlsafe_b64encode(hashlib.sha1(pw.encode('utf-8')).digest())[:-18].decode('utf-8')
+                        sid = hash(d['_'])
+                        #sid = hash(time.time())
+                    d[sid], d[user] = user, hash(pw.encode('utf-8'))
                     passed, msg = True, 'New account for \'%s\' created!' % user
             d.close()
     o += '<a id="msg" title="error message">%s</a>\n' % msg
@@ -2286,6 +2307,7 @@ def action(environ, start_response, key, host):
             o += 'Error:%s\n' % err if err else 'Message:%s\nUpdate OK\n' % out.decode('utf-8')
             o += '</pre><br/><a href="u?help">Reload the new version</a>'
         elif key in ('source', 'download'):
+            o += '<br/><pre>%s</pre>' % environ['HTTP_COOKIE']
             o += '<br/><a href="u">Python3 Source code</a>'
         else:
             o += '<pre>Keywork:%s</pre>' % key
@@ -2333,9 +2355,10 @@ def display(environ, start_response, gid, rev= None):
     start_response('200 OK', [('Content-type', mime), ('Content-Disposition', 'filename={}'.format(pdfname))])
     return [o]
 
-def log(s):
+def log(s, ip=''):
     "append log"
-    open('/tmp/log', 'a', encoding='utf-8').write('%s:%s\n' % (datetime.datetime.now(), s))
+    now = '%s' % datetime.datetime.now()
+    open('/tmp/log', 'a', encoding='utf-8').write('%s|%s|%s\n' % (now[:-7], ip, s))
 
 def bug(environ, start_response):
     ""
@@ -2357,7 +2380,7 @@ def application(environ, start_response):
     """ WSGI Web application """
     s, mime, o, myu, host, fname = urllib.parse.unquote(environ['QUERY_STRING']), 'text/plain; charset=utf-8', 'Error!', u(), environ['SERVER_NAME'], 'u.py'
     act, mod, lng, way, gid, arg, rev = None, None, None, None, None, None, None
-    log(s)
+    log(s, environ['REMOTE_ADDR'])
     if reg(re.match(r'\s*(%s$|)(_?)(%s|)(([@\^\$!])(.+)|&?(.+|))\s*$' % ('$|'.join(__ACTIONS__), '|'.join(__OUT_LANG__)), s, re.I)):
         act, mod, lng, way, gid, arg = reg.v.group(1), reg.v.group(2), reg.v.group(3), reg.v.group(5), reg.v.group(6), reg.v.group(7)
     if gid and reg(re.match(r'([^~]+)~([a-fA-F\d]{6,20})$', gid)):
