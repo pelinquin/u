@@ -2307,7 +2307,6 @@ def action(environ, start_response, key, host):
             o += 'Error:%s\n' % err if err else 'Message:%s\nUpdate OK\n' % out.decode('utf-8')
             o += '</pre><br/><a href="u?help">Reload the new version</a>'
         elif key in ('source', 'download'):
-            o += '<br/><pre>%s</pre>' % environ['HTTP_COOKIE']
             o += '<br/><a href="u">Python3 Source code</a>'
         else:
             o += '<pre>Keywork:%s</pre>' % key
