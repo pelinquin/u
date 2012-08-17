@@ -30,7 +30,8 @@
 # - use code-mirror for textarea
 
 r"""
-The $\sqcup$ language is a universal typed sparse graph language. It serves {\em Model Driven Engineering}.
+The $\sqcup$ language is a universal typed sparse graph language. 
+It serves {\em Model Driven Engineering}.
 """
 
 __author__   = 'Laurent Fournier'
@@ -42,7 +43,7 @@ __license__  = 'GPLv3'
 __url__      = 'github.com/pelinquin/u'
 __git_base__ = '/u'
 
-import sys, os, re, hashlib, subprocess, urllib.parse, base64, random, functools, datetime, shutil, html, ast, http.client, dbm, tempfile, time
+import sys, os, re, hashlib, subprocess, urllib.parse, base64, random, functools, datetime, shutil, html, ast, http.client, dbm, tempfile
 
 __digest__ = base64.urlsafe_b64encode(hashlib.sha1(open(__file__, 'r', encoding='utf-8').read().encode('utf-8')).digest())[:5]
 
@@ -190,6 +191,9 @@ __DATA_c__ = ({
 __DATA_python__ = ({
         'C': ('class', ),
         'c': ('class', ),
+        'p': ('plus', ),
+        'g': ('generator', ),
+        'd': ('display', ),
         }, {
         None:(),
         })
@@ -226,7 +230,7 @@ __IN_MODEL__ = {
     'Entity-Relation-Graph': 'A->B', 
     'Tree-Diagram':          'A->B',
     'Network-Graph':         'A->B', 
-    'Flowchart':             'A->B', 
+    'Flowchart':             'A->B--C D--C',
     'Petri-net':             'A->B', 
     'State-Machine':         'A->B', 
     'Markov-Chain':          ':M{A B} A-[.6]>A B-[.3]>B A-[.4]>B-[.7]>A}', 
@@ -410,7 +414,7 @@ def gettypes(uast):
     for n in nodes:
         nl[nodes[n][1]] = True 
     for a in arcs:
-        el['{}{}'.format(a[2],a[3])] = True 
+        el['{}{}'.format(a[2], a[3])] = True 
     return nl, el
 
 class u:
@@ -629,8 +633,8 @@ A list of all links between two tokens+port and link attributes
                 if n in __DATA_ports__:
                     o += '%s Node type:"%s" Ports: %s %s\n' % (sc, n, __DATA_ports__[n], ec)
             o += '\n'
-            for e in at:
-                o += '' # language dependent!
+            #for e in at:
+            #    o += '' # language dependent!
                 #o += '%s Arc type:"%s" %s\n' % (sc, 'tmp', ec)
             o += '%s Topologic sort:%s %s\n' % (sc, self.toposort(arcs), ec)
             for n in nodes:
@@ -673,6 +677,7 @@ A list of all links between two tokens+port and link attributes
         return o + ']\n'
 
     def getchild(self, nodes):
+        "_"
         child = {}
         for n in nodes:
             if nodes[n][0]:
@@ -680,12 +685,13 @@ A list of all links between two tokens+port and link attributes
         return child
  
     def layout_simple(self, uast, rankdir='LR'):
+        "_"
         nodes, arcs = uast
         bbx, bby, pos, d = None, None, {}, 'digraph G { rankdir=%s ' % rankdir 
         for n in nodes:
             d += ' %s[label="%s"];' % (n, nodeCodeGen(self.gast(n, nodes[n])).out)
         for e in arcs:
-            label = re.sub(r' ','_', '' if e[5] == None else '[label="%s"];'%e[5])
+            label = re.sub(r' ', '_', '' if e[5] == None else '[label="%s"];'%e[5])
             d += ' %s->%s %s' % (e[0][0], e[1][0], label) 
         d += '}' 
         #print (d) # for debug
@@ -709,7 +715,7 @@ A list of all links between two tokens+port and link attributes
                 d += ' %s[label="%s"];' % (n, nodeCodeGen(self.gast(n, nodes[n])).out)
         for e in arcs:
             if (e[0][0] not in child) and (e[1][0] not in child):
-                label = re.sub(r' ','_', '' if e[5] == None else '[label="%s"];'%e[5])
+                label = re.sub(r' ', '_', '' if e[5] == None else '[label="%s"];'%e[5])
                 d += ' %s->%s %s' % (e[0][0], e[1][0], label) 
         d += '}' 
         #print (d) # for debug
@@ -728,7 +734,7 @@ A list of all links between two tokens+port and link attributes
                     x += pos[c][0]
                     y += pos[c][1]
             if n:
-                pos[item] = (int(x/n),int(y/n))
+                pos[item] = (int(x/n), int(y/n))
         return pos
 
     def gen_tikz_header(self, ln, le):
@@ -761,7 +767,7 @@ A list of all links between two tokens+port and link attributes
         prt = self.getchild(nodes)
         box = {}
         for n in prt:
-            mx, my = 0,0
+            mx, my = 0, 0
             for c in prt[n]:
                 if c in pos:
                     if abs(pos[c][0]-pos[n][0]) > mx: mx = abs(pos[c][0]-pos[n][0])
@@ -773,12 +779,12 @@ A list of all links between two tokens+port and link attributes
             t = nodes[n][1]
             styl = t if t in __DATA_tikz__[0] else 'None'
             label = nodeCodeGen(self.gast(n, nodes[n]), 'tikz').out
-            label = re.sub('\n', r'\\\\', re.sub(r'\\n', r'\\\\',label))
+            label = re.sub('\n', r'\\\\', re.sub(r'\\n', r'\\\\', label))
             label = re.sub('([A-Z][A-Z]+)', lambda p: r'{\sc %s}' % p.group(1).lower(), label)
             label = re.sub(r'\bu\b', r'$\sqcup$', label)
 
             size = ',minimum width=%s,minimum height=%s,fill=none' % box[n] if n in box else ''
-            o += r'\node[%s%s](%s) at (%0.3f,%0.3f){%s};'% (styl, size, n, x, y, label) +'\n'
+            o += r'\node[%s%s](%s) at (%0.3f,%0.3f){%s};' % (styl, size, n, x, y, label) +'\n'
             #o += r'\draw(%s.north east) node[oz];' % n 
             tt = __DATA_ports__[t] if t in __DATA_ports__ else [] 
             if tt:
@@ -788,8 +794,8 @@ A list of all links between two tokens+port and link attributes
                     p += int(delta)
         for a in arcs:
             boucle = '[loop right]' if a[0][0] == a[1][0] else ''  
-            label = '' if a[5] == None else r'node[sloped,above,font=\scriptsize]{%s}'%a[5] 
-            typ = '{}{}'.format(a[2],a[3]) 
+            label = '' if a[5] == None else r'node[sloped,above,font=\scriptsize]{%s}' % a[5] 
+            typ = '{}{}'.format(a[2], a[3]) 
             styl = typ if typ in __DATA_tikz__[1] else 'None'
             n0, n1 = a[0][0], a[1][0]
             if a[0][1] != None:
@@ -797,7 +803,7 @@ A list of all links between two tokens+port and link attributes
                 n0 += '.%d' % int(a[0][1]*360/len(ports[n0]))
             if a[1][1] != None:
                 n1 += '.%d' % int(a[1][1]*360/len(ports[n1]))
-            o += r'\draw[arc%s] -- (%s) to%s %s(%s);'% (styl, n0, boucle, label, n1) +'\n'   
+            o += r'\draw[arc%s] -- (%s) to%s %s(%s);' % (styl, n0, boucle, label, n1) +'\n'   
         o += r'\end{tikzpicture}' + '\n'
         if standalone:
             o +=  r'\end{document}'
@@ -999,6 +1005,25 @@ function hidetarget() {var tg = document.getElementById('target'); tg.firstChild
         res = [z for z in tsort({i:set(data[i]) for i in data})]
         res.reverse()
         return res
+    
+    def findcycle(self, arcs):
+        "returns topologic sort"
+        def tsort(d):
+            while True:
+                ordered = set(item for item, dep in d.items() if not dep)
+                if not ordered: break
+                yield ','.join(sorted(ordered))
+                d = { item: (dep - ordered) for item, dep in d.items() if item not in ordered }
+            if d: # cycle!
+                yield
+        data = {}
+        for e in arcs:
+            n1, n2 = e[0][0], e[1][0]
+            data.setdefault(n1, []).append(n2)
+            if not n2 in data: data[n2] = []
+        res = [z for z in tsort({i:set(data[i]) for i in data})]
+        res.reverse()
+        return res
 
     def svg_defs(self):
         "_"
@@ -1066,15 +1091,38 @@ function hidetarget() {var tg = document.getElementById('target'); tg.firstChild
             o += '  return(0)\n}\n'
         return o
 
+    def linked(self, arcs):
+        pr, nx = {}, {}
+        for a in arcs:
+            pr.setdefault(a[1][0], []).append(a)
+            nx.setdefault(a[0][0], []).append(a)
+        return pr, nx
+
     def gen_python(self, uast):
-        "python"
+        "python" 
         nodes, arcs = uast 
+        pr, nx = self.linked(arcs)
         seq = self.toposort(arcs) 
+        cycle = self.findcycle(arcs)
         o = '\nif __name__ == \'__main__\':\n'
+        o += '# cycle : %s\n' % cycle
         if seq != [None]:
             for j in seq:
                 for i in j.split(','):
-                    o += nodeCodeGen(self.gast(i, nodes[i]), 'python').out
+                    typ, disp = nodes[i][1], False
+                    op = '+' if typ =='p' else '*' if typ =='m' else ','
+                    (prefix, suffix) = ('op_%s(' % typ,')') if op == ',' else ('', '')
+                    value = nodes[i][3]
+                    if nodes[i][3] and re.search(r'\*$', value):
+                        value, disp = value[:-1], True
+                    try:
+                        value = int(value)
+                    except:
+                        value = 0 if typ =='p' else 1
+                    p = pr[i] if i in pr else []
+                    o += '  %s = %s%s%s\n' % (i, prefix, (' %s '%op).join((['-' + k[0][0] if k[2] else k[0][0] for k in p]) + ['%s' % value, ]), suffix)
+                    if disp:
+                        o += '  print(%s)\n' % (i)
         return o 
 
     def gen_xml(self, uast):
@@ -2000,7 +2048,7 @@ def logo(opac=1):
     return '<path id="logo" stroke-width="8" fill="none" stroke="Dodgerblue" onclick="window.open(\'http://%s\');" title="on Github: [http://%s]" opacity="%s" d="M10,10L10,35L30,35L30,10"/>' % (__url__, __url__, opac)
 
 def include_ulogo():
-    ""
+    "_"
     return  r'\begin{tikzpicture} %s \end{tikzpicture}' % ulogo() + '\n'
 
 def ulogo():
@@ -2080,6 +2128,7 @@ def style(s):
     return '<style type="text/css">' + s + '</style>\n' 
 
 def save(environ, start_response, gid='start'):
+    "_"
     start_response('200 OK', [('Content-type', 'text/plain; charset=utf-8'),])
     if environ['REQUEST_METHOD'].lower() == 'post':  
         l = environ['wsgi.input'].read().decode('utf-8').split('\r\n')
@@ -2094,6 +2143,7 @@ def save(environ, start_response, gid='start'):
     return ['ok']
 
 def ide(environ, start_response, gid='start', rev=None):
+    "_"
     is_python = bool(re.search('\.py$', gid))
     content = gitu().cat_rev(gid, rev) if rev else gitu().cat(gid)
     o = '<html>\n' 
@@ -2116,7 +2166,7 @@ var py = '%s'; var rev='%s'; var gid='%s'; if ((rev == 'None') || (arg == true))
 var url = 'u?';
 if (py == 'True') { url += '$' + gid + rev} else { url += document.getElementById("lang").value + '@' + gid + rev; }
 // triks for Webkit refresh [BUG 123536]
-document.getElementById("reader").style.webkitTransform = 'scale(1)'; document.getElementById("reader").setAttribute('data', ''); // Webkit BUG 123536
+//document.getElementById("reader").style.webkitTransform = 'scale(1)'; document.getElementById("reader").setAttribute('data', ''); // Webkit BUG 123536
 //alert('update');
 document.getElementById("reader").setAttribute('data', url);
 //document.getElementById("message").value = '';
@@ -2126,7 +2176,7 @@ document.getElementById("reader").setAttribute('data', url);
     if not is_python:
         o += '<select id="lang" onchange="run();" title="Refresh:\'Alt R\'">' + ''.join(['<option>{}</option>'.format(i) for i in ['_svg', '_xml', '_tikz'] + list(__OUT_LANG__) ]) + '</select>\n'
     # begin authentication
-    user, h, sid = 'anonymous', '', parse_sid(environ)
+    user, sid = 'anonymous', parse_sid(environ)
     if sid:
         d = dbm.open('%s/rev.db' % __git_base__)
         user = d[sid].decode('utf-8')
@@ -2176,23 +2226,10 @@ document.getElementById("reader").setAttribute('data', url);
     o += '</html>\n'
     return [o.encode('utf-8')]
 
-def check_user(login,pw):
-    """ """
-    base='%s/rev.db' % __git_base__
-    result = False
-    if login and pw:
-        if os.path.isfile(base):
-            db = dbhash.open(base)
-            if db.has_key(login):
-                if db[login] == hashlib.sha1(pw).hexdigest():
-                    result = True
-            db.close()    
-    return result
-
 def parse_sid(environ):
     ""
     if 'HTTP_COOKIE' in environ:
-        if reg(re.match(r'sid=([^;]+)',environ['HTTP_COOKIE'])):
+        if reg(re.match(r'sid=([^;]+)', environ['HTTP_COOKIE'])):
             return reg.v.group(1)
     return None
 
@@ -2238,6 +2275,7 @@ def signup(environ, ch=False):
     return o
 
 def action(environ, start_response, key, host):
+    "_"
     if key == 'database':
         mime, fname = 'text/plain', 'db'
         d, o = dbm.open('%s/rev.db' % __git_base__, 'r'), ''
@@ -2360,7 +2398,7 @@ def log(s, ip=''):
     open('/tmp/log', 'a', encoding='utf-8').write('%s|%s|%s\n' % (now[:-7], ip, s))
 
 def bug(environ, start_response):
-    ""
+    "_"
     o = '<html>'
     o += '<head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"></head>'
     #o += '<head><meta http-equiv="Content-Type" content="text/html"></head>'
@@ -2408,17 +2446,22 @@ def application(environ, start_response):
         if lng:
             if lng in ('xml', 'svg') and mod: mime = 'application/xhtml+xml; charset=utf-8'
             elif lng == 'tikz' and mod: 
-                #mime = 'application/pdf; charset=utf-8'
                 mime = 'application/pdf'
+            elif lng == 'python' and mod: 
+                mime = 'text/plain'
             if lng == 'svg' and environ['REQUEST_METHOD'].lower() == 'post': 
                 raw = environ['wsgi.input'].read().decode('utf-8')
                 o = myu.gen_svg(myu.parse(arg), eval(urllib.parse.unquote(raw[2:])))
             else:
                 o = eval('myu.headfoot(myu.gen_{}, lng, host)(myu.parse(arg))'.format(lng))
             if lng == 'tikz' and mod: o = tex2pdf(o)
+            if lng == 'python' and mod: 
+                a = compile(o.encode('utf-8'), '<string>', 'exec')
+                o = eval(a)
         else:
             o = myu.headfoot(myu.gen_ast, 'python', host)(myu.parse(arg))
         if lng != 'tikz' or not mod:
+        #if not mod:
             o = o.encode('utf-8')
     else:
         o = open(__file__, 'r', encoding='utf-8').read().encode('utf-8')
@@ -2429,9 +2472,9 @@ def application(environ, start_response):
 
 def put(server, service, content):
     "_"
-    h = http.client.HTTPConnection(server)
-    h.request('PUT', service, content)
-    return h.getresponse().read().decode('utf-8')
+    hh = http.client.HTTPConnection(server)
+    hh.request('PUT', service, content)
+    return hh.getresponse().read().decode('utf-8')
 
 def command_line():
     " Command line"
@@ -2470,6 +2513,5 @@ def command_line():
         print (o)
 
 if __name__ == '__main__':
-    "Tangle Command line"
     command_line()
 # end
