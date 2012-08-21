@@ -23,11 +23,15 @@
 # Warning! Small bug in Emacs editor default font: 
 # swap ⊔ 'squarecap' (U+2293) and ⊓ 'squarecup' (U+2294) char!   
 
-# SHORT TO DO LIST:
+# REMINDER TODO LIST:
 # - svg with proportional police size
 # - types data to move in a Berkeley database
 # - add block operator
-# - use code-mirror for textarea
+# - display refresh for Webkit
+# - fix bug on Firefow PDF plugin (request sent twice)
+# - cycle detection for feedback models
+# - Add Sphinx doc 
+# - Uddate paper and beamer
 
 r"""
 The $\sqcup$ language is a universal typed sparse graph language. 
@@ -636,7 +640,7 @@ A list of all links between two tokens+port and link attributes
             #for e in at:
             #    o += '' # language dependent!
                 #o += '%s Arc type:"%s" %s\n' % (sc, 'tmp', ec)
-            o += '%s Topologic sort:%s %s\n' % (sc, self.toposort(arcs), ec)
+            o += '%s Topologic sort/cycles:%s %s\n' % (sc, self.toposort(arcs), ec)
             for n in nodes:
                 o += '%s \'%s\': %s %s\n' % (sc, n, ast.dump(self.gast(n, nodes[n])), ec)
             return o + appli(uast) + '\n{} {} Nodes {} Arcs {: >30} {}'.format(sc, len(nodes), len(arcs), 'the end of file.', ec)
@@ -958,7 +962,8 @@ function hidetarget() {var tg = document.getElementById('target'); tg.firstChild
             #o += '<!--g %s -->\n' % self.getchild(nodes)
             prt = self.getchild(nodes)
             self.setbox_svg(prt, box, nodes)
-            seq = self.toposort(arcs)            
+            cycle, seq = None, self.toposort(arcs)
+            if type(seq).__name__ == 'dict': cycle, seq = seq, None
             o += '<title id=".title">%s</title>\n' % __title__ + favicon() + logo(.02) + '\n' + self.include_js_zoom_pan() + self.user_interface()
             o += '<g id=".graph">\n'
             for n in box:
@@ -987,25 +992,21 @@ function hidetarget() {var tg = document.getElementById('target'); tg.firstChild
                 o += self.node_text(n, nodes[n], x, y) 
         return o + '</svg>\n'
 
-    def toposort(self, arcs):
-        "returns topologic sort"
-        def tsort(d):
+    def toposort(self, data):
+        "returns topologic sort or cycle"
+        def tsort(arcs):
+            d = {}
+            for a in arcs: d.setdefault(a[1][0], set()).update(set(a[0][0])),d.setdefault(a[0][0], set())
             while True:
                 ordered = set(item for item, dep in d.items() if not dep)
                 if not ordered: break
                 yield ','.join(sorted(ordered))
-                d = { item: (dep - ordered) for item, dep in d.items() if item not in ordered }
-            if d: # cycle!
-                yield 
-        data = {}
-        for e in arcs:
-            n1, n2 = e[0][0], e[1][0]
-            data.setdefault(n1, []).append(n2)
-            if not n2 in data: data[n2] = []
-        res = [z for z in tsort({i:set(data[i]) for i in data})]
-        res.reverse()
-        return res
-    
+                d = { item: (dep - ordered) for item,dep in d.items() if item not in ordered }
+            if d: yield '[%s]'%d
+        a = '|'.join(tsort(data))
+        m = re.search (r'\[([^\]]+)\]', a)
+        return eval(m.group(1)) if m else a.split('|')
+
     def findcycle(self, arcs):
         "returns topologic sort"
         def tsort(d):
@@ -1077,8 +1078,9 @@ function hidetarget() {var tg = document.getElementById('target'); tg.firstChild
         o = ''
         #for n in nodes: o += ' \'{}\': {},\n'.format(n, nodes[n])
         #for e in arcs: o += ' {},\n'.format(e)
-        seq = self.toposort(arcs)     
-        if seq != [None]:  
+        cycle, seq = None, self.toposort(arcs)
+        if type(seq).__name__ == 'dict': cycle, seq = seq, [] 
+        if seq:  
             o += 'int main(void) {\n'  
             for e in arcs: 
                 o += ' {},\n'.format(e) 
@@ -1100,29 +1102,39 @@ function hidetarget() {var tg = document.getElementById('target'); tg.firstChild
 
     def gen_python(self, uast):
         "python" 
+        o = '\nimport sys,os,re,functools\n\n'
         nodes, arcs = uast 
         pr, nx = self.linked(arcs)
-        seq = self.toposort(arcs) 
-        cycle = self.findcycle(arcs)
-        o = '\nif __name__ == \'__main__\':\n'
-        o += '# cycle : %s\n' % cycle
-        if seq != [None]:
-            for j in seq:
-                for i in j.split(','):
-                    typ, disp = nodes[i][1], False
-                    op = '+' if typ =='p' else '*' if typ =='m' else ','
-                    (prefix, suffix) = ('op_%s(' % typ,')') if op == ',' else ('', '')
-                    value = nodes[i][3]
-                    if nodes[i][3] and re.search(r'\*$', value):
-                        value, disp = value[:-1], True
-                    try:
-                        value = int(value)
-                    except:
-                        value = 0 if typ =='p' else 1
-                    p = pr[i] if i in pr else []
-                    o += '  %s = %s%s%s\n' % (i, prefix, (' %s '%op).join((['-' + k[0][0] if k[2] else k[0][0] for k in p]) + ['%s' % value, ]), suffix)
-                    if disp:
-                        o += '  print(%s)\n' % (i)
+        cycle, seq = None, self.toposort(arcs)
+        if type(seq).__name__ == 'dict': cycle, seq = seq, []
+        seen = {}
+        for j in seq:
+            for i in j.split(','):
+                typ = nodes[i][1]
+                if typ not in seen:
+                    seen[typ] = True
+                    (op, init) = ('*', 1) if typ == 'M' else ('+', 0)
+                    if typ not in ('m','p'):
+                        o += 'def op_%s(*a): return functools.reduce(lambda y, i: y%si, a, %s)\n\n' % (typ, op, init)
+        o += 'if __name__ == \'__main__\':\n'
+        for j in seq:
+            for i in j.split(','):
+                typ, disp = nodes[i][1], False
+                op = '+' if typ =='p' else '*' if typ =='m' else ','
+                (prefix, suffix) = ('op_%s(' % typ,')') if op == ',' else ('', '')
+                value = nodes[i][3]
+                if nodes[i][3] and re.search(r'\*$', value):
+                    value, disp = value[:-1], True
+                try:
+                    value = ['%s' % int(value)]
+                except:
+                    value = []
+                p = pr[i] if i in pr else []
+                li = ['-' + k[0][0] if k[2]==0 else k[0][0] for k in p]
+                if li == []: li = ['0']
+                o += '  %s = %s%s%s\n' % (i, prefix, (' %s '%op).join(li + value), suffix)
+                if disp:
+                    o += '  print(%s)\n' % (i)
         return o 
 
     def gen_xml(self, uast):
@@ -2436,7 +2448,7 @@ def application(environ, start_response):
             if lng:
                 arg = gitu().cat_rev(gid, rev) if rev else gitu().cat(gid)
             else:
-                log('ide')
+                #log('ide')
                 return ide(environ, start_response, gid, rev)
         elif way == '!':
             return rm(environ, start_response, gid)
@@ -2515,3 +2527,4 @@ def command_line():
 if __name__ == '__main__':
     command_line()
 # end
+
