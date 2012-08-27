@@ -47,7 +47,7 @@ __license__  = 'GPLv3'
 __url__      = 'github.com/pelinquin/u'
 __git_base__ = '/u'
 
-import sys, os, re, hashlib, subprocess, urllib.parse, base64, random, functools, datetime, shutil, html, ast, http.client, dbm, tempfile
+import sys, os, re, hashlib, subprocess, urllib.parse, base64, random, functools, datetime, shutil, html, ast, http.client, dbm, tempfile, time
 
 __digest__ = base64.urlsafe_b64encode(hashlib.sha1(open(__file__, 'r', encoding='utf-8').read().encode('utf-8')).digest())[:5]
 
@@ -87,24 +87,26 @@ __NODE_T__ = ('|',  '\'', '`',  '"',  ';',  ',',  '!',  '~',  '^',  '@',  '*',  
  
 __ACTIONS__ = ('download', 'source', 'update', 'about', 'help', 'usage', 'pdf', 'list', 'history', 'paper', 'beamer', 'log', 'test', 'parse', 'unparse', 'random', 'signup', 'change', 'database', 'bug', 'pi')
 
-__OUT_LANG__ = {'c'          :['c',    ('/*', '*/', ''), 'gcc ansi pedantic'],
-                'objectivec' :['m',    ('/*', '*/', ''), ''],
-                'python'     :['py',   ('#', '', '#!/usr/bin/python3\n# -*- coding: utf-8 -*-\n'), ' python 3.2 '],
-                'ada'        :['adb',  ('--', '', ''), 'Ada95 Ravenscar'],
-                'scala'      :['scl',  ('--', '', ''), ''],
-                'java'       :['java', ('//', '', ''), ''],
-                'ruby'       :['rb',   ('#', '', ''), ''],
-                'ocaml'      :['ml',   ('(*', '*)', ''), ''],
-                'haskell'    :['hs',   ('{-', '-}', ''), ''],
-                'lua'        :['lua',  ('--', '', ''), ''],
-                'tikz'       :['tex',  ('%', '', ''), 'for LaTeX'],
-                'svg'        :['svg',  ('<!--', '-->', '<?xml version="1.0" encoding="UTF-8"?>\n'), 'Mozilla  Webkit'],
-                'aadl'       :['adl',  ('--', '', ''), 'AADL v2'],
-                'sdl'        :['sdl',  ('--', '', ''), ''],
-                'lustre'     :['lst',  ('--', '', ''), ''],
-                'vhdl'       :['hdl',  ('--', '', ''), ''],
-                'systemc'    :['sc',   ('//', '', ''), ''],
-                'xml'        :['xml',  ('<!--', '-->', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'), '⊔ serialization'],
+__OUT_LANG__ = { # language Name, Abreviation, comment begin, comment end, header, version, is interpreted online with "_" prefix
+    'c'          :['c',    ('/*', '*/', ''), 'gcc ansi pedantic', False],
+    'objectivec' :['m',    ('/*', '*/', ''), '', False],
+    'python'     :['py',   ('#', '', '#!/usr/bin/python3\n# -*- coding: utf-8 -*-\n'), ' python 3.2 ', True],
+    'ada'        :['adb',  ('--', '', ''), 'Ada95 Ravenscar', False],
+    'scala'      :['scl',  ('--', '', ''), '', False],
+    'java'       :['java', ('//', '', ''), '', False],
+    'ruby'       :['rb',   ('#', '', ''), '', False],
+    'ocaml'      :['ml',   ('(*', '*)', ''), '', False],
+    'haskell'    :['hs',   ('{-', '-}', ''), '', False],
+    'lua'        :['lua',  ('--', '', ''), '', False],
+    'tikz'       :['tex',  ('%', '', ''), 'for LaTeX', True],
+    'svg'        :['svg',  ('<!--', '-->', '<?xml version="1.0" encoding="UTF-8"?>\n'), 'Mozilla  Webkit', True],
+    'aadl'       :['adl',  ('--', '', ''), 'AADL v2', False],
+    'sdl'        :['sdl',  ('--', '', ''), '', False],
+    'lustre'     :['lst',  ('--', '', ''), '', False],
+    'vhdl'       :['hdl',  ('--', '', ''), '', False],
+    'systemc'    :['sc',   ('//', '', ''), '', False],
+    'xml'        :['xml',  ('<!--', '-->', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?>\n'), '⊔ serialization', True],
+    'simu'       :['simu', ('<!--', '-->', '<?xml version="1.0" encoding="UTF-8"?>\n'), 'Mozilla  Webkit', True],
 }
  
 __DATA_ports__ = {
@@ -216,6 +218,7 @@ __DATA_lustre__     = ({None: (), }, {None:(), })
 __DATA_vhdl__       = ({None: (), }, {None:(), })
 __DATA_systemc__    = ({None: (), }, {None:(), })
 __DATA_xml__        = ({None: (), }, {None:(), })
+__DATA_simu__       = ({None: (), }, {None:(), })
 
 __MACRO__ = {
     'u_nested' : 'process{A->B->C->A}',
@@ -814,33 +817,12 @@ A list of all links between two tokens+port and link attributes
         return o 
 
     def include_js(self):
-        r"""
-function submitURL(data) { 
-  var f = document.createElement('form');
-  f.setAttribute('method','post');
-  h = document.createElement('input');
-  h.setAttribute('type','hidden');
-  h.setAttribute('name','a');
-  h.setAttribute('value',JSON.stringify(data));
-  f.appendChild(h);
-  document.documentElement.appendChild(f);
-  f.submit();
-}
-window.onload = function () { 
-  var box = {};
-  var t = document.documentElement.childNodes;
-  for (var n = 0; n < t.length; n++) {
-    if (t[n].nodeName == 'text') { 
-      var b = t[n].getBBox();
-      var tx = parseInt(t[n].getAttribute('x'));
-      var ty = parseInt(t[n].getAttribute('y'));      
-      box[t[n].id] = [b.x, b.y, b.width, b.height, tx, ty]; 
-    }
-  }
-  if (Object.keys(box).length != 0) { submitURL(box); }
-}"""
-        o = '<script %s type="text/ecmascript">\n/*<![CDATA[*//*---->*/\n' % _XLINKNS
-        return o + self.include_js.__doc__  + '\n/*--*//*]]>*/</script>\n'
+        r"""function submitURL(data) { var f = document.createElement('form');f.setAttribute('method','post');h = document.createElement('input');h.setAttribute('type','hidden');h.setAttribute('name','a');h.setAttribute('value',JSON.stringify(data));f.appendChild(h);document.documentElement.appendChild(f);f.submit();} window.onload = function () { var box = {};var t = document.documentElement.childNodes;for (var n = 0; n < t.length; n++) {if (t[n].nodeName == 'text') { var b = t[n].getBBox();var tx = parseInt(t[n].getAttribute('x')); var ty = parseInt(t[n].getAttribute('y'));box[t[n].id] = [b.x, b.y, b.width, b.height, tx, ty]; }}if (Object.keys(box).length != 0) { submitURL(box); }}"""
+        return script(self.include_js.__doc__, True)
+
+    def include_js1(self):
+        r"""function submitURL(data) { var f = document.createElement('form');f.setAttribute('method','post');h = document.createElement('input');h.setAttribute('type','hidden');h.setAttribute('name','a');h.setAttribute('value',JSON.stringify(data));f.appendChild(h);document.documentElement.appendChild(f);f.submit();} window.onload = function () {var box = {}; box['size']=[window.innerWidth, window.innerHeight]; if (Object.keys(box).length != 0) { submitURL(box); }}"""
+        return script(self.include_js1.__doc__, True)
 
     def include_js_zoom_pan(self):
         r"""var pan = false, stO, stF;document.documentElement.setAttributeNS(null,"onmouseup","hMouseUp(evt)"); document.documentElement.setAttributeNS(null,"onmousedown", "hMouseDown(evt)");document.documentElement.setAttributeNS(null,"onmousemove","hMouseMove(evt)");window.addEventListener('DOMMouseScroll', hMouseWheel, false); 
@@ -867,8 +849,7 @@ function do_zoom(delta,q) {
   setTimeout('hidetarget()',400);
 }
 function hidetarget() {var tg = document.getElementById('target'); tg.firstChild.setAttribute('display','none'); tg.firstChild.nextSibling.setAttribute('display','none');}"""
-        o = '<script %s type="text/ecmascript">\n/*<![CDATA[*//*---->*/\n' % _XLINKNS
-        return o + self.include_js_zoom_pan.__doc__  + '\n/*--*//*]]>*/</script>\n'
+        return script(self.include_js_zoom_pan.__doc__, True)
 
     def user_interface(self):
         "_"
@@ -953,6 +934,59 @@ function hidetarget() {var tg = document.getElementById('target'); tg.firstChild
             o += '<rect x="%s" y="%s" width="%s" height="%s"/>' % (-a[2]/2, -a[3]/2, a[2], a[3])
         return o + '</g>\n'
 
+#function post(url, data, cb) {var req = new XMLHttpRequest();req.onreadystatechange = processRequest;function processRequest () {if (req.readyState == 4) {if (req.status == 200) {if (cb) { cb(req.responseText); }} else {alert('Error Post status:'+ req.status);}}} this.doPost = function() {req.open('POST', url, true);req.send(data);} };
+#function init() {
+#  var fD = new FormData(); fD.append('w',window.innerWidth); fD.append('h',window.innerHeight);
+#  var s = new String(document.location);
+#  var ai = new post(s, fD, function(res) {window.location.reload(true);});
+#  ai.doPost();
+#}
+
+    def gen_simu(self, uast, box={}):
+        "simulation"
+        o = '<svg id="win" %s>\n' % _SVGNS 
+        o += style('text{font-family:helvetica neue,helvetica,arial,sans-serif;font-size:8pt;}path,rect,circle{stroke-width:1;fill:none;stroke:black;}path.axe{marker-end:url(#.arrow);marker-mid:url(#.tic);stroke:;stroke-width:2;}path.curve:hover{stroke-width:2;stroke:red;cursor:crosshair;}')
+        if box:
+            o += script(r"""
+function cotip(evt) {
+var tip = document.getElementById('coord');var c = document.getElementById('circle');
+var t = parseInt((evt.clientX-20)*parseInt(tip.getAttribute('sx'))/(window.innerWidth-130));
+//var v = parseInt((evt.clientY-20)*parseInt(tip.getAttribute('m'))/(window.innerHeigth-20));
+tip.setAttribute('x',evt.clientX+5); tip.setAttribute('y',evt.clientY);c.setAttribute('cx',evt.clientX); c.setAttribute('cy',evt.clientY);
+tip.firstChild.nodeValue = 't:' + t + ' ' + evt.target.id +  ':' + evt.clientY;
+}
+""")
+            o += self.svg_defs()
+            x = self.gen_python(uast)
+            r, e = subprocess.Popen(('python3'), stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE).communicate(input=x.encode('utf-8'))
+            if r:
+                w, h = box['size']
+                sx, sy = w-130, h-40 
+                h = eval(r.decode('utf-8'))
+                n, Ma, mi = 0, [], []
+                for c in h: 
+                    n = len(h[c])
+                    Ma.append(max(h[c]))
+                    mi.append(min(h[c]))
+                M, m, i = max(Ma), min(mi), 0
+                if M == m: M += 1
+                rx, ry = 'h30'*(sx//30+1), 'v-30'*(sy//30)
+                X, Xy, Yy = 20, 20 + sy*M/(M-m), sy+20
+                o += '<rect style="stroke:#DDD;stroke-width:2;" x="10" y="10" width="%s" height="%s"/>\n' % (sx+110, sy+20)
+                o += '<path class="axe" d="M%s,%s%s"/><path class="axe" d="M%s,%s%s"/><text x="%s" y="%s">t</text><text x="%s" y="%s">0</text>\n'%(X, Xy, rx, X, Yy, ry, sx+50, Xy, 11, Xy+3) 
+                o += '<text id="coord" sx="%s" m="%s" M="%s">_</text><circle id="circle" r="5" fill="none"/>\n' % (n, m, M)
+                random.seed(10)
+                for c in h:
+                    color, pos, i = '%06x' % random.randrange(0xffffff), 60 + i*20, i+1
+                    o += '<path style="stroke:#%s;" d="M%s,%sh30"/><text style="fill:#%s;stroke-width:1;" x="%s" y="%s">%s</text>\n' % (color, sx+20, pos, color, sx+60, pos, c)
+                    o += '<path class="curve" id="%s" onmousemove="cotip(evt);" style="stroke:#%s;" d="%s"/>\n' % (c, color, functools.reduce(lambda s, i: s + ('%s,%s ' % (X+sx*i//n, Xy-h[c][i]*sy/(M-m))), range(n), 'M'))  
+            else:
+                o += '<text x="100" y="20">Error!</text>'
+        else:
+            o += self.include_js1() 
+        o += '</svg>\n'
+        return o
+
     def gen_svg(self, uast, box={}):
         "svg"
         nt, at = gettypes(uast)
@@ -1031,6 +1065,7 @@ function hidetarget() {var tg = document.getElementById('target'); tg.firstChild
         o = '<defs>'
         o += '<marker id=".arrow" viewBox="0 0 500 500" refX="80" refY="50" markerUnits="strokeWidth" orient="auto" markerWidth="40" markerHeight="30"><polyline points="0,0 100,50 0,100 20,50" fill="#555"/></marker>'
         o += '<marker id=".r_arrow" viewBox="0 0 500 500" refX="70" refY="50" markerUnits="strokeWidth" orient="auto" markerWidth="40" markerHeight="30"><polyline points="150,0 50,50 150,100 130,50" fill="#555"/></marker>'
+        o += '<marker id=".tic" refX="0" refY="2" orient="auto" markerHeight="4"><path stroke="red" d="M0,0 0,10"/></marker>'
         o += '<radialGradient id=".grad" cx="0%" cy="0%" r="90%"><stop offset="0%" stop-color="#FFF"/><stop offset="100%" stop-color="#DDD" class="end"/></radialGradient>'
         o += '<filter id=".shadow" filterUnits="userSpaceOnUse"><feGaussianBlur in="SourceAlpha" result="blur" stdDeviation="2"/><feOffset dy="3" dx="2" in="blur" result="offsetBlur"/><feMerge><feMergeNode in="offsetBlur"/><feMergeNode in="SourceGraphic"/></feMerge></filter>'
         return o + '</defs>\n'
@@ -1102,7 +1137,7 @@ function hidetarget() {var tg = document.getElementById('target'); tg.firstChild
 
     def gen_python(self, uast):
         "python" 
-        o = '\nimport sys,os,re,functools\n\n'
+        o = '\nimport sys, os, re, functools, random\n\n'
         nodes, arcs = uast 
         pr, nx = self.linked(arcs)
         cycle, seq = None, self.toposort(arcs)
@@ -1110,31 +1145,38 @@ function hidetarget() {var tg = document.getElementById('target'); tg.firstChild
         seen = {}
         for j in seq:
             for i in j.split(','):
-                typ = nodes[i][1]
-                if typ not in seen:
-                    seen[typ] = True
-                    (op, init) = ('*', 1) if typ == 'M' else ('+', 0)
-                    if typ not in ('m','p'):
-                        o += 'def op_%s(*a): return functools.reduce(lambda y, i: y%si, a, %s)\n\n' % (typ, op, init)
+                if i:
+                    typ = nodes[i][1]
+                    if typ not in seen:
+                        seen[typ] = True
+                        (op, init) = ('*', 1) if typ == 'M' else ('+', 0)
+                        if typ not in ('m','p'):
+                            o += 'def op_%s(*a): return functools.reduce(lambda y, i: y%si, a, %s)\n\n' % (typ, op, init)
         o += 'if __name__ == \'__main__\':\n'
         for j in seq:
             for i in j.split(','):
-                typ, disp = nodes[i][1], False
-                op = '+' if typ =='p' else '*' if typ =='m' else ','
-                (prefix, suffix) = ('op_%s(' % typ,')') if op == ',' else ('', '')
-                value = nodes[i][3]
-                if nodes[i][3] and re.search(r'\*$', value):
-                    value, disp = value[:-1], True
-                try:
-                    value = ['%s' % int(value)]
-                except:
-                    value = []
-                p = pr[i] if i in pr else []
-                li = ['-' + k[0][0] if k[2]==0 else k[0][0] for k in p]
-                if li == []: li = ['0']
-                o += '  %s = %s%s%s\n' % (i, prefix, (' %s '%op).join(li + value), suffix)
-                if disp:
-                    o += '  print(%s)\n' % (i)
+                if i:
+                    typ, disp = nodes[i][1], False
+                    op = '+' if typ =='p' else '*' if typ =='m' else ','
+                    (prefix, suffix) = ('op_%s(' % typ,')') if op == ',' else ('', '')
+                    value = nodes[i][3]
+                    if nodes[i][3] and re.search(r'\*$', value):
+                        value, disp = value[:-1], True
+                    try:
+                        value = ['%s' % int(value)]
+                    except:
+                        value = []
+                    p = pr[i] if i in pr else []
+                    li = ['-' + k[0][0] if k[2]==0 else k[0][0] for k in p]
+                    if li == []: li = ['0']
+                    o += '  %s = %s%s%s\n' % (i, prefix, (' %s '%op).join(li + value), suffix)
+                    if disp:
+                        o += '  print(%s)\n' % (i)
+        o += '  h = {'
+        for n in nodes:
+            d = random.randrange(-100,100)
+            o += '\'%s\':[ random.randrange(-200+%s,800+%s) for i in range(50)],' % (n, d, d)
+        o += '}\n  print(h)\n'
         return o 
 
     def gen_xml(self, uast):
@@ -1532,11 +1574,6 @@ class latex:
             if m:
                 self.embeds.append(m.group(1))
 
-    def setcmd(self, hcmd):
-        "_"
-        for c in hcmd:
-            self.tex += r'\renewcommand{\%s}{%s}' % (c, hcmd[c]) + '\n' 
-
     def head(self, lpkg, hcmd, title, subtitle, author, email, beam=False):
         "_"
         for p in ('listings', 'embedfile', 'graphicx', 'tikz', 'hyperref') + lpkg:
@@ -1614,9 +1651,9 @@ class latex:
         #here = os.path.dirname(os.path.abspath(__file__))
         here = os.path.dirname(os.path.abspath(self.src))
         if here == '/tmp':
-            subprocess.Popen(('cd /tmp; pdflatex -interaction=batchmode %s.tex 1>/dev/null' % name), shell=True).communicate()
+            subprocess.call(('pdflatex','-interaction=batchmode', '-output-directory', '/tmp', '%s.tex'%name, '1>/dev/null'))
         else:
-            subprocess.Popen(('cd /tmp; pdflatex -interaction=batchmode %s/%s.tex 1>/dev/null' % (here, name)), shell=True).communicate()
+            subprocess.call(('pdflatex','-interaction=batchmode', '-output-directory', '/tmp', '%s/%s.tex' % (here, name), '1>/dev/null'))
             shutil.move('/tmp/%s.pdf' % name, '%s/%s.pdf' % (here, name))
 
 class article (latex):
@@ -2124,16 +2161,14 @@ def tex2pdf(txt):
     "TeX to PDF"
     src = 'tikzfile' # better use tempfile module
     dir = tempfile.mkdtemp()
-    #open(src1, 'w', encoding='utf-8').write(txt)
     open('/tmp/%s.tex' % src, 'w', encoding='utf-8').write(txt)
-    subprocess.Popen(('cd /tmp; pdflatex -interaction=batchmode %s.tex 1>/dev/null' % src), shell=True).communicate()
+    subprocess.call(('pdflatex','-interaction=batchmode', '-output-directory', '/tmp', '%s.tex' % src, '1>/dev/null'))
     return open('/tmp/%s.pdf' % src, 'rb').read()
 
-__LANG__ = ('c', 'ada', 'svg', '_svg', 'tikz', '_tikz', 'ocaml', 'xml', '_xml', 'java', 'scala', 'python', 'ruby')
-
-def script(s):
+def script(s, svg=False):
     "_"
-    return '<script type="text/ecmascript">\n/*<![CDATA[*//*---->*/\n' + s + '\n/*--*//*]]>*/</script>\n' 
+    ns = _XLINKNS if svg else ''
+    return '<script %s type="text/ecmascript">\n/*<![CDATA[*//*---->*/\n%s\n/*--*//*]]>*/</script>\n' % (ns, s) 
 
 def style(s):
     "_"
@@ -2158,7 +2193,7 @@ def ide(environ, start_response, gid='start', rev=None):
     "_"
     is_python = bool(re.search('\.py$', gid))
     content = gitu().cat_rev(gid, rev) if rev else gitu().cat(gid)
-    o = '<html>\n' 
+    o = '<html>\n'
     o += '<meta http-equiv="Content-Type" content="text/html; charset=utf-8">\n'
     o += '<title id="title">%s</title>\n' % gid + favicon()
     o += style('h6,input,a{font-family:helvetica neue,helvetica,arial,sans-serif;color:Dodgerblue;}a,input{font-size:.7em;}html,body,textarea,object,input,div,a{margin:0;padding:0;}textarea#editor{position:absolute;left:0;top:0;resize:none;width:50%;height:100%;padding-top:20;}object#reader{position:absolute;right:0;top:0;width:50%;height:100%;background-color:#F1F4FF;}select#lang{position:absolute;right:50%;top:22;z-index:11;}input#message{position:absolute;right:50%;top:0;}a#list{position:absolute;left:0;top:0;}a#history{position:absolute;left:18;top:0;}h6#sid{position:absolute;right:50%;bottom:0;z-index:11;}input#login{position:absolute;left:36;top:0;}input#pw{position:absolute;left:100;top:0;}input#send{position:absolute;left:170;top:0;padding:0;border:none;background:Dodgerblue;color:white}a#msg{position:absolute;left:260;top:0;color:red}a#up{position:absolute;left:210;top:0;}a#altreader{position:absolute;right:210;top:100;display:none;}')
@@ -2186,7 +2221,8 @@ document.getElementById("reader").setAttribute('data', url);
 }
 """ % (gid, is_python, rev, gid))
     if not is_python:
-        o += '<select id="lang" onchange="run();" title="Refresh:\'Alt R\'">' + ''.join(['<option>{}</option>'.format(i) for i in ['_svg', '_xml', '_tikz'] + list(__OUT_LANG__) ]) + '</select>\n'
+        runable = ['_%s'%e for e in __OUT_LANG__ if __OUT_LANG__[e][3]]
+        o += '<select id="lang" onchange="run();" title="Refresh:\'Alt R\'">' + ''.join(['<option>{}</option>'.format(i) for i in runable + list(__OUT_LANG__) ]) + '</select>\n'
     # begin authentication
     user, sid = 'anonymous', parse_sid(environ)
     if sid:
@@ -2394,7 +2430,6 @@ def display(environ, start_response, gid, rev= None):
         mime = 'text/plain; charset=utf-8'
     else:
         if os.path.isfile(pdf): 
-            #mime = 'application/pdf; charset=utf-8'
             mime = 'application/pdf'
             o = open(pdf, 'rb').read()
         else:
@@ -2405,24 +2440,19 @@ def display(environ, start_response, gid, rev= None):
     return [o]
 
 def log(s, ip=''):
-    "append log"
+    "Append log"
     now = '%s' % datetime.datetime.now()
     open('/tmp/log', 'a', encoding='utf-8').write('%s|%s|%s\n' % (now[:-7], ip, s))
 
 def bug(environ, start_response):
-    "_"
-    o = '<html>'
-    o += '<head><meta http-equiv="Content-Type" content="text/html; charset=utf-8"></head>'
-    #o += '<head><meta http-equiv="Content-Type" content="text/html"></head>'
-    o += '<object style="background:red;" alt="none" data="/u?_tikz&A" width="300" height="300"></object>'
-    o += '</html>\n'
+    "fixed!"
+    o = '<html><h1>Now fixed!</h1><object style="background:red;" alt="none" data="/u?_tikz&A" width="300" height="300"></object></html>\n'
     start_response('200 OK', [('Content-type', 'text/html; charset=utf-8') ])
     return [o.encode('utf-8')]
 
 def pi(environ, start_response):
     "_"
     start_response('200 OK', [('Content-type', 'image/jpeg') ])
-    #start_response('200 OK', [('Content-type', 'application/xhtml+xml') ])
     return [open('%s/pi_sfrbox.jpg' % os.path.dirname(os.path.abspath(__file__)), 'rb').read()]
 
 def application(environ, start_response):
@@ -2456,24 +2486,21 @@ def application(environ, start_response):
             pass
     if arg:
         if lng:
-            if lng in ('xml', 'svg') and mod: mime = 'application/xhtml+xml; charset=utf-8'
-            elif lng == 'tikz' and mod: 
-                mime = 'application/pdf'
-            elif lng == 'python' and mod: 
-                mime = 'text/plain'
-            if lng == 'svg' and environ['REQUEST_METHOD'].lower() == 'post': 
+            if lng in ('xml', 'svg', 'simu') and mod: mime = 'application/xhtml+xml; charset=utf-8'
+            elif lng == 'tikz' and mod: mime = 'application/pdf'
+            elif lng == 'python' and mod: mime = 'text/plain; charset=utf-8'
+            if lng in ('svg', 'simu') and environ['REQUEST_METHOD'].lower() == 'post': 
                 raw = environ['wsgi.input'].read().decode('utf-8')
-                o = myu.gen_svg(myu.parse(arg), eval(urllib.parse.unquote(raw[2:])))
+                o = eval('myu.gen_{}(myu.parse(arg), {})'.format(lng, urllib.parse.unquote(raw[2:])))
             else:
                 o = eval('myu.headfoot(myu.gen_{}, lng, host)(myu.parse(arg))'.format(lng))
             if lng == 'tikz' and mod: o = tex2pdf(o)
             if lng == 'python' and mod: 
-                a = compile(o.encode('utf-8'), '<string>', 'exec')
-                o = eval(a)
+                r, e = subprocess.Popen(('python3'), stdout=subprocess.PIPE, stderr=subprocess.PIPE, stdin=subprocess.PIPE).communicate(input=o.encode('utf-8'))
+                o = e.decode('utf-8') if e else r.decode('utf-8')
         else:
             o = myu.headfoot(myu.gen_ast, 'python', host)(myu.parse(arg))
         if lng != 'tikz' or not mod:
-        #if not mod:
             o = o.encode('utf-8')
     else:
         o = open(__file__, 'r', encoding='utf-8').read().encode('utf-8')
@@ -2526,5 +2553,10 @@ def command_line():
 
 if __name__ == '__main__':
     command_line()
+    while True:
+        time.sleep(1)
+        print ('hello')
+
+
 # end
 
