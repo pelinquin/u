@@ -760,12 +760,12 @@ A list of all links between two tokens+port and link attributes
         nt, at = gettypes(uast)
         o = ''
         if standalone:
-            o += r'\documentclass[landscape,a4paper,11pt]{article}' + '\n \\usepackage{tikz}\n\\begin{document}\n'
+            o += r'\documentclass[landscape,a4paper,11pt]{article}' + '\n \\usepackage{tikz}\n\\begin{document}\\begin{center}\n'
+            #o += r'\documentclass[class=minimal,border=10pt]{standalone}' + '\n \\usepackage{tikz}\n\\begin{document}\n'
             o += r'\usetikzlibrary{shapes,fit,arrows,shadows,backgrounds,svg.path}'+ '\n'
             #o += r'\tikzset{oz/.style={path picture={ %s } } }' % rclogo() + '\n'
             #o += r'\tikzset{oz/.style={path picture={ \draw[fill=red,draw=black] svg "M-10,-10L59,-10L59,59L-10,59Z";} } }' + '\n'
             #o += r'\tikzset{oz/.style={ path picture={ \draw[fill=red,draw=blue] svg "M0,0L10,10L20,0L10,-10Z";} } }' + '\n'
-
         o += self.gen_tikz_header(nt, at)  
         o += r'\begin{tikzpicture}[auto,node distance=15mm,semithick]'+ '\n'
         #o += r'\begin{tikzpicture}'+ '\n'
@@ -789,7 +789,6 @@ A list of all links between two tokens+port and link attributes
             label = re.sub('\n', r'\\\\', re.sub(r'\\n', r'\\\\', label))
             label = re.sub('([A-Z][A-Z]+)', lambda p: r'{\sc %s}' % p.group(1).lower(), label)
             label = re.sub(r'\bu\b', r'$\sqcup$', label)
-
             size = ',minimum width=%s,minimum height=%s,fill=none' % box[n] if n in box else ''
             o += r'\node[%s%s](%s) at (%0.3f,%0.3f){%s};' % (styl, size, n, x, y, label) +'\n'
             #o += r'\draw(%s.north east) node[oz];' % n 
@@ -813,7 +812,7 @@ A list of all links between two tokens+port and link attributes
             o += r'\draw[arc%s] -- (%s) to%s %s(%s);' % (styl, n0, boucle, label, n1) +'\n'   
         o += r'\end{tikzpicture}' + '\n'
         if standalone:
-            o +=  r'\end{document}'
+            o +=  r'\end{center} \end{document}'
         return o 
 
     def include_js(self):
@@ -979,7 +978,9 @@ tip.firstChild.nodeValue = 't:' + t + ' ' + evt.target.id +  ':' + evt.clientY;
                 for c in h:
                     color, pos, i = '%06x' % random.randrange(0xffffff), 60 + i*20, i+1
                     o += '<path style="stroke:#%s;" d="M%s,%sh30"/><text style="fill:#%s;stroke-width:1;" x="%s" y="%s">%s</text>\n' % (color, sx+20, pos, color, sx+60, pos, c)
-                    o += '<path class="curve" id="%s" onmousemove="cotip(evt);" style="stroke:#%s;" d="%s"/>\n' % (c, color, functools.reduce(lambda s, i: s + ('%s,%s ' % (X+sx*i//n, Xy-h[c][i]*sy/(M-m))), range(n), 'M'))  
+                    path = 'M' + ' '.join(['%.2f,%.2f' % (X+sx*i//n, Xy-h[c][i]*sy/(M-m)) for i in range(n)])
+                    #path = 'M' + ' '.join(['%.2f %.2f S %.2f %.2f' % (X+sx*i//n, Xy-h[c][i]*sy/(M-m), X+sx*i//n, Xy-h[c][i]*sy/(M-m)) for i in range(n)])
+                    o += '<path class="curve" id="%s" onmousemove="cotip(evt);" style="stroke:#%s;" d="%s"/>\n' % (c, color, path)  
             else:
                 o += '<text x="100" y="20">Error!</text>'
         else:
@@ -1076,7 +1077,7 @@ tip.firstChild.nodeValue = 't:' + t + ' ' + evt.target.id +  ':' + evt.clientY;
         o += '@font-face{font-family:Graublau; src: url(\'./fonts/GraublauWeb.otf\') format("opentype");}\n'
         o += '@font-face{font-family:vag; src: url(\'./fonts/VAG-HandWritten.otf\') format("opentype");}\n'
         o += 'text,tspan{font-family:helvetica neue,helvetica,arial,sans-serif;}\n'
-        o += 'text,tspan{stroke:black; stroke-width:0;}\n'
+        o += 'text,tspan{stroke:none; stroke-width:0;}\n'
         o += 'text.tiny,tspan.tiny{font-family:helvetica neue,helvetica,arial,sans-serif;font-size: 4px;fill:DarkSlateGray;}\n'
         o += 'text.body{font-family:helvetica neue,helvetica,arial,sans-serif;font-size: .5em;fill:DarkSlateGray;}\n'
         o += '\ntext#zoom{font-size: .8em;fill:lightgray;text-anchor:end;}\n'
@@ -1616,6 +1617,7 @@ class latex:
             self.tex += r'\title{\bf %s}' % ti + '\n'
             self.tex += r'\author{%s -- \url{%s} \\' % (author, email) + '\n'
             self.tex += r'{\tiny \tt [%s]}\footnote{the first five characters of the base64 encoding of the \textsc{sha1} digest of the attached source files.}}' % self.digest + '\n'
+            self.tex += self.today + '\n'
             #self.tex += r'\pagestyle{myheadings} \markright{{\tiny \tt [%s]}\hfill}' % self.digest + '\n'
             #self.tex += r'\usetikzlibrary{svg.path}'+ '\n'
             #self.tex += r'\pagestyle{fancy}' + '\n'
@@ -1638,7 +1640,7 @@ class latex:
             self.tex += r"\end{frame}" + '\n'
         else: 
             self.tex += r'\maketitle' + '\n'
-            self.tex += r'\usetikzlibrary{svg.path} \begin{tikzpicture}[remember picture,overlay,shift={(current page.north east)}] %s \end{tikzpicture}' % rpilogo() + '\n' 
+            self.tex += r'\usetikzlibrary{svg.path} \begin{tikzpicture}[remember picture,overlay,shift={(current page.north east)}] %s \end{tikzpicture}' % rclogo() + '\n' 
 
     def itemize(self, tab):
         "_"
@@ -1657,11 +1659,11 @@ class latex:
             shutil.move('/tmp/%s.pdf' % name, '%s/%s.pdf' % (here, name))
 
 class article (latex):
-    r"\documentclass[a4paper,10pt]{article}"
-    def __init__(self, userfile=__file__, title='title', author='author', email='email', subtitle=''):
+    r"\documentclass[a4paper,11pt]{article}"
+    def __init__(self, userfile=__file__, title='title', author='author', email='email', subtitle='', today=''):
         "_"
         self.userfile = userfile
-        latex.__init__(self, userfile)
+        latex.__init__(self, userfile, today)
         self.tex += article.__doc__ + '\n'
         self.head(('geometry|margin=2cm', 'inputenc|utf8', 'lmodern', 'color', 'longtable', 'array', 'makeidx'), {}, title, subtitle, author, email)
         #self.tex += r'\makeindex' + '\n'
@@ -2504,6 +2506,10 @@ def application(environ, start_response):
             o = o.encode('utf-8')
     else:
         o = open(__file__, 'r', encoding='utf-8').read().encode('utf-8')
+        #start_response('200 OK', [('Content-type', 'text/plain'),('Range','bytes=0-5')])
+        #start_response('200 OK', [('Content-type', 'text/plain'),])
+        #environ['Range'] = 'bytes=0-5'
+        #return ['toto tonton\ntata %s' % environ] 
     start_response('200 OK', [('Content-type', mime), ('Content-Disposition', 'filename={}'.format(fname))])
     return [o] 
 
@@ -2550,6 +2556,14 @@ def command_line():
         else:
             o = put(host, '/u?%s' % lang, data)
         print (o)
+
+def do_pdf_4test(f, s1, s2='', s3='', s4=''):
+    """%PDF-1.7\n1 0 obj<</F1 2 0 R>>endobj\n2 0 obj<</BaseFont/Helvetica/Encoding/WinAnsiEncoding/Name/F1/Subtype/Type1/Type/Font>>endobj\n3 0 obj<</Contents 6 0 R/MediaBox[0 0 421 298]/Parent 5 0 R/Resources<</Font 1 0 R/ProcSet[]>>/Type/Page>>endobj\n4 0 obj<</PageMode/UseNone/Pages 5 0 R>>endobj\n5 0 obj<</Count 1/Kids[3 0 R]/Type/Pages>>endobj\n6 0 obj<</Filter[/FlateDecode]"""
+    cod = zlib.compress('BT /F1 16 Tf ET\r\nBT 300 270 Td (%s) Tj ET\r\nBT /F1 42 Tf ET\r\nBT 5 180 Td (%18s) Tj ET\r\nBT /F1 12 Tf ET\r\nBT 10 50 Td (%s) Tj ET\nBT /F1 20 Tf ET\r\nBT 100 150 Td (%16s) Tj ET'%(s3,s1,s2,s4))
+    o = do_pdf_4test.__doc__ + '/Length %d>>\nstream\n'%len(cod) + cod + 'endstream endobj\n'
+    xref = 'xref\r\n0 7\r\n0000000000 65535 f\r\n0000000009 00000 n\r\n0000000036 00000 n\r\n0000000130 00000 n\r\n0000000243 00000 n\r\n0000000290 00000 n\r\n0000000339 00000 n\r\n'
+    trailer = 'trailer<</Root 4 0 R/Size 7>>startxref %d\n'%len(o)
+    open(f, 'w').write(o + xref + trailer + '%%EOF')    
 
 if __name__ == '__main__':
     command_line()
