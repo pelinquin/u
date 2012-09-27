@@ -2470,19 +2470,40 @@ def pi(environ, start_response):
     start_response('200 OK', [('Content-type', 'image/jpeg') ])
     return [open('%s/pi_sfrbox.jpg' % os.path.dirname(os.path.abspath(__file__)), 'rb').read()]
 
+def peer_sync():
+    ""
+    db = '%s/peers' % __git_base__
+    if os.path.isfile(db):
+        d = dbm.open(db)
+        for host in d.keys():
+            hh = http.client.HTTPConnection(host)
+            hh.request('GET', '/u?=')
+            h1 = eval(hh.getresponse().read().decode('utf-8'))
+            d1 = dbm.open('%s/rev.db' % __git_base__, 'w')
+            for x in h1:
+                if x not in d1.keys():
+                    d1[x] = h1[x]
+            d1.close()
+        d.close()
+
 def p2p_host(environ, start_response, host):
     "_"
+    d = dbm.open('%s/rev.db' % __git_base__)
+    h = eval('{' + ', '.join(['%s:%s' % (x, d[x])  for x in d.keys()]) + '}')
+    o = '%s' % h
+    d.close()
     if host:
-        o = 'OK host:\'%s\' added to pear list!' % host
-    else:
-        d = dbm.open('%s/rev.db' % __git_base__)
-        o = '%s' % eval('{' + ', '.join(['%s:%s' % (x, d[x])  for x in d.keys()]) + '}')
+        o = 'OK host:\'%s\' added to peer list!\n' % host
+        d = dbm.open('%s/peers' % __git_base__, 'c')
+        now = '{}'.format(datetime.datetime.now())
+        d[host] = now[:-7]
         d.close()
     start_response('200 OK', [('Content-type', 'text/plain') ])
     return [o]
 
 def application(environ, start_response):
     """ WSGI Web application """
+    peer_sync()
     s, mime, o, myu, host, fname = urllib.parse.unquote(environ['QUERY_STRING']), 'text/plain; charset=utf-8', 'Error!', u(), environ['SERVER_NAME'], 'u.py'
     act, mod, lng, way, gid, arg, rev = None, None, None, None, None, None, None
     log(s, environ['REMOTE_ADDR'])
