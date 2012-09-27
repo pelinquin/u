@@ -2185,7 +2185,7 @@ def save(environ, start_response, gid='start'):
         user = 'anonymous'
         sid = parse_sid(environ)
         if sid:
-            d = dbm.open('%s/rev' % __git_base__)
+            d = dbm.open('%s/rev.db' % __git_base__)
             user = d[sid].decode('utf-8')
             d.close()
         g = gitu(user)
@@ -2238,11 +2238,11 @@ document.getElementById("reader").setAttribute('data', url);
     # begin authentication
     user, sid = 'anonymous', parse_sid(environ)
     if sid:
-        d = dbm.open('%s/rev' % __git_base__)
+        d = dbm.open('%s/rev.db' % __git_base__)
         user = d[sid].decode('utf-8')
         d.close()
     else:
-        d = dbm.open('%s/rev' % __git_base__, 'c')
+        d = dbm.open('%s/rev.db' % __git_base__, 'c')
         #d['_'] = '%d' % (int(d['_'])+1) if '_' in d else '0'
         #sid = hashf(d['_'])
         sid = hashf('%s' % time.clock())
@@ -2250,7 +2250,7 @@ document.getElementById("reader").setAttribute('data', url);
         d.close()
     authen, msg = False, ''
     if environ['REQUEST_METHOD'].lower() == 'post': 
-        d, x = dbm.open('%s/rev' % __git_base__, 'c'), urllib.parse.unquote(environ['wsgi.input'].read().decode('utf-8'))
+        d, x = dbm.open('%s/rev.db' % __git_base__, 'c'), urllib.parse.unquote(environ['wsgi.input'].read().decode('utf-8'))
         if reg(re.match(r'login=([^&]+)&pw=([^&]+)$', x)):
             user, pw = reg.v.group(1), reg.v.group(2)
             if (user in d) and (d[user].decode('utf-8') == hashf(pw.encode('utf-8'))):
@@ -2309,7 +2309,7 @@ def signup(environ, ch=False):
         #msg = x
         if reg(re.match(r'login=([^&]{4,20})&pw=([^&]{4,20})&pw2=([^&]{4,20})$', x)):
             user, pw, pw2 = reg.v.group(1), reg.v.group(2), reg.v.group(3)
-            d = dbm.open('%s/rev' % __git_base__, 'c')
+            d = dbm.open('%s/rev.db' % __git_base__, 'c')
             if ch:
                 if pw != pw2:
                     d[user] = hashf(pw2.encode('utf-8'))
@@ -2341,7 +2341,7 @@ def action(environ, start_response, key, host):
     "_"
     if key == 'database':
         mime, fname = 'text/plain', 'db'
-        d, o = dbm.open('%s/rev' % __git_base__, 'r'), ''
+        d, o = dbm.open('%s/rev.db' % __git_base__, 'r'), ''
         for item in d.keys(): o +=  ('%s -> %s\n' % (item.decode('utf-8'), d[item].decode('utf-8')))
         d.close() 
     elif key == 'log':
@@ -2475,7 +2475,7 @@ def p2p_host(environ, start_response, host):
     if host:
         o = 'OK host:\'%s\' added to pear list!' % host
     else:
-        d = dbm.open('%s/rev' % __git_base__)
+        d = dbm.open('%s/rev.db' % __git_base__)
         o = '%s' % eval('{' + ', '.join(['%s:%s' % (x, d[x])  for x in d.keys()]) + '}')
         d.close()
     start_response('200 OK', [('Content-type', 'text/plain') ])
