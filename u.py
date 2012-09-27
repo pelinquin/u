@@ -1626,6 +1626,7 @@ class latex:
             self.tex += r'\makeindex' + '\n'
         self.tex += latex.__init__.__doc__ + '\n'
         self.tex += r'\lstset{language=Python, breaklines=true}' + '\n'
+        self.tex += r'\hypersetup{colorlinks,linkcolor=Red, urlcolor=Blue}' + '\n'
         self.tex += r'\usetikzlibrary{shapes,fit,arrows,shadows,backgrounds,svg.path}'+ '\n'
         if self.src != 'u.py':
             self.tex += r'\embedfile[filespec=%s]{%s}' % (self.src, os.path.abspath(self.src)) + '\n'
@@ -2107,7 +2108,7 @@ def ulogo():
     return r"""\draw[draw=none,fill=blue,scale=1,shift={(.6,-1)}] svg "M0,0L0,18L4,18L4,4L14,4L14,18L18,18L18,0Z";"""
 
 def style_old():
-    """h1,h2,h3,h6,p,li,b,a,td,th{font-family:helvetica neue,helvetica,arial,sans-serif;} a{text-decoration:none;} 
+    """h1,h2,h3,h6,p,li,b,a,td,th{font-family:helvetica neue,helvetica,arial,sans-serif;} a{text-decoration:none;text-align:right;} 
 table {border: 1px solid #666;width:100%;border-collapse:collapse;} td,th {border: 1px solid #666;padding:2pt;}
 h1{position:absolute;top:-8;left:60;} h2{position:absolute;top:0;left:50%;color:#DDD} h6#digest{position:absolute;top:0;right:10;} 
 textarea.editor{resize:none;width:100%; color:white;background-color:#444;}"""
@@ -2153,7 +2154,7 @@ def table_about(host):
 
 def hhead(key, host):
     "_"
-    return '<html>' + favicon() + style_old() + '\n<svg %s height="64">%s</svg>\n<h1>%s</h1>\n<h2 title="server">[%s]</h2>\n<a href="/u?help">Help</a>\n' % (_SVGNS, logo(), key.title(), host)
+    return '<html>' + favicon() + style_old() + '\n<svg %s height="60">%s</svg><br/>\n<h1>%s</h1>\n<h2 title="server">[%s]</h2>\n<a href="/u?help">Help</a>\n' % (_SVGNS, logo(), key.title(), host)
 
 def htail():
     "_"
@@ -2184,7 +2185,7 @@ def save(environ, start_response, gid='start'):
         user = 'anonymous'
         sid = parse_sid(environ)
         if sid:
-            d = dbm.open('%s/rev.db' % __git_base__)
+            d = dbm.open('%s/rev' % __git_base__)
             user = d[sid].decode('utf-8')
             d.close()
         g = gitu(user)
@@ -2198,7 +2199,7 @@ def ide(environ, start_response, gid='start', rev=None):
     o = '<html>\n'
     o += '<meta http-equiv="Content-Type" content="text/html; charset=utf-8">\n'
     o += '<title id="title">%s</title>\n' % gid + favicon()
-    o += style('h6,input,a{font-family:helvetica neue,helvetica,arial,sans-serif;color:Dodgerblue;}a,input{font-size:.7em;}html,body,textarea,object,input,div,a{margin:0;padding:0;}textarea#editor{position:absolute;left:0;top:0;resize:none;width:50%;height:100%;padding-top:20;}object#reader{position:absolute;right:0;top:0;width:50%;height:100%;background-color:#F1F4FF;}select#lang{position:absolute;right:50%;top:22;z-index:11;}input#message{position:absolute;right:50%;top:0;}a#list{position:absolute;left:0;top:0;}a#history{position:absolute;left:18;top:0;}h6#sid{position:absolute;right:50%;bottom:0;z-index:11;}input#login{position:absolute;left:36;top:0;}input#pw{position:absolute;left:100;top:0;}input#send{position:absolute;left:170;top:0;padding:0;border:none;background:Dodgerblue;color:white}a#msg{position:absolute;left:260;top:0;color:red}a#up{position:absolute;left:210;top:0;}a#altreader{position:absolute;right:210;top:100;display:none;}')
+    o += style('h6,input,a{font-family:helvetica neue,helvetica,arial,sans-serif;color:Dodgerblue;}a,input{font-size:.7em;}html,body,textarea,embed,object,input,div,a{margin:0;padding:0;}textarea#editor{position:absolute;left:0;top:0;resize:none;width:50%;height:100%;padding-top:20;}object#reader,embed#reader{position:absolute;right:0;top:0;width:50%;height:100%;background-color:#F1F4FF;}select#lang{position:absolute;right:50%;top:22;z-index:11;}input#message{position:absolute;right:50%;top:0;}a#list{position:absolute;left:0;top:0;}a#history{position:absolute;left:18;top:0;}h6#sid{position:absolute;right:50%;bottom:0;z-index:11;}input#login{position:absolute;left:36;top:0;}input#pw{position:absolute;left:100;top:0;}input#send{position:absolute;left:170;top:0;padding:0;border:none;background:Dodgerblue;color:white}a#msg{position:absolute;left:260;top:0;color:red}a#up{position:absolute;left:210;top:0;}a#altreader{position:absolute;right:210;top:100;display:none;}')
     o += script("""function post(url, data, cb) {var req = new XMLHttpRequest();req.onreadystatechange = processRequest;function processRequest () {if (req.readyState == 4) {if (req.status == 200) {if (cb) { cb(req.responseText); }} else {alert('Error Post status:'+ req.status);}}} this.doPost = function() {req.open('POST', url, true);req.send(data);} };
 window.onload = run;
 function save() {
@@ -2210,14 +2211,23 @@ var fD = new FormData();
 fD.append('content', document.getElementById("message").value  + '\\n' + v);
 var ai = new post('u?^%s', fD, function(res) {run(true);});ai.doPost();
 }
+//function load1(evt) {
+//var a = document.getElementById("reader").getAttribute('data');
+//var b = evt.target.getAttribute('data');
+//alert('load ' + b + " " + a);
+//}
 function run(arg) {
+//alert ('run');
 var py = '%s'; var rev='%s'; var gid='%s'; if ((rev == 'None') || (arg == true)) { rev = ''; } else { rev = '~' + rev;}
 var url = 'u?';
 if (py == 'True') { url += '$' + gid + rev} else { url += document.getElementById("lang").value + '@' + gid + rev; }
 // triks for Webkit refresh [BUG 123536]
-//document.getElementById("reader").style.webkitTransform = 'scale(1)'; document.getElementById("reader").setAttribute('data', ''); // Webkit BUG 123536
-//alert('update');
+document.getElementById("reader").style.webkitTransform = 'scale(1)'; document.getElementById("reader").setAttribute('data', ''); // Webkit BUG 123536
+//document.getElementById("reader").setAttribute('data', '');
+//document.getElementById("reader").onchange();
 document.getElementById("reader").setAttribute('data', url);
+//document.getElementById("reader").setAttribute('src', url);
+//alert (url);
 //document.getElementById("message").value = '';
 //document.getElementById("message").blur();
 }
@@ -2228,21 +2238,22 @@ document.getElementById("reader").setAttribute('data', url);
     # begin authentication
     user, sid = 'anonymous', parse_sid(environ)
     if sid:
-        d = dbm.open('%s/rev.db' % __git_base__)
+        d = dbm.open('%s/rev' % __git_base__)
         user = d[sid].decode('utf-8')
         d.close()
     else:
-        d = dbm.open('%s/rev.db' % __git_base__, 'c')
-        d['_'] = '%d' % (int(d['_'])+1) if '_' in d else '0'
-        sid = hash(d['_'])
+        d = dbm.open('%s/rev' % __git_base__, 'c')
+        #d['_'] = '%d' % (int(d['_'])+1) if '_' in d else '0'
+        #sid = hashf(d['_'])
+        sid = hashf('%s' % time.clock())
         d[sid] = 'anonymous'
         d.close()
     authen, msg = False, ''
     if environ['REQUEST_METHOD'].lower() == 'post': 
-        d, x = dbm.open('%s/rev.db' % __git_base__, 'c'), urllib.parse.unquote(environ['wsgi.input'].read().decode('utf-8'))
+        d, x = dbm.open('%s/rev' % __git_base__, 'c'), urllib.parse.unquote(environ['wsgi.input'].read().decode('utf-8'))
         if reg(re.match(r'login=([^&]+)&pw=([^&]+)$', x)):
             user, pw = reg.v.group(1), reg.v.group(2)
-            if (user in d) and (d[user].decode('utf-8') == hash(pw.encode('utf-8'))):
+            if (user in d) and (d[user].decode('utf-8') == hashf(pw.encode('utf-8'))):
                 d[sid], authen = user, True
             else:
                 msg = 'wrong login!' 
@@ -2272,6 +2283,8 @@ document.getElementById("reader").setAttribute('data', url);
         o += style(open('%s/cm.css' % here, 'r', encoding='utf-8').read()) + script(open('%s/cm.js' % here, 'r', encoding='utf-8').read())
     o += '<a id="altreader">PDF generation...</a>\n'
     o += '<object id="reader" data=""/>\n'
+    #o += '<object id="reader" data=""><param name="autoplay" value="true"/></object>\n'
+    #o += '<embed id="reader" src=""></embed>\n'
     start_response('200 OK', [('Content-type', 'text/html; charset=utf-8'), ('set-cookie', 'sid=%s' % sid) ])
     o += '</html>\n'
     return [o.encode('utf-8')]
@@ -2283,7 +2296,7 @@ def parse_sid(environ):
             return reg.v.group(1)
     return None
 
-def hash(s):
+def hashf(s):
     "_"
     return base64.urlsafe_b64encode(hashlib.sha1(s).digest())[:-18].decode('utf-8')
 
@@ -2296,19 +2309,19 @@ def signup(environ, ch=False):
         #msg = x
         if reg(re.match(r'login=([^&]{4,20})&pw=([^&]{4,20})&pw2=([^&]{4,20})$', x)):
             user, pw, pw2 = reg.v.group(1), reg.v.group(2), reg.v.group(3)
-            d = dbm.open('%s/rev.db' % __git_base__, 'c')
+            d = dbm.open('%s/rev' % __git_base__, 'c')
             if ch:
                 if pw != pw2:
-                    d[user] = hash(pw2.encode('utf-8'))
+                    d[user] = hashf(pw2.encode('utf-8'))
                     passed, msg = True, 'Password for \'%s\' changed!' % user 
             else:
                 if pw == pw2 and not re.search(user, pw) and user not in d:
                     sid = parse_sid(environ)
                     if sid == None:
-                        d['_'] = '%d' % (int(d['_'])+1) if '_' in d else '0'
-                        sid = hash(d['_'])
-                        #sid = hash(time.time())
-                    d[sid], d[user] = user, hash(pw.encode('utf-8'))
+                        #d['_'] = '%d' % (int(d['_'])+1) if '_' in d else '0'
+                        #sid = hashf(d['_'])
+                        sid = hashf('%s'%time.clock())
+                    d[sid], d[user] = user, hashf(pw.encode('utf-8'))
                     passed, msg = True, 'New account for \'%s\' created!' % user
             d.close()
     o += '<a id="msg" title="error message">%s</a>\n' % msg
@@ -2328,7 +2341,7 @@ def action(environ, start_response, key, host):
     "_"
     if key == 'database':
         mime, fname = 'text/plain', 'db'
-        d, o = dbm.open('%s/rev.db' % __git_base__, 'r'), ''
+        d, o = dbm.open('%s/rev' % __git_base__, 'r'), ''
         for item in d.keys(): o +=  ('%s -> %s\n' % (item.decode('utf-8'), d[item].decode('utf-8')))
         d.close() 
     elif key == 'log':
@@ -2447,8 +2460,8 @@ def log(s, ip=''):
     open('/tmp/log', 'a', encoding='utf-8').write('%s|%s|%s\n' % (now[:-7], ip, s))
 
 def bug(environ, start_response):
-    "fixed!"
-    o = '<html><h1>Now fixed!</h1><object style="background:red;" alt="none" data="/u?_tikz&A" width="300" height="300"></object></html>\n'
+    "not fixed!"
+    o = '<html><h1>Bug</h1><p>the data attribute value after onload event call is not the new one!</p><object style="background:red;" onchange="alert(event.target.data);" alt="none" data="/u?pdf" width="500" height="500"></object></html>\n'
     start_response('200 OK', [('Content-type', 'text/html; charset=utf-8') ])
     return [o.encode('utf-8')]
 
@@ -2457,18 +2470,30 @@ def pi(environ, start_response):
     start_response('200 OK', [('Content-type', 'image/jpeg') ])
     return [open('%s/pi_sfrbox.jpg' % os.path.dirname(os.path.abspath(__file__)), 'rb').read()]
 
+def p2p_host(environ, start_response, host):
+    "_"
+    if host:
+        o = 'OK host:\'%s\' added to pear list!' % host
+    else:
+        d = dbm.open('%s/rev' % __git_base__)
+        o = '%s' % eval('{' + ', '.join(['%s:%s' % (x, d[x])  for x in d.keys()]) + '}')
+        d.close()
+    start_response('200 OK', [('Content-type', 'text/plain') ])
+    return [o]
+
 def application(environ, start_response):
     """ WSGI Web application """
     s, mime, o, myu, host, fname = urllib.parse.unquote(environ['QUERY_STRING']), 'text/plain; charset=utf-8', 'Error!', u(), environ['SERVER_NAME'], 'u.py'
     act, mod, lng, way, gid, arg, rev = None, None, None, None, None, None, None
     log(s, environ['REMOTE_ADDR'])
-    if reg(re.match(r'\s*(%s$|)(_?)(%s|)(([@\^\$!])(.+)|&?(.+|))\s*$' % ('$|'.join(__ACTIONS__), '|'.join(__OUT_LANG__)), s, re.I)):
+    if reg(re.match(r'\s*(%s$|=.*$|)(_?)(%s|)(([@\^\$!])(.+)|&?(.+|))\s*$' % ('$|'.join(__ACTIONS__), '|'.join(__OUT_LANG__)), s, re.I)):
         act, mod, lng, way, gid, arg = reg.v.group(1), reg.v.group(2), reg.v.group(3), reg.v.group(5), reg.v.group(6), reg.v.group(7)
     if gid and reg(re.match(r'([^~]+)~([a-fA-F\d]{6,20})$', gid)):
         gid, rev = reg.v.group(1), reg.v.group(2)
     o = 'act:"%s" mod:"%s" lng:"%s" way:"%s" gid:"%s" arg:"%s"\n' % (act, mod, lng, way, gid, arg)
     if act == 'bug': return bug(environ, start_response)
     if act == 'pi':  return pi(environ, start_response)
+    if act and act[0] == '=':  return p2p_host(environ, start_response, act[1:])
     if act:
         return action(environ, start_response, act.lower(), host)
     elif gid:
@@ -2489,7 +2514,7 @@ def application(environ, start_response):
     if arg:
         if lng:
             if lng in ('xml', 'svg', 'simu') and mod: mime = 'application/xhtml+xml; charset=utf-8'
-            elif lng == 'tikz' and mod: mime = 'application/pdf'
+            elif lng == 'tikz' and mod: mime, fname = 'application/pdf', 'u.pdf'
             elif lng == 'python' and mod: mime = 'text/plain; charset=utf-8'
             if lng in ('svg', 'simu') and environ['REQUEST_METHOD'].lower() == 'post': 
                 raw = environ['wsgi.input'].read().decode('utf-8')
@@ -2506,10 +2531,10 @@ def application(environ, start_response):
             o = o.encode('utf-8')
     else:
         o = open(__file__, 'r', encoding='utf-8').read().encode('utf-8')
-        #start_response('200 OK', [('Content-type', 'text/plain'),('Range','bytes=0-5')])
-        #start_response('200 OK', [('Content-type', 'text/plain'),])
-        #environ['Range'] = 'bytes=0-5'
-        #return ['toto tonton\ntata %s' % environ] 
+        start_response('200 OK', [('Content-type', 'text/plain')])
+        #start_response('206 Partial Content', [('Content-type', 'text/plain'), ('Accept-Ranges','bytes'), ('Content-Length','20'), ('Content-Range','bytes 5-25')])
+        #return ['toto tonton\ntata %s' % environ['QUERY_STRING']] 
+        return ['toto tonton\ntata %s' % environ] 
     start_response('200 OK', [('Content-type', mime), ('Content-Disposition', 'filename={}'.format(fname))])
     return [o] 
 
@@ -2567,10 +2592,8 @@ def do_pdf_4test(f, s1, s2='', s3='', s4=''):
 
 if __name__ == '__main__':
     command_line()
-    while True:
-        time.sleep(1)
-        print ('hello')
 
+    
 
 # end
 
