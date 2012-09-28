@@ -2551,7 +2551,7 @@ def application(environ, start_response):
         start_response('200 OK', [('Content-type', 'text/plain')])
         #start_response('206 Partial Content', [('Content-type', 'text/plain'), ('Accept-Ranges','bytes'), ('Content-Length','20'), ('Content-Range','bytes 5-25')])
         #return ['toto tonton\ntata %s' % environ['QUERY_STRING']] 
-        return ['toto tonton\ntata %s' % environ] 
+        #return ['toto tonton\ntata %s' % environ] 
     start_response('200 OK', [('Content-type', mime), ('Content-Disposition', 'filename={}'.format(fname))])
     return [o] 
 
