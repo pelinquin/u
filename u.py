@@ -2486,16 +2486,22 @@ def peer_sync():
 def p2p_host(environ, start_response, host):
     "_"
     db = '%s/peers' % __git_base__
-    o = 'OK host:\'%s\' added to peer list!\n' % host
+    o = '{}'
     if os.path.isfile(db + '.db'):
         d = dbm.open(db)
         o = '{' + ', '.join(['%s:%s' % (x, d[x])  for x in d.keys()]) + '}'
         d.close()
     if host:
-        d = dbm.open(db, 'c')
-        now = '{}'.format(datetime.datetime.now())
-        d[host] = now[:-7]
-        d.close()
+        try:
+                hh = http.client.HTTPConnection(host)
+                hh.request('GET', '/u?=')
+                d = dbm.open(db, 'c')
+                now = '{}'.format(datetime.datetime.now())
+                d[host] = now[:-7]
+                d.close()
+                o = 'OK host:\'%s\' added to peer list!\n' % host
+        except:
+            o = 'Error host:\'%s\' not known!\n' % host
     start_response('200 OK', [('Content-type', 'text/plain') ])
     return [o]
 
