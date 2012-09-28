@@ -2243,9 +2243,7 @@ document.getElementById("reader").setAttribute('data', url);
         d.close()
     else:
         d = dbm.open('%s/rev' % __git_base__, 'c')
-        #d['_'] = '%d' % (int(d['_'])+1) if '_' in d else '0'
-        #sid = hashf(d['_'])
-        sid = hashf('%s' % time.clock())
+        sid = hashf(bytes('%s' % time.clock(), 'ascii'))
         d[sid] = 'anonymous'
         d.close()
     authen, msg = False, ''
@@ -2318,9 +2316,7 @@ def signup(environ, ch=False):
                 if pw == pw2 and not re.search(user, pw) and user not in d:
                     sid = parse_sid(environ)
                     if sid == None:
-                        #d['_'] = '%d' % (int(d['_'])+1) if '_' in d else '0'
-                        #sid = hashf(d['_'])
-                        sid = hashf('%s'%time.clock())
+                        sid = hashf(bytes('%s' % time.clock(), 'ascii'))
                     d[sid], d[user] = user, hashf(pw.encode('utf-8'))
                     passed, msg = True, 'New account for \'%s\' created!' % user
             d.close()
