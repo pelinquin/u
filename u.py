@@ -2469,28 +2469,30 @@ def pi(environ, start_response):
 def peer_sync():
     ""
     db = '%s/peers' % __git_base__
-    if os.path.isfile(db):
-        d = dbm.open(db)
+    if os.path.isfile(db + '.db'):
+        d = dbm.open(db, 'w')
         for host in d.keys():
-            hh = http.client.HTTPConnection(host)
-            hh.request('GET', '/u?=')
-            h1 = eval(hh.getresponse().read().decode('utf-8'))
-            d1 = dbm.open('%s/rev' % __git_base__, 'w')
-            for x in h1:
-                if x not in d1.keys():
-                    d1[x] = h1[x]
-            d1.close()
+            try:
+                hh = http.client.HTTPConnection(host)
+                hh.request('GET', '/u?=')
+                h1 = eval(hh.getresponse().read().decode('utf-8'))
+                for x in h1:
+                    if x not in d.keys():
+                        d[x] = h1[x]
+            except:
+                pass
         d.close()
 
 def p2p_host(environ, start_response, host):
     "_"
-    d = dbm.open('%s/rev' % __git_base__)
-    h = eval('{' + ', '.join(['%s:%s' % (x, d[x])  for x in d.keys()]) + '}')
-    o = '%s' % h
-    d.close()
+    db = '%s/peers' % __git_base__
+    o = 'OK host:\'%s\' added to peer list!\n' % host
+    if os.path.isfile(db + '.db'):
+        d = dbm.open(db)
+        o = '{' + ', '.join(['%s:%s' % (x, d[x])  for x in d.keys()]) + '}'
+        d.close()
     if host:
-        o = 'OK host:\'%s\' added to peer list!\n' % host
-        d = dbm.open('%s/peers' % __git_base__, 'c')
+        d = dbm.open(db, 'c')
         now = '{}'.format(datetime.datetime.now())
         d[host] = now[:-7]
         d.close()
