@@ -760,8 +760,8 @@ A list of all links between two tokens+port and link attributes
         nt, at = gettypes(uast)
         o = ''
         if standalone:
-            o += r'\documentclass[landscape,a4paper,11pt]{article}' + '\n \\usepackage{tikz}\n\\begin{document}\\begin{center}\n'
-            #o += r'\documentclass[class=minimal,border=10pt]{standalone}' + '\n \\usepackage{tikz}\n\\begin{document}\n'
+            #o += r'\documentclass[landscape,a4paper,11pt]{article}' + '\n \\usepackage{tikz}\n\\begin{document}\n'
+            o += r'\documentclass[varwidth=true,border=10pt]{standalone}' + '\n \\usepackage{tikz}\n\\begin{document}\n'
             o += r'\usetikzlibrary{shapes,fit,arrows,shadows,backgrounds,svg.path}'+ '\n'
             #o += r'\tikzset{oz/.style={path picture={ %s } } }' % rclogo() + '\n'
             #o += r'\tikzset{oz/.style={path picture={ \draw[fill=red,draw=black] svg "M-10,-10L59,-10L59,59L-10,59Z";} } }' + '\n'
@@ -812,7 +812,7 @@ A list of all links between two tokens+port and link attributes
             o += r'\draw[arc%s] -- (%s) to%s %s(%s);' % (styl, n0, boucle, label, n1) +'\n'   
         o += r'\end{tikzpicture}' + '\n'
         if standalone:
-            o +=  r'\end{center} \end{document}'
+            o +=  r'\end{document}'
         return o 
 
     def include_js(self):
