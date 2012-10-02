@@ -760,8 +760,9 @@ A list of all links between two tokens+port and link attributes
         nt, at = gettypes(uast)
         o = ''
         if standalone:
-            #o += r'\documentclass[landscape,a4paper,11pt]{article}' + '\n \\usepackage{tikz}\n\\begin{document}\n'
-            o += r'\documentclass[varwidth=true,border=10pt]{standalone}' + '\n \\usepackage{tikz}\n\\begin{document}\n'
+            o += r'\documentclass[landscape,a4paper,11pt]{article}'
+            #o += r'\documentclass[varwidth=true,border=10pt]{standalone}' 
+            o += '\n \\usepackage{tikz}\n\\begin{document}\n'
             o += r'\usetikzlibrary{shapes,fit,arrows,shadows,backgrounds,svg.path}'+ '\n'
             #o += r'\tikzset{oz/.style={path picture={ %s } } }' % rclogo() + '\n'
             #o += r'\tikzset{oz/.style={path picture={ \draw[fill=red,draw=black] svg "M-10,-10L59,-10L59,59L-10,59Z";} } }' + '\n'
