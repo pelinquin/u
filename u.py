@@ -2615,9 +2615,38 @@ def do_pdf_4test(f, s1, s2='', s3='', s4=''):
     trailer = 'trailer<</Root 4 0 R/Size 7>>startxref %d\n'%len(o)
     open(f, 'w').write(o + xref + trailer + '%%EOF')    
 
+def gen_readme():
+    """Welcome to the ⊔ [SquareCup] Language Project !\n==========================================\n
+⊔ is a proposal for a 'Universal Short Sparse Graph Language'\n\n
+Warning: The code has been ported to Python3 for a better support to unicode. All the doc is under refactoring. 
+This is a 'just one file' [Open-source](https://github.com/pelinquin/u/blob/master/COPYING) project, easy to use, easy to share!\n\n
+All is included or generated from the [u.py](https://github.com/pelinquin/u/blob/master/u.py) file.\n\n
+Launch that Python file to pass tests and to generate formated documentation.\n\n
+You can use it as a Python module and overload functions.\n\n
+Or use it as a Web service...for [instance](http://pi.pelinquin.fr/u?about).  
+\n\nEnjoy!
+"""
+    #For your convenience, the [u.pdf](https://github.com/pelinquin/u/blob/master/u.pdf?raw=true) and [beamer_u.pdf](https://github.com/pelinquin/u/blob/master/beamer_u.pdf?raw=true) files are also commited.\n\nEnjoy!
+    o = '%s: [u.py](https://%s/blob/master/u.py) base64 encoded sha1 short digest\n\n' % (__digest__, __url__)
+    open('README.md','w').write(o + gen_readme.__doc__)
+
+def gen_apache():
+    """# Apache config file in WSGI mod
+# This file is generated. Do not edit by hands!
+# Place this file in '/etc/apache2/conf.d' directory
+# and restart Apache: '/etc/init.d/apache2 restart'"""
+    prg, path = os.path.basename(sys.argv[0])[:-3], os.path.abspath(sys.argv[0]) 
+    o = '# Base64 encoded sha1 short digest:%s\n\n' % __digest__
+    o += 'WSGIScriptAlias /%s %s\n' % (prg, path)
+    o += 'WSGIScriptAlias /⊔ %s\n' % path
+    o += 'AliasMatch /fonts/([^\.]*\.otf) %s/fonts/$1\n' % os.path.dirname(path)
+    o += 'WSGIApplicationGroup %{GLOBAL}\n' # to avoid autoTSLkey apache error
+    open('%s.conf' % prg,'w').write('%s\n' % gen_apache.__doc__ + o)
+
 if __name__ == '__main__':
     command_line()
-
+    gen_readme()
+    gen_apache()
     
 
 # end
